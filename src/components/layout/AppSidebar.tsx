@@ -58,7 +58,7 @@ export function AppSidebar() {
             </div>
           )}
         </div>
-        {!collapsed && <SidebarTrigger className="ml-auto mr-4 mb-2" />}
+        <SidebarTrigger className={`ml-auto mr-2 mb-2 ${collapsed ? 'mx-auto' : 'mr-4'}`} />
       </SidebarHeader>
 
       <SidebarContent>
