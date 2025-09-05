@@ -11,10 +11,38 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { Plus, Search, Filter, Package, AlertTriangle } from 'lucide-react';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '@/components/ui/dialog';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { Label } from '@/components/ui/label';
+import { Plus, Search, Filter, Package, AlertTriangle, Edit } from 'lucide-react';
 
 const Products = () => {
   const [searchTerm, setSearchTerm] = useState('');
+  const [filterCategory, setFilterCategory] = useState('');
+  const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
+  const [editingProduct, setEditingProduct] = useState(null);
+  const [newProduct, setNewProduct] = useState({
+    sku: '',
+    name: '',
+    category: '',
+    brand: '',
+    stock: 0,
+    reorderLevel: 0,
+    buyingPrice: 0,
+    sellingPrice: 0
+  });
 
   // Mock product data - replace with real API calls
   const products = [
@@ -68,11 +96,57 @@ const Products = () => {
     },
   ];
 
-  const filteredProducts = products.filter(product =>
-    product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    product.sku.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    product.category.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const filteredProducts = products.filter(product => {
+    const matchesSearch = product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      product.sku.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      product.category.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesCategory = filterCategory === '' || product.category === filterCategory;
+    return matchesSearch && matchesCategory;
+  });
+
+  const categories = [...new Set(products.map(p => p.category))];
+
+  const handleAddProduct = () => {
+    const newId = Math.max(...products.map(p => p.id)) + 1;
+    const productToAdd = {
+      ...newProduct,
+      id: newId,
+      status: newProduct.stock > newProduct.reorderLevel ? 'Active' : 'Low Stock'
+    };
+    // In real app, this would be an API call
+    console.log('Adding product:', productToAdd);
+    setIsAddDialogOpen(false);
+    resetForm();
+  };
+
+  const handleEditProduct = (product) => {
+    setEditingProduct(product);
+    setNewProduct({
+      sku: product.sku,
+      name: product.name,
+      category: product.category,
+      brand: product.brand,
+      stock: product.stock,
+      reorderLevel: product.reorderLevel,
+      buyingPrice: product.buyingPrice,
+      sellingPrice: product.sellingPrice
+    });
+    setIsAddDialogOpen(true);
+  };
+
+  const resetForm = () => {
+    setNewProduct({
+      sku: '',
+      name: '',
+      category: '',
+      brand: '',
+      stock: 0,
+      reorderLevel: 0,
+      buyingPrice: 0,
+      sellingPrice: 0
+    });
+    setEditingProduct(null);
+  };
 
   const getStatusBadge = (status: string, stock: number, reorderLevel: number) => {
     if (stock <= reorderLevel / 2) {
@@ -94,10 +168,105 @@ const Products = () => {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-3xl font-bold text-foreground">Product Management</h1>
-        <Button className="bg-primary hover:bg-primary/90">
-          <Plus className="mr-2 h-4 w-4" />
-          Add Product
-        </Button>
+        <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
+          <DialogTrigger asChild>
+            <Button className="bg-primary hover:bg-primary/90" onClick={() => { resetForm(); setIsAddDialogOpen(true); }}>
+              <Plus className="mr-2 h-4 w-4" />
+              Add Product
+            </Button>
+          </DialogTrigger>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle>{editingProduct ? 'Edit Product' : 'Add New Product'}</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div>
+                <Label htmlFor="sku">SKU</Label>
+                <Input
+                  id="sku"
+                  value={newProduct.sku}
+                  onChange={(e) => setNewProduct({...newProduct, sku: e.target.value})}
+                  placeholder="Enter SKU"
+                />
+              </div>
+              <div>
+                <Label htmlFor="name">Product Name</Label>
+                <Input
+                  id="name"
+                  value={newProduct.name}
+                  onChange={(e) => setNewProduct({...newProduct, name: e.target.value})}
+                  placeholder="Enter product name"
+                />
+              </div>
+              <div>
+                <Label htmlFor="category">Category</Label>
+                <Input
+                  id="category"
+                  value={newProduct.category}
+                  onChange={(e) => setNewProduct({...newProduct, category: e.target.value})}
+                  placeholder="Enter category"
+                />
+              </div>
+              <div>
+                <Label htmlFor="brand">Brand</Label>
+                <Input
+                  id="brand"
+                  value={newProduct.brand}
+                  onChange={(e) => setNewProduct({...newProduct, brand: e.target.value})}
+                  placeholder="Enter brand"
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="stock">Stock</Label>
+                  <Input
+                    id="stock"
+                    type="number"
+                    value={newProduct.stock}
+                    onChange={(e) => setNewProduct({...newProduct, stock: parseInt(e.target.value) || 0})}
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="reorderLevel">Reorder Level</Label>
+                  <Input
+                    id="reorderLevel"
+                    type="number"
+                    value={newProduct.reorderLevel}
+                    onChange={(e) => setNewProduct({...newProduct, reorderLevel: parseInt(e.target.value) || 0})}
+                  />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="buyingPrice">Buying Price</Label>
+                  <Input
+                    id="buyingPrice"
+                    type="number"
+                    value={newProduct.buyingPrice}
+                    onChange={(e) => setNewProduct({...newProduct, buyingPrice: parseFloat(e.target.value) || 0})}
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="sellingPrice">Selling Price</Label>
+                  <Input
+                    id="sellingPrice"
+                    type="number"
+                    value={newProduct.sellingPrice}
+                    onChange={(e) => setNewProduct({...newProduct, sellingPrice: parseFloat(e.target.value) || 0})}
+                  />
+                </div>
+              </div>
+              <div className="flex gap-2 pt-4">
+                <Button onClick={handleAddProduct} className="flex-1">
+                  {editingProduct ? 'Update Product' : 'Add Product'}
+                </Button>
+                <Button variant="outline" onClick={() => setIsAddDialogOpen(false)}>
+                  Cancel
+                </Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
       </div>
 
       {/* Stats Cards */}
@@ -159,9 +328,19 @@ const Products = () => {
                   className="pl-10"
                 />
               </div>
-              <Button variant="outline" size="icon">
-                <Filter className="h-4 w-4" />
-              </Button>
+              <Select value={filterCategory} onValueChange={setFilterCategory}>
+                <SelectTrigger className="w-40">
+                  <SelectValue placeholder="Filter by category" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="">All Categories</SelectItem>
+                  {categories.map(category => (
+                    <SelectItem key={category} value={category}>
+                      {category}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
           </div>
         </CardHeader>
@@ -199,7 +378,14 @@ const Products = () => {
                       {getStatusBadge(product.status, product.stock, product.reorderLevel)}
                     </TableCell>
                     <TableCell className="text-right">
-                      <Button variant="ghost" size="sm">Edit</Button>
+                      <Button 
+                        variant="ghost" 
+                        size="sm" 
+                        onClick={() => handleEditProduct(product)}
+                      >
+                        <Edit className="h-4 w-4 mr-1" />
+                        Edit
+                      </Button>
                     </TableCell>
                   </TableRow>
                 ))}
