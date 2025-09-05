@@ -45,11 +45,11 @@ export function AppSidebar() {
       : "text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground";
 
   return (
-    <Sidebar className={collapsed ? "w-14" : "w-64"} collapsible="icon">
+    <Sidebar className={collapsed ? "w-12" : "w-64"} collapsible="icon">
       <SidebarHeader className="border-b border-sidebar-border">
-        <div className="flex items-center space-x-3 p-4">
-          <div className="p-2 bg-sidebar-primary rounded-lg flex-shrink-0">
-            <Building2 className="h-6 w-6 text-sidebar-primary-foreground" />
+        <div className={`flex items-center ${collapsed ? 'justify-center p-2' : 'space-x-3 p-4'}`}>
+          <div className={`${collapsed ? 'p-1' : 'p-2'} bg-sidebar-primary rounded-lg flex-shrink-0`}>
+            <Building2 className={`${collapsed ? 'h-4 w-4' : 'h-6 w-6'} text-sidebar-primary-foreground`} />
           </div>
           {!collapsed && (
             <div className="min-w-0">
@@ -58,7 +58,7 @@ export function AppSidebar() {
             </div>
           )}
         </div>
-        <SidebarTrigger className="ml-auto mr-4 mb-2" />
+        {!collapsed && <SidebarTrigger className="ml-auto mr-4 mb-2" />}
       </SidebarHeader>
 
       <SidebarContent>
