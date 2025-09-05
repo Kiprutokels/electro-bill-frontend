@@ -11,10 +11,28 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '@/components/ui/dialog';
+import { Label } from '@/components/ui/label';
 import { Plus, Search, Filter, Users, Phone, Mail } from 'lucide-react';
 
 const Customers = () => {
   const [searchTerm, setSearchTerm] = useState('');
+  const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
+  const [newCustomer, setNewCustomer] = useState({
+    customerCode: '',
+    businessName: '',
+    contactPerson: '',
+    email: '',
+    phone: '',
+    city: '',
+    creditLimit: 0,
+  });
 
   // Mock customer data - replace with real API calls
   const customers = [
@@ -75,6 +93,31 @@ const Customers = () => {
     customer.email.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
+  const resetForm = () => {
+    setNewCustomer({
+      customerCode: '',
+      businessName: '',
+      contactPerson: '',
+      email: '',
+      phone: '',
+      city: '',
+      creditLimit: 0,
+    });
+  };
+
+  const handleAddCustomer = () => {
+    const customerToAdd = {
+      ...newCustomer,
+      id: Math.max(...customers.map(c => c.id)) + 1,
+      outstandingBalance: 0,
+      status: 'Active',
+    };
+    // In a real app, replace with API call
+    console.log('Adding customer:', customerToAdd);
+    setIsAddDialogOpen(false);
+    resetForm();
+  };
+
   const getStatusBadge = (status: string, balance: number, creditLimit: number) => {
     if (status === 'Credit Limit Exceeded' || balance > creditLimit) {
       return <Badge variant="destructive">Credit Exceeded</Badge>;
@@ -95,10 +138,89 @@ const Customers = () => {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-3xl font-bold text-foreground">Customer Management</h1>
-        <Button className="bg-primary hover:bg-primary/90">
-          <Plus className="mr-2 h-4 w-4" />
-          Add Customer
-        </Button>
+        <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
+          <DialogTrigger asChild>
+            <Button className="bg-primary hover:bg-primary/90" onClick={() => { resetForm(); setIsAddDialogOpen(true); }}>
+              <Plus className="mr-2 h-4 w-4" />
+              Add Customer
+            </Button>
+          </DialogTrigger>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle>Add New Customer</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div>
+                <Label htmlFor="customerCode">Customer Code</Label>
+                <Input
+                  id="customerCode"
+                  value={newCustomer.customerCode}
+                  onChange={(e) => setNewCustomer({ ...newCustomer, customerCode: e.target.value })}
+                  placeholder="e.g., CUST-005"
+                />
+              </div>
+              <div>
+                <Label htmlFor="businessName">Business Name</Label>
+                <Input
+                  id="businessName"
+                  value={newCustomer.businessName}
+                  onChange={(e) => setNewCustomer({ ...newCustomer, businessName: e.target.value })}
+                  placeholder="Enter business name"
+                />
+              </div>
+              <div>
+                <Label htmlFor="contactPerson">Contact Person</Label>
+                <Input
+                  id="contactPerson"
+                  value={newCustomer.contactPerson}
+                  onChange={(e) => setNewCustomer({ ...newCustomer, contactPerson: e.target.value })}
+                  placeholder="Enter contact person"
+                />
+              </div>
+              <div>
+                <Label htmlFor="email">Email</Label>
+                <Input
+                  id="email"
+                  type="email"
+                  value={newCustomer.email}
+                  onChange={(e) => setNewCustomer({ ...newCustomer, email: e.target.value })}
+                  placeholder="name@company.com"
+                />
+              </div>
+              <div>
+                <Label htmlFor="phone">Phone</Label>
+                <Input
+                  id="phone"
+                  value={newCustomer.phone}
+                  onChange={(e) => setNewCustomer({ ...newCustomer, phone: e.target.value })}
+                  placeholder="e.g., +254 700 000 000"
+                />
+              </div>
+              <div>
+                <Label htmlFor="city">City</Label>
+                <Input
+                  id="city"
+                  value={newCustomer.city}
+                  onChange={(e) => setNewCustomer({ ...newCustomer, city: e.target.value })}
+                  placeholder="Enter city"
+                />
+              </div>
+              <div>
+                <Label htmlFor="creditLimit">Credit Limit</Label>
+                <Input
+                  id="creditLimit"
+                  type="number"
+                  value={newCustomer.creditLimit}
+                  onChange={(e) => setNewCustomer({ ...newCustomer, creditLimit: parseFloat(e.target.value) || 0 })}
+                />
+              </div>
+              <div className="flex gap-2 pt-4">
+                <Button onClick={handleAddCustomer} className="flex-1">Add Customer</Button>
+                <Button variant="outline" onClick={() => setIsAddDialogOpen(false)}>Cancel</Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
       </div>
 
       {/* Stats Cards */}
