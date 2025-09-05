@@ -11,7 +11,7 @@ interface User {
 
 interface AuthContextType {
   user: User | null;
-  login: (username: string, password: string) => Promise<boolean>;
+  login: (email: string, password: string) => Promise<boolean>;
   logout: () => void;
   isLoading: boolean;
 }
@@ -41,13 +41,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setIsLoading(false);
   }, []);
 
-  const login = async (username: string, password: string): Promise<boolean> => {
+  const login = async (email: string, password: string): Promise<boolean> => {
     setIsLoading(true);
     
     // Mock authentication - replace with real API call
     await new Promise(resolve => setTimeout(resolve, 1000));
     
-    if (username === 'admin' && password === 'admin') {
+    if (email === 'admin@billing.com' && password === 'admin') {
       setUser(mockUser);
       localStorage.setItem('billing_user', JSON.stringify(mockUser));
       setIsLoading(false);

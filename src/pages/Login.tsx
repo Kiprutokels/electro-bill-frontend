@@ -10,7 +10,7 @@ import { Loader2, Building2 } from 'lucide-react';
 
 const Login = () => {
   const { user, login, isLoading } = useAuth();
-  const [username, setUsername] = useState('');
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -25,9 +25,9 @@ const Login = () => {
     setIsSubmitting(true);
 
     try {
-      const success = await login(username, password);
+      const success = await login(email, password);
       if (!success) {
-        setError('Invalid username or password');
+        setError('Invalid email or password');
       }
     } catch (err) {
       setError('Login failed. Please try again.');
@@ -63,13 +63,13 @@ const Login = () => {
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="username">Username</Label>
+              <Label htmlFor="email">Email</Label>
               <Input
-                id="username"
-                type="text"
-                placeholder="Enter your username"
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
+                id="email"
+                type="email"
+                placeholder="Enter your email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
                 required
                 disabled={isSubmitting}
               />
@@ -104,7 +104,7 @@ const Login = () => {
             </Button>
 
             <div className="text-center text-sm text-muted-foreground mt-4">
-              Demo credentials: admin / admin
+              Demo credentials: admin@billing.com / admin
             </div>
           </form>
         </CardContent>
