@@ -9,13 +9,15 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { LogOut, User } from 'lucide-react';
+import { SidebarTrigger } from '@/components/ui/sidebar';
 
 export const Header = () => {
   const { user, logout } = useAuth();
 
   return (
     <header className="h-16 border-b border-border bg-card px-6 flex items-center justify-between">
-      <div className="flex-1">
+      <div className="flex items-center space-x-4 flex-1">
+        <SidebarTrigger className="md:hidden" />
         {/* Page title will be added here later */}
       </div>
       
