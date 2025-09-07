@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -19,23 +19,25 @@ import {
   DialogTrigger,
 } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
-import { Plus, Search, Filter, Users, Phone, Mail } from 'lucide-react';
+import { Plus, Search, Filter, Users, Phone, Mail, Eye, Edit, Trash2 } from 'lucide-react';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
 
 const Customers = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
-  const [newCustomer, setNewCustomer] = useState({
-    customerCode: '',
-    businessName: '',
-    contactPerson: '',
-    email: '',
-    phone: '',
-    city: '',
-    creditLimit: 0,
-  });
-
-  // Mock customer data - replace with real API calls
-  const customers = [
+  const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [customerList, setCustomerList] = useState([
     {
       id: 1,
       customerCode: 'CUST-001',
@@ -84,14 +86,27 @@ const Customers = () => {
       outstandingBalance: 28000,
       status: 'Credit Limit Exceeded'
     },
-  ];
+  ]);
+  const [selectedCustomer, setSelectedCustomer] = useState<null | (typeof customerList)[number]>(null);
+  const [newCustomer, setNewCustomer] = useState({
+    customerCode: '',
+    businessName: '',
+    contactPerson: '',
+    email: '',
+    phone: '',
+    city: '',
+    creditLimit: 0,
+  });
 
-  const filteredCustomers = customers.filter(customer =>
+  // Derived filtered customers
+  const customers = customerList;
+
+  const filteredCustomers = useMemo(() => customers.filter(customer =>
     customer.businessName.toLowerCase().includes(searchTerm.toLowerCase()) ||
     customer.contactPerson.toLowerCase().includes(searchTerm.toLowerCase()) ||
     customer.customerCode.toLowerCase().includes(searchTerm.toLowerCase()) ||
     customer.email.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  ), [customers, searchTerm]);
 
   const resetForm = () => {
     setNewCustomer({
@@ -108,14 +123,59 @@ const Customers = () => {
   const handleAddCustomer = () => {
     const customerToAdd = {
       ...newCustomer,
-      id: Math.max(...customers.map(c => c.id)) + 1,
+      id: (customerList.length ? Math.max(...customerList.map(c => c.id)) : 0) + 1,
       outstandingBalance: 0,
       status: 'Active',
     };
     // In a real app, replace with API call
     console.log('Adding customer:', customerToAdd);
+    setCustomerList(prev => [...prev, customerToAdd]);
     setIsAddDialogOpen(false);
     resetForm();
+  };
+
+  const handleView = (customer: (typeof customerList)[number]) => {
+    setSelectedCustomer(customer);
+    setIsViewDialogOpen(true);
+  };
+
+  const [editCustomer, setEditCustomer] = useState({
+    id: 0,
+    customerCode: '',
+    businessName: '',
+    contactPerson: '',
+    email: '',
+    phone: '',
+    city: '',
+    creditLimit: 0,
+  });
+
+  const openEdit = (customer: (typeof customerList)[number]) => {
+    setEditCustomer({
+      id: customer.id,
+      customerCode: customer.customerCode,
+      businessName: customer.businessName,
+      contactPerson: customer.contactPerson,
+      email: customer.email,
+      phone: customer.phone,
+      city: customer.city,
+      creditLimit: customer.creditLimit,
+    });
+    setSelectedCustomer(customer);
+    setIsEditDialogOpen(true);
+  };
+
+  const handleSaveEdit = () => {
+    setCustomerList(prev => prev.map(c => c.id === editCustomer.id ? { ...c, ...editCustomer } as any : c));
+    setIsEditDialogOpen(false);
+  };
+
+  const handleDelete = () => {
+    if (!selectedCustomer) return;
+    setCustomerList(prev => prev.filter(c => c.id !== selectedCustomer.id));
+    setIsEditDialogOpen(false);
+    setIsViewDialogOpen(false);
+    setSelectedCustomer(null);
   };
 
   const getStatusBadge = (status: string, balance: number, creditLimit: number) => {
@@ -336,7 +396,16 @@ const Customers = () => {
                       {getStatusBadge(customer.status, customer.outstandingBalance, customer.creditLimit)}
                     </TableCell>
                     <TableCell className="text-right">
-                      <Button variant="ghost" size="sm">View</Button>
+                      <div className="flex justify-end gap-1">
+                        <Button variant="ghost" size="sm" onClick={() => handleView(customer)}>
+                          <Eye className="h-4 w-4 mr-1" />
+                          View
+                        </Button>
+                        <Button variant="ghost" size="sm" onClick={() => openEdit(customer)}>
+                          <Edit className="h-4 w-4 mr-1" />
+                          Edit
+                        </Button>
+                      </div>
                     </TableCell>
                   </TableRow>
                 ))}
@@ -345,6 +414,92 @@ const Customers = () => {
           </div>
         </CardContent>
       </Card>
+
+      {/* View Dialog */}
+      <Dialog open={isViewDialogOpen} onOpenChange={setIsViewDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Customer Details</DialogTitle>
+          </DialogHeader>
+          {selectedCustomer && (
+            <div className="space-y-2">
+              <div className="flex justify-between"><span className="text-muted-foreground">Code</span><span>{selectedCustomer.customerCode}</span></div>
+              <div className="flex justify-between"><span className="text-muted-foreground">Business</span><span>{selectedCustomer.businessName}</span></div>
+              <div className="flex justify-between"><span className="text-muted-foreground">Contact</span><span>{selectedCustomer.contactPerson}</span></div>
+              <div className="flex justify-between"><span className="text-muted-foreground">Email</span><span>{selectedCustomer.email}</span></div>
+              <div className="flex justify-between"><span className="text-muted-foreground">Phone</span><span>{selectedCustomer.phone}</span></div>
+              <div className="flex justify-between"><span className="text-muted-foreground">City</span><span>{selectedCustomer.city}</span></div>
+              <div className="flex justify-between"><span className="text-muted-foreground">Credit Limit</span><span>KES {selectedCustomer.creditLimit.toLocaleString()}</span></div>
+              <div className="flex justify-between"><span className="text-muted-foreground">Outstanding</span><span>KES {selectedCustomer.outstandingBalance.toLocaleString()}</span></div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Dialog */}
+      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Edit Customer</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="edit-customerCode">Customer Code</Label>
+              <Input id="edit-customerCode" value={editCustomer.customerCode} onChange={(e) => setEditCustomer({ ...editCustomer, customerCode: e.target.value })} />
+            </div>
+            <div>
+              <Label htmlFor="edit-businessName">Business Name</Label>
+              <Input id="edit-businessName" value={editCustomer.businessName} onChange={(e) => setEditCustomer({ ...editCustomer, businessName: e.target.value })} />
+            </div>
+            <div>
+              <Label htmlFor="edit-contactPerson">Contact Person</Label>
+              <Input id="edit-contactPerson" value={editCustomer.contactPerson} onChange={(e) => setEditCustomer({ ...editCustomer, contactPerson: e.target.value })} />
+            </div>
+            <div>
+              <Label htmlFor="edit-email">Email</Label>
+              <Input id="edit-email" type="email" value={editCustomer.email} onChange={(e) => setEditCustomer({ ...editCustomer, email: e.target.value })} />
+            </div>
+            <div>
+              <Label htmlFor="edit-phone">Phone</Label>
+              <Input id="edit-phone" value={editCustomer.phone} onChange={(e) => setEditCustomer({ ...editCustomer, phone: e.target.value })} />
+            </div>
+            <div>
+              <Label htmlFor="edit-city">City</Label>
+              <Input id="edit-city" value={editCustomer.city} onChange={(e) => setEditCustomer({ ...editCustomer, city: e.target.value })} />
+            </div>
+            <div>
+              <Label htmlFor="edit-creditLimit">Credit Limit</Label>
+              <Input id="edit-creditLimit" type="number" value={editCustomer.creditLimit} onChange={(e) => setEditCustomer({ ...editCustomer, creditLimit: parseFloat(e.target.value) || 0 })} />
+            </div>
+            <div className="flex gap-2 pt-4 justify-between">
+              <div className="flex gap-2">
+                <Button onClick={handleSaveEdit}>Save</Button>
+                <Button variant="outline" onClick={() => setIsEditDialogOpen(false)}>Cancel</Button>
+              </div>
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button variant="destructive">
+                    <Trash2 className="h-4 w-4 mr-1" /> Delete
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Delete customer?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      This action cannot be undone. This will permanently delete the customer
+                      {selectedCustomer ? ` "${selectedCustomer.businessName}"` : ''}.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                    <AlertDialogAction onClick={handleDelete}>Delete</AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
