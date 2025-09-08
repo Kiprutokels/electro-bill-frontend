@@ -195,17 +195,17 @@ const Customers = () => {
   };
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-3xl font-bold text-foreground">Customer Management</h1>
+    <div className="space-y-4 sm:space-y-6">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-4">
+        <h1 className="text-2xl sm:text-3xl font-bold text-foreground">Customer Management</h1>
         <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
           <DialogTrigger asChild>
-            <Button className="bg-primary hover:bg-primary/90" onClick={() => { resetForm(); setIsAddDialogOpen(true); }}>
+            <Button className="bg-primary hover:bg-primary/90 w-full sm:w-auto" onClick={() => { resetForm(); setIsAddDialogOpen(true); }}>
               <Plus className="mr-2 h-4 w-4" />
               Add Customer
             </Button>
           </DialogTrigger>
-          <DialogContent className="max-w-md">
+          <DialogContent className="max-w-md mx-4 sm:mx-0">
             <DialogHeader>
               <DialogTitle>Add New Customer</DialogTitle>
             </DialogHeader>
@@ -284,7 +284,7 @@ const Customers = () => {
       </div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
         <Card className="border-l-4 border-l-primary">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">
@@ -293,7 +293,7 @@ const Customers = () => {
             <Users className="h-4 w-4 text-primary" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-foreground">
+            <div className="text-xl sm:text-2xl font-bold text-foreground">
               {stats.totalCustomers}
             </div>
           </CardContent>
@@ -306,7 +306,7 @@ const Customers = () => {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-foreground">
+            <div className="text-xl sm:text-2xl font-bold text-foreground">
               {stats.activeCustomers}
             </div>
           </CardContent>
@@ -319,7 +319,7 @@ const Customers = () => {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-foreground">
+            <div className="text-xl sm:text-2xl font-bold text-foreground">
               KES {stats.totalOutstanding.toLocaleString()}
             </div>
           </CardContent>
@@ -348,19 +348,19 @@ const Customers = () => {
           </div>
         </CardHeader>
         <CardContent>
-          <div className="rounded-md border">
+          <div className="rounded-md border overflow-x-auto">
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Customer Code</TableHead>
-                  <TableHead>Business Name</TableHead>
-                  <TableHead>Contact Person</TableHead>
-                  <TableHead>Contact Info</TableHead>
-                  <TableHead>Location</TableHead>
-                  <TableHead className="text-right">Credit Limit</TableHead>
-                  <TableHead className="text-right">Outstanding</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
+                  <TableHead className="min-w-[100px]">Customer Code</TableHead>
+                  <TableHead className="min-w-[200px]">Business Name</TableHead>
+                  <TableHead className="hidden sm:table-cell min-w-[120px]">Contact Person</TableHead>
+                  <TableHead className="hidden md:table-cell min-w-[150px]">Contact Info</TableHead>
+                  <TableHead className="hidden lg:table-cell min-w-[100px]">Location</TableHead>
+                  <TableHead className="text-right hidden lg:table-cell min-w-[100px]">Credit Limit</TableHead>
+                  <TableHead className="text-right hidden lg:table-cell min-w-[100px]">Outstanding</TableHead>
+                  <TableHead className="min-w-[80px]">Status</TableHead>
+                  <TableHead className="text-right min-w-[100px]">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -370,10 +370,22 @@ const Customers = () => {
                     <TableCell>
                       <div>
                         <div className="font-medium">{customer.businessName}</div>
+                        <div className="text-sm text-muted-foreground sm:hidden">
+                          {customer.contactPerson}
+                        </div>
+                        <div className="text-sm text-muted-foreground md:hidden">
+                          <div className="flex items-center">
+                            <Phone className="mr-1 h-3 w-3" />
+                            {customer.phone}
+                          </div>
+                        </div>
+                        <div className="text-sm text-muted-foreground lg:hidden">
+                          {customer.city} • Limit: KES {customer.creditLimit.toLocaleString()}
+                        </div>
                       </div>
                     </TableCell>
-                    <TableCell>{customer.contactPerson}</TableCell>
-                    <TableCell>
+                    <TableCell className="hidden sm:table-cell">{customer.contactPerson}</TableCell>
+                    <TableCell className="hidden md:table-cell">
                       <div className="space-y-1">
                         <div className="flex items-center text-sm text-muted-foreground">
                           <Phone className="mr-1 h-3 w-3" />
@@ -385,9 +397,9 @@ const Customers = () => {
                         </div>
                       </div>
                     </TableCell>
-                    <TableCell>{customer.city}</TableCell>
-                    <TableCell className="text-right">KES {customer.creditLimit.toLocaleString()}</TableCell>
-                    <TableCell className="text-right">
+                    <TableCell className="hidden lg:table-cell">{customer.city}</TableCell>
+                    <TableCell className="text-right hidden lg:table-cell">KES {customer.creditLimit.toLocaleString()}</TableCell>
+                    <TableCell className="text-right hidden lg:table-cell">
                       <span className={customer.outstandingBalance > customer.creditLimit ? 'text-red-600 font-medium' : ''}>
                         KES {customer.outstandingBalance.toLocaleString()}
                       </span>
@@ -397,13 +409,13 @@ const Customers = () => {
                     </TableCell>
                     <TableCell className="text-right">
                       <div className="flex justify-end gap-1">
-                        <Button variant="ghost" size="sm" onClick={() => handleView(customer)}>
-                          <Eye className="h-4 w-4 mr-1" />
-                          View
+                        <Button variant="ghost" size="sm" onClick={() => handleView(customer)} className="h-8 w-8 p-0 sm:h-auto sm:w-auto sm:px-3">
+                          <Eye className="h-4 w-4 sm:mr-1" />
+                          <span className="hidden sm:inline">View</span>
                         </Button>
-                        <Button variant="ghost" size="sm" onClick={() => openEdit(customer)}>
-                          <Edit className="h-4 w-4 mr-1" />
-                          Edit
+                        <Button variant="ghost" size="sm" onClick={() => openEdit(customer)} className="h-8 w-8 p-0 sm:h-auto sm:w-auto sm:px-3">
+                          <Edit className="h-4 w-4 sm:mr-1" />
+                          <span className="hidden sm:inline">Edit</span>
                         </Button>
                       </div>
                     </TableCell>
@@ -417,7 +429,7 @@ const Customers = () => {
 
       {/* View Dialog */}
       <Dialog open={isViewDialogOpen} onOpenChange={setIsViewDialogOpen}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="max-w-md mx-4 sm:mx-0">
           <DialogHeader>
             <DialogTitle>Customer Details</DialogTitle>
           </DialogHeader>
@@ -438,7 +450,7 @@ const Customers = () => {
 
       {/* Edit Dialog */}
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="max-w-md mx-4 sm:mx-0">
           <DialogHeader>
             <DialogTitle>Edit Customer</DialogTitle>
           </DialogHeader>

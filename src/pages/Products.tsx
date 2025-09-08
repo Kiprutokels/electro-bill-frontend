@@ -165,17 +165,17 @@ const Products = () => {
   };
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-3xl font-bold text-foreground">Product Management</h1>
+    <div className="space-y-4 sm:space-y-6">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-4">
+        <h1 className="text-2xl sm:text-3xl font-bold text-foreground">Product Management</h1>
         <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
           <DialogTrigger asChild>
-            <Button className="bg-primary hover:bg-primary/90" onClick={() => { resetForm(); setIsAddDialogOpen(true); }}>
+            <Button className="bg-primary hover:bg-primary/90 w-full sm:w-auto" onClick={() => { resetForm(); setIsAddDialogOpen(true); }}>
               <Plus className="mr-2 h-4 w-4" />
               Add Product
             </Button>
           </DialogTrigger>
-          <DialogContent className="max-w-md">
+          <DialogContent className="max-w-md mx-4 sm:mx-0">
             <DialogHeader>
               <DialogTitle>{editingProduct ? 'Edit Product' : 'Add New Product'}</DialogTitle>
             </DialogHeader>
@@ -270,7 +270,7 @@ const Products = () => {
       </div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
         <Card className="border-l-4 border-l-primary">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">
@@ -279,7 +279,7 @@ const Products = () => {
             <Package className="h-4 w-4 text-primary" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-foreground">
+            <div className="text-xl sm:text-2xl font-bold text-foreground">
               {stats.totalProducts}
             </div>
           </CardContent>
@@ -293,7 +293,7 @@ const Products = () => {
             <AlertTriangle className="h-4 w-4 text-yellow-500" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-foreground">
+            <div className="text-xl sm:text-2xl font-bold text-foreground">
               {stats.lowStock}
             </div>
           </CardContent>
@@ -306,7 +306,7 @@ const Products = () => {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-foreground">
+            <div className="text-xl sm:text-2xl font-bold text-foreground">
               KES {stats.totalValue.toLocaleString()}
             </div>
           </CardContent>
@@ -345,35 +345,45 @@ const Products = () => {
           </div>
         </CardHeader>
         <CardContent>
-          <div className="rounded-md border">
+          <div className="rounded-md border overflow-x-auto">
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>SKU</TableHead>
-                  <TableHead>Product Name</TableHead>
-                  <TableHead>Category</TableHead>
-                  <TableHead>Brand</TableHead>
-                  <TableHead className="text-right">Stock</TableHead>
-                  <TableHead className="text-right">Buying Price</TableHead>
-                  <TableHead className="text-right">Selling Price</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
+                  <TableHead className="min-w-[80px]">SKU</TableHead>
+                  <TableHead className="min-w-[200px]">Product Name</TableHead>
+                  <TableHead className="hidden sm:table-cell">Category</TableHead>
+                  <TableHead className="hidden md:table-cell">Brand</TableHead>
+                  <TableHead className="text-right min-w-[60px]">Stock</TableHead>
+                  <TableHead className="text-right hidden lg:table-cell min-w-[100px]">Buying Price</TableHead>
+                  <TableHead className="text-right hidden lg:table-cell min-w-[100px]">Selling Price</TableHead>
+                  <TableHead className="min-w-[80px]">Status</TableHead>
+                  <TableHead className="text-right min-w-[80px]">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {filteredProducts.map((product) => (
                   <TableRow key={product.id}>
                     <TableCell className="font-medium">{product.sku}</TableCell>
-                    <TableCell>{product.name}</TableCell>
-                    <TableCell>{product.category}</TableCell>
-                    <TableCell>{product.brand}</TableCell>
+                    <TableCell>
+                      <div>
+                        <div className="font-medium">{product.name}</div>
+                        <div className="text-sm text-muted-foreground sm:hidden">
+                          {product.category} • {product.brand}
+                        </div>
+                        <div className="text-sm text-muted-foreground lg:hidden">
+                          Buy: KES {product.buyingPrice.toLocaleString()} | Sell: KES {product.sellingPrice.toLocaleString()}
+                        </div>
+                      </div>
+                    </TableCell>
+                    <TableCell className="hidden sm:table-cell">{product.category}</TableCell>
+                    <TableCell className="hidden md:table-cell">{product.brand}</TableCell>
                     <TableCell className="text-right">
                       <span className={product.stock <= product.reorderLevel ? 'text-red-600 font-medium' : ''}>
                         {product.stock}
                       </span>
                     </TableCell>
-                    <TableCell className="text-right">KES {product.buyingPrice.toLocaleString()}</TableCell>
-                    <TableCell className="text-right">KES {product.sellingPrice.toLocaleString()}</TableCell>
+                    <TableCell className="text-right hidden lg:table-cell">KES {product.buyingPrice.toLocaleString()}</TableCell>
+                    <TableCell className="text-right hidden lg:table-cell">KES {product.sellingPrice.toLocaleString()}</TableCell>
                     <TableCell>
                       {getStatusBadge(product.status, product.stock, product.reorderLevel)}
                     </TableCell>
@@ -382,9 +392,10 @@ const Products = () => {
                         variant="ghost" 
                         size="sm" 
                         onClick={() => handleEditProduct(product)}
+                        className="h-8 w-8 p-0 sm:h-auto sm:w-auto sm:px-3"
                       >
-                        <Edit className="h-4 w-4 mr-1" />
-                        Edit
+                        <Edit className="h-4 w-4 sm:mr-1" />
+                        <span className="hidden sm:inline">Edit</span>
                       </Button>
                     </TableCell>
                   </TableRow>

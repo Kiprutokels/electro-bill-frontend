@@ -22,6 +22,7 @@ import {
   SidebarTrigger,
   useSidebar,
 } from '@/components/ui/sidebar';
+import { useIsMobile } from '@/hooks/use-mobile';
 
 const navigation = [
   { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
@@ -37,6 +38,7 @@ export function AppSidebar() {
   const location = useLocation();
   const currentPath = location.pathname;
   const collapsed = state === 'collapsed';
+  const isMobile = useIsMobile();
 
   const isActive = (path: string) => currentPath === path;
   const getNavCls = ({ isActive }: { isActive: boolean }) =>
@@ -45,20 +47,25 @@ export function AppSidebar() {
       : "text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground";
 
   return (
-    <Sidebar className={collapsed ? "w-12" : "w-64"} collapsible="icon">
+    <Sidebar 
+      className={collapsed ? "w-12" : "w-64"} 
+      collapsible="icon" 
+      variant="inset"
+      side={isMobile ? "left" : "left"}
+    >
       <SidebarHeader className="border-b border-sidebar-border">
-        <div className={`flex items-center ${collapsed ? 'justify-center p-2' : 'space-x-3 p-4'}`}>
+        <div className={`flex items-center ${collapsed ? 'justify-center p-2' : 'space-x-3 p-3 sm:p-4'}`}>
           <div className={`${collapsed ? 'p-1' : 'p-2'} bg-sidebar-primary rounded-lg flex-shrink-0`}>
-            <Building2 className={`${collapsed ? 'h-4 w-4' : 'h-6 w-6'} text-sidebar-primary-foreground`} />
+            <Building2 className={`${collapsed ? 'h-4 w-4' : 'h-5 w-5 sm:h-6 sm:w-6'} text-sidebar-primary-foreground`} />
           </div>
           {!collapsed && (
             <div className="min-w-0">
-              <h1 className="text-lg font-bold text-sidebar-foreground truncate">ElectroBill</h1>
-              <p className="text-sm text-sidebar-foreground/70 truncate">Admin Panel</p>
+              <h1 className="text-base sm:text-lg font-bold text-sidebar-foreground truncate">ElectroBill</h1>
+              <p className="text-xs sm:text-sm text-sidebar-foreground/70 truncate">Admin Panel</p>
             </div>
           )}
         </div>
-        <SidebarTrigger className={`ml-auto mr-2 mb-2 ${collapsed ? 'mx-auto' : 'mr-4'}`} />
+        <SidebarTrigger className={`ml-auto mr-2 mb-2 ${collapsed ? 'mx-auto' : 'mr-3 sm:mr-4'}`} />
       </SidebarHeader>
 
       <SidebarContent>
