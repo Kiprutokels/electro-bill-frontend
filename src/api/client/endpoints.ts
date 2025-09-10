@@ -24,6 +24,7 @@ export const API_ENDPOINTS = {
     TOP_CUSTOMERS: '/customers/top-customers',
   },
   
+  
   // Products
   PRODUCTS: {
     BASE: '/products',

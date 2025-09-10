@@ -9,7 +9,8 @@ import {
   Settings,
   Building2,
   Warehouse,
-  CreditCard
+  CreditCard,
+  Shield
 } from 'lucide-react';
 import {
   Sidebar,
@@ -36,6 +37,7 @@ const navigation = [
   { name: 'Invoices', href: ROUTES.INVOICES, icon: FileText, permission: PERMISSIONS.SALES_READ },
   { name: 'Payments', href: ROUTES.PAYMENTS, icon: CreditCard, permission: PERMISSIONS.PAYMENTS_READ },
   { name: 'Transactions', href: ROUTES.TRANSACTIONS, icon: Receipt, permission: PERMISSIONS.SALES_READ },
+  { name: 'Roles', href: '/roles', icon: Shield, permission: PERMISSIONS.ROLES_READ },
   { name: 'Settings', href: ROUTES.SETTINGS, icon: Settings, permission: null },
 ];
 
