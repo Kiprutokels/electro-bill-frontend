@@ -1,6 +1,33 @@
-import apiClient from '../client/axios';
-import { API_ENDPOINTS } from '../client/endpoints';
-import { PaginatedResponse } from '../types/common.types';
+import apiClient from "../client/axios";
+import { API_ENDPOINTS } from "../client/endpoints";
+import { PaginatedResponse, ApiResponse } from "../types/common.types";
+
+export interface Role {
+  id: string;
+  name: string;
+  description?: string;
+}
+
+export interface User {
+  id: string;
+  username: string;
+  email: string;
+  firstName: string;
+  lastName: string;
+  phone?: string;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+  lastLogin?: string;
+  role: Role;
+  permissions?: Array<{
+    id: string;
+    name: string;
+    description?: string;
+    module: string;
+    action: string;
+  }>;
+}
 
 export interface CreateUserRequest {
   username: string;
@@ -22,31 +49,18 @@ export interface UpdateUserRequest {
   isActive?: boolean;
 }
 
-export interface User {
-  id: string;
-  username: string;
-  email: string;
-  firstName: string;
-  lastName: string;
-  phone?: string;
-  roleId: string;
-  isActive: boolean;
-  lastLogin?: string;
-  createdAt: string;
-  updatedAt: string;
-  role: {
-    id: string;
-    name: string;
-    description?: string;
-  };
+export interface ResetPasswordRequest {
+  newPassword: string;
 }
 
 export const usersService = {
-  getUsers: async (params: {
-    page?: number;
-    limit?: number;
-    search?: string;
-  } = {}): Promise<PaginatedResponse<User>> => {
+  getUsers: async (
+    params: {
+      page?: number;
+      limit?: number;
+      search?: string;
+    } = {}
+  ): Promise<PaginatedResponse<User>> => {
     const response = await apiClient.get<PaginatedResponse<User>>(
       API_ENDPOINTS.USERS.BASE,
       { params }
@@ -55,17 +69,12 @@ export const usersService = {
   },
 
   getUserById: async (id: string): Promise<User> => {
-    const response = await apiClient.get<User>(
-      API_ENDPOINTS.USERS.BY_ID(id)
-    );
+    const response = await apiClient.get<User>(API_ENDPOINTS.USERS.BY_ID(id));
     return response.data;
   },
 
   createUser: async (data: CreateUserRequest): Promise<User> => {
-    const response = await apiClient.post<User>(
-      API_ENDPOINTS.USERS.BASE,
-      data
-    );
+    const response = await apiClient.post<User>(API_ENDPOINTS.USERS.BASE, data);
     return response.data;
   },
 
@@ -77,8 +86,11 @@ export const usersService = {
     return response.data;
   },
 
-  deleteUser: async (id: string): Promise<void> => {
-    await apiClient.delete(API_ENDPOINTS.USERS.BY_ID(id));
+  deleteUser: async (id: string): Promise<ApiResponse> => {
+    const response = await apiClient.delete<ApiResponse>(
+      API_ENDPOINTS.USERS.BY_ID(id)
+    );
+    return response.data;
   },
 
   toggleUserStatus: async (id: string): Promise<User> => {
@@ -88,10 +100,14 @@ export const usersService = {
     return response.data;
   },
 
-  resetUserPassword: async (id: string, newPassword: string): Promise<void> => {
-    await apiClient.patch(
+  resetPassword: async (
+    id: string,
+    data: ResetPasswordRequest
+  ): Promise<ApiResponse> => {
+    const response = await apiClient.patch<ApiResponse>(
       API_ENDPOINTS.USERS.RESET_PASSWORD(id),
-      { newPassword }
+      data
     );
+    return response.data;
   },
 };

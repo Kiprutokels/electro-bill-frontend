@@ -10,6 +10,7 @@ import Dashboard from "./pages/Dashboard";
 import Products from "./pages/Products";
 import Customers from "./pages/Customers";
 import Roles from "./pages/Roles";
+import Users from "./pages/Users";
 import AdminLayout from "./components/layout/AdminLayout";
 import NotFound from "./pages/NotFound";
 import { Loader2 } from "lucide-react";
@@ -60,6 +61,7 @@ const App = () => (
                 <Route path="roles" element={<Roles />} />
                 <Route path="products" element={<Products />} />
                 <Route path="customers" element={<Customers />} />
+                <Route path="users" element={<Users />} />
                 <Route path="inventory" element={<div className="p-8 text-center text-muted-foreground">Inventory - Coming Soon</div>} />
                 <Route path="invoices" element={<div className="p-8 text-center text-muted-foreground">Invoices - Coming Soon</div>} />
                 <Route path="payments" element={<div className="p-8 text-center text-muted-foreground">Payments - Coming Soon</div>} />
