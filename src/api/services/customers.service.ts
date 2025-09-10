@@ -1,6 +1,6 @@
 import apiClient from '../client/axios';
 import { API_ENDPOINTS } from '../client/endpoints';
-import { PaginatedResponse } from '../types/common.types';
+import { PaginatedResponse, ApiResponse } from '../types/common.types';
 
 export interface CreateCustomerRequest {
   customerCode?: string;
@@ -21,7 +21,6 @@ export interface CreateCustomerRequest {
 export interface UpdateCustomerRequest extends Partial<CreateCustomerRequest> {}
 
 export interface Customer {
-  invoices: boolean;
   id: string;
   customerCode: string;
   businessName?: string;
@@ -45,6 +44,24 @@ export interface Customer {
     receipts: number;
     transactions: number;
   };
+  invoices?: Array<{
+    id: string;
+    invoiceNumber: string;
+    invoiceDate: string;
+    totalAmount: number;
+    amountPaid: number;
+    status: string;
+  }>;
+  receipts?: Array<{
+    id: string;
+    receiptNumber: string;
+    paymentDate: string;
+    totalAmount: number;
+    paymentMethod: {
+      name: string;
+      type: string;
+    };
+  }>;
 }
 
 export const customersService = {
@@ -84,8 +101,11 @@ export const customersService = {
     return response.data;
   },
 
-  deleteCustomer: async (id: string): Promise<void> => {
-    await apiClient.delete(API_ENDPOINTS.CUSTOMERS.BY_ID(id));
+  deleteCustomer: async (id: string): Promise<ApiResponse> => {
+    const response = await apiClient.delete<ApiResponse>(
+      API_ENDPOINTS.CUSTOMERS.BY_ID(id)
+    );
+    return response.data;
   },
 
   toggleCustomerStatus: async (id: string): Promise<Customer> => {
