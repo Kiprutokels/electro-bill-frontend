@@ -7,7 +7,9 @@ import {
   FileText, 
   Receipt, 
   Settings,
-  Building2
+  Building2,
+  Warehouse,
+  CreditCard
 } from 'lucide-react';
 import {
   Sidebar,
@@ -23,22 +25,32 @@ import {
   useSidebar,
 } from '@/components/ui/sidebar';
 import { useIsMobile } from '@/hooks/use-mobile';
+import { useAuth } from '@/contexts/AuthContext';
+import { PERMISSIONS, ROUTES } from '@/utils/constants';
 
 const navigation = [
-  { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
-  { name: 'Products', href: '/products', icon: Package },
-  { name: 'Customers', href: '/customers', icon: Users },
-  { name: 'Invoices', href: '/invoices', icon: FileText },
-  { name: 'Receipts', href: '/receipts', icon: Receipt },
-  { name: 'Settings', href: '/settings', icon: Settings },
+  { name: 'Dashboard', href: ROUTES.DASHBOARD, icon: LayoutDashboard, permission: null },
+  { name: 'Customers', href: ROUTES.CUSTOMERS, icon: Users, permission: PERMISSIONS.CUSTOMERS_READ },
+  { name: 'Products', href: ROUTES.PRODUCTS, icon: Package, permission: PERMISSIONS.PRODUCTS_READ },
+  { name: 'Inventory', href: ROUTES.INVENTORY, icon: Warehouse, permission: PERMISSIONS.INVENTORY_READ },
+  { name: 'Invoices', href: ROUTES.INVOICES, icon: FileText, permission: PERMISSIONS.SALES_READ },
+  { name: 'Payments', href: ROUTES.PAYMENTS, icon: CreditCard, permission: PERMISSIONS.PAYMENTS_READ },
+  { name: 'Transactions', href: ROUTES.TRANSACTIONS, icon: Receipt, permission: PERMISSIONS.SALES_READ },
+  { name: 'Settings', href: ROUTES.SETTINGS, icon: Settings, permission: null },
 ];
 
 export function AppSidebar() {
   const { state } = useSidebar();
   const location = useLocation();
+  const { hasPermission } = useAuth();
   const currentPath = location.pathname;
   const collapsed = state === 'collapsed';
   const isMobile = useIsMobile();
+
+  // Filter navigation based on user permissions
+  const filteredNavigation = navigation.filter(item => 
+    !item.permission || hasPermission(item.permission)
+  );
 
   const isActive = (path: string) => currentPath === path;
   const getNavCls = ({ isActive }: { isActive: boolean }) =>
@@ -75,7 +87,7 @@ export function AppSidebar() {
           </SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              {navigation.map((item) => (
+              {filteredNavigation.map((item) => (
                 <SidebarMenuItem key={item.name}>
                   <SidebarMenuButton asChild className="w-full">
                     <NavLink 
