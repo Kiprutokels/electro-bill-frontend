@@ -4,6 +4,7 @@ export interface ApiResponse<T = any> {
 }
 
 export interface PaginatedResponse<T = any> {
+  filter(arg0: (c: any) => any): import("react").SetStateAction<import("../services").Customer[]>;
   data: T[];
   meta: {
     total: number;

@@ -39,7 +39,7 @@ const AddCategoryDialog: React.FC<AddCategoryDialogProps> = ({
   const [formData, setFormData] = useState<CreateCategoryRequest>({
     name: '',
     description: '',
-    parentCategoryId: '',
+    parentCategoryId: undefined,
     isActive: true,
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -87,7 +87,7 @@ const AddCategoryDialog: React.FC<AddCategoryDialogProps> = ({
     setFormData({
       name: '',
       description: '',
-      parentCategoryId: '',
+      parentCategoryId: undefined,
       isActive: true,
     });
     setErrors({});
@@ -141,14 +141,14 @@ const AddCategoryDialog: React.FC<AddCategoryDialogProps> = ({
           <div>
             <Label htmlFor="parentCategoryId">Parent Category</Label>
             <Select 
-              value={formData.parentCategoryId} 
-              onValueChange={(value) => handleInputChange('parentCategoryId', value)}
+              value={formData.parentCategoryId || 'none'} 
+              onValueChange={(value) => handleInputChange('parentCategoryId', value === 'none' ? undefined : value)}
             >
               <SelectTrigger>
                 <SelectValue placeholder="Select parent category (optional)" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">No Parent (Root Category)</SelectItem>
+                <SelectItem value="none">No Parent (Root Category)</SelectItem>
                 {rootCategories.map((category) => (
                   <SelectItem key={category.id} value={category.id}>
                     {category.name}

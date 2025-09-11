@@ -41,6 +41,7 @@ import {
   Loader2,
   Folder,
   Tag,
+  Settings,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { PERMISSIONS } from "@/utils/constants";
@@ -56,6 +57,7 @@ import { formatCurrency } from "@/utils/currency.utils";
 import AddProductDialog from "@/components/products/AddProductDialog";
 import EditProductDialog from "@/components/products/EditProductDialog";
 import ProductViewDialog from "@/components/products/ProductViewDialog";
+import RestockDialog from "@/components/products/RestockDialog";
 
 const Products = () => {
   const navigate = useNavigate();
@@ -75,10 +77,10 @@ const Products = () => {
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
+  const [isRestockDialogOpen, setIsRestockDialogOpen] = useState(false);
   const [productToDelete, setProductToDelete] = useState<Product | null>(null);
-  const [showEditDialog, setShowEditDialog] = useState(false);
-  const [showViewDialog, setShowViewDialog] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
+  
   const debouncedSearchTerm = useDebounce(searchTerm, 300);
 
   const fetchData = async (showRefreshing = false) => {
@@ -151,6 +153,11 @@ const Products = () => {
     setIsEditDialogOpen(true);
   };
 
+  const handleRestock = (product: Product) => {
+    setSelectedProduct(product);
+    setIsRestockDialogOpen(true);
+  };
+
   const handleDeleteClick = (product: Product) => {
     setProductToDelete(product);
   };
@@ -194,6 +201,11 @@ const Products = () => {
       prev.map((p) => (p.id === updatedProduct.id ? updatedProduct : p))
     );
     toast.success("Product updated successfully");
+  };
+
+  const handleRestockComplete = () => {
+    fetchData();
+    toast.success("Stock updated successfully");
   };
 
   const getStatusBadge = (product: Product) => {
@@ -441,7 +453,7 @@ const Products = () => {
                     Price
                   </TableHead>
                   <TableHead className="min-w-[80px]">Status</TableHead>
-                  <TableHead className="text-right min-w-[120px]">
+                  <TableHead className="text-right min-w-[140px]">
                     Actions
                   </TableHead>
                 </TableRow>
@@ -515,21 +527,36 @@ const Products = () => {
                             size="sm"
                             onClick={() => handleView(product)}
                             className="h-8 w-8 p-0 sm:h-auto sm:w-auto sm:px-2"
+                            title="View"
                           >
                             <Eye className="h-4 w-4 sm:mr-1" />
                             <span className="hidden sm:inline">View</span>
                           </Button>
 
                           {hasPermission(PERMISSIONS.PRODUCTS_UPDATE) && (
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => handleEdit(product)}
-                              className="h-8 w-8 p-0 sm:h-auto sm:w-auto sm:px-2"
-                            >
-                              <Edit className="h-4 w-4 sm:mr-1" />
-                              <span className="hidden sm:inline">Edit</span>
-                            </Button>
+                            <>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleRestock(product)}
+                                className="h-8 w-8 p-0 sm:h-auto sm:w-auto sm:px-2"
+                                title="Restock"
+                              >
+                                <Settings className="h-4 w-4 sm:mr-1" />
+                                <span className="hidden sm:inline">Restock</span>
+                              </Button>
+                              
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleEdit(product)}
+                                className="h-8 w-8 p-0 sm:h-auto sm:w-auto sm:px-2"
+                                title="Edit"
+                              >
+                                <Edit className="h-4 w-4 sm:mr-1" />
+                                <span className="hidden sm:inline">Edit</span>
+                              </Button>
+                            </>
                           )}
 
                           {hasPermission(PERMISSIONS.PRODUCTS_DELETE) && (
@@ -538,6 +565,7 @@ const Products = () => {
                               size="sm"
                               onClick={() => handleDeleteClick(product)}
                               className="h-8 w-8 p-0 sm:h-auto sm:w-auto sm:px-2 text-destructive hover:text-destructive"
+                              title="Delete"
                             >
                               <Trash2 className="h-4 w-4 sm:mr-1" />
                               <span className="hidden sm:inline">Delete</span>
@@ -583,6 +611,13 @@ const Products = () => {
               setIsEditDialogOpen(true);
             }}
             onToggleStatus={() => handleToggleStatus(selectedProduct)}
+          />
+
+          <RestockDialog
+            open={isRestockDialogOpen}
+            onOpenChange={setIsRestockDialogOpen}
+            product={selectedProduct}
+            onRestockComplete={handleRestockComplete}
           />
         </>
       )}

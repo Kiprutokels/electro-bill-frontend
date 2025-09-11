@@ -54,6 +54,7 @@ export const PERMISSIONS = {
   // Permissions
   PERMISSIONS_READ: "permissions.read",
   PERMISSIONS_ASSIGN: "permissions.assign",
+  
 } as const;
 
 export const APP_NAME = "ElectroBill";
@@ -70,6 +71,7 @@ export const ROUTES = {
   DASHBOARD: "/dashboard",
   CUSTOMERS: "/customers",
   PRODUCTS: "/products",
+  QUOTATIONS: "/quotations",
   INVENTORY: "/inventory",
   INVOICES: "/invoices",
   PAYMENTS: "/payments",

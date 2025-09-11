@@ -1,8 +1,8 @@
-import React, { useState, useEffect, useMemo } from 'react';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
-import { Badge } from '@/components/ui/badge';
+import React, { useState, useEffect, useMemo } from "react";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
 import {
   Table,
   TableBody,
@@ -10,7 +10,7 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from '@/components/ui/table';
+} from "@/components/ui/table";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -20,29 +20,29 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-} from '@/components/ui/alert-dialog';
-import { 
-  Plus, 
-  Search, 
+} from "@/components/ui/alert-dialog";
+import {
+  Plus,
+  Search,
   Tag,
-  Edit, 
+  Edit,
   Trash2,
   Eye,
   RefreshCw,
   Loader2,
   ArrowLeft,
-  Image
-} from 'lucide-react';
-import { useAuth } from '@/contexts/AuthContext';
-import { PERMISSIONS } from '@/utils/constants';
-import { brandsService, Brand } from '@/api/services/brands.service';
-import { useDebounce } from '@/hooks/useDebounce';
-import { toast } from 'sonner';
-import { formatDate } from '@/utils/format.utils';
-import { useNavigate } from 'react-router-dom';
-import AddBrandDialog from '@/components/brands/AddBrandDialog';
-import EditBrandDialog from '@/components/brands/EditBrandDialog';
-import BrandViewDialog from '@/components/brands/BrandViewDialog';
+  Image,
+} from "lucide-react";
+import { useAuth } from "@/contexts/AuthContext";
+import { PERMISSIONS } from "@/utils/constants";
+import { brandsService, Brand } from "@/api/services/brands.service";
+import { useDebounce } from "@/hooks/useDebounce";
+import { toast } from "sonner";
+import { formatDate } from "@/utils/format.utils";
+import { useNavigate } from "react-router-dom";
+import AddBrandDialog from "@/components/brands/AddBrandDialog";
+import EditBrandDialog from "@/components/brands/EditBrandDialog";
+import BrandViewDialog from "@/components/brands/BrandViewDialog";
 
 const Brands = () => {
   const navigate = useNavigate();
@@ -50,7 +50,7 @@ const Brands = () => {
   const [brands, setBrands] = useState<Brand[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [searchTerm, setSearchTerm] = useState('');
+  const [searchTerm, setSearchTerm] = useState("");
   const [includeInactive, setIncludeInactive] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
 
@@ -75,7 +75,8 @@ const Brands = () => {
       const data = await brandsService.getBrands(includeInactive);
       setBrands(data);
     } catch (err: any) {
-      const errorMessage = err.response?.data?.message || 'Failed to fetch brands';
+      const errorMessage =
+        err.response?.data?.message || "Failed to fetch brands";
       setError(errorMessage);
       toast.error(errorMessage);
     } finally {
@@ -90,9 +91,12 @@ const Brands = () => {
 
   // Filter brands based on search
   const filteredBrands = useMemo(() => {
-    return brands.filter(brand =>
-      brand.name.toLowerCase().includes(debouncedSearchTerm.toLowerCase()) ||
-      (brand.description || '').toLowerCase().includes(debouncedSearchTerm.toLowerCase())
+    return brands.filter(
+      (brand) =>
+        brand.name.toLowerCase().includes(debouncedSearchTerm.toLowerCase()) ||
+        (brand.description || "")
+          .toLowerCase()
+          .includes(debouncedSearchTerm.toLowerCase())
     );
   }, [brands, debouncedSearchTerm]);
 
@@ -120,11 +124,12 @@ const Brands = () => {
 
     try {
       await brandsService.deleteBrand(brandToDelete.id);
-      toast.success('Brand deleted successfully');
+      toast.success("Brand deleted successfully");
       fetchBrands();
       setBrandToDelete(null);
     } catch (err: any) {
-      const errorMessage = err.response?.data?.message || 'Failed to delete brand';
+      const errorMessage =
+        err.response?.data?.message || "Failed to delete brand";
       toast.error(errorMessage);
     }
   };
@@ -132,22 +137,27 @@ const Brands = () => {
   const handleToggleStatus = async (brand: Brand) => {
     try {
       await brandsService.toggleBrandStatus(brand.id);
-      toast.success(`Brand ${brand.isActive ? 'deactivated' : 'activated'} successfully`);
+      toast.success(
+        `Brand ${brand.isActive ? "deactivated" : "activated"} successfully`
+      );
       fetchBrands();
     } catch (err: any) {
-      const errorMessage = err.response?.data?.message || 'Failed to update brand status';
+      const errorMessage =
+        err.response?.data?.message || "Failed to update brand status";
       toast.error(errorMessage);
     }
   };
 
   const handleBrandAdded = (newBrand: Brand) => {
-    setBrands(prev => [newBrand, ...prev]);
-    toast.success('Brand created successfully');
+    setBrands((prev) => [newBrand, ...prev]);
+    toast.success("Brand created successfully");
   };
 
   const handleBrandUpdated = (updatedBrand: Brand) => {
-    setBrands(prev => prev.map(b => b.id === updatedBrand.id ? updatedBrand : b));
-    toast.success('Brand updated successfully');
+    setBrands((prev) =>
+      prev.map((b) => (b.id === updatedBrand.id ? updatedBrand : b))
+    );
+    toast.success("Brand updated successfully");
   };
 
   const getStatusBadge = (brand: Brand) => {
@@ -160,10 +170,10 @@ const Brands = () => {
 
   // Calculate stats
   const stats = useMemo(() => {
-    const activeBrands = brands.filter(b => b.isActive);
+    const activeBrands = brands.filter((b) => b.isActive);
     const totalProducts = brands.reduce((sum, b) => sum + b._count.products, 0);
-    const brandsWithProducts = brands.filter(b => b._count.products > 0);
-    
+    const brandsWithProducts = brands.filter((b) => b._count.products > 0);
+
     return {
       totalBrands: brands.length,
       activeBrands: activeBrands.length,
@@ -191,19 +201,24 @@ const Brands = () => {
           <Button
             variant="ghost"
             size="icon"
-            onClick={() => navigate('/products')}
+            onClick={() => navigate("/products")}
           >
             <ArrowLeft className="h-4 w-4" />
           </Button>
           <div>
-            <h1 className="text-2xl sm:text-3xl font-bold text-foreground">Brands</h1>
+            <h1 className="text-2xl sm:text-3xl font-bold text-foreground">
+              Brands
+            </h1>
             <p className="text-sm text-muted-foreground">
               Manage product brands and manufacturers
             </p>
           </div>
         </div>
         {hasPermission(PERMISSIONS.PRODUCTS_CREATE) && (
-          <Button onClick={() => setIsAddDialogOpen(true)} className="w-full sm:w-auto">
+          <Button
+            onClick={() => setIsAddDialogOpen(true)}
+            className="w-full sm:w-auto"
+          >
             <Plus className="mr-2 h-4 w-4" />
             Add Brand
           </Button>
@@ -240,7 +255,11 @@ const Brands = () => {
               {stats.activeBrands}
             </div>
             <p className="text-xs text-muted-foreground">
-              {((stats.activeBrands / Math.max(stats.totalBrands, 1)) * 100).toFixed(1)}% of total
+              {(
+                (stats.activeBrands / Math.max(stats.totalBrands, 1)) *
+                100
+              ).toFixed(1)}
+              % of total
             </p>
           </CardContent>
         </Card>
@@ -290,9 +309,9 @@ const Brands = () => {
               <Button
                 variant="outline"
                 onClick={() => setIncludeInactive(!includeInactive)}
-                className={includeInactive ? 'bg-accent' : ''}
+                className={includeInactive ? "bg-accent" : ""}
               >
-                {includeInactive ? 'Show Active Only' : 'Show All'}
+                {includeInactive ? "Show Active Only" : "Show All"}
               </Button>
               <Button
                 variant="outline"
@@ -301,7 +320,9 @@ const Brands = () => {
                 disabled={refreshing}
                 title="Refresh"
               >
-                <RefreshCw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
+                <RefreshCw
+                  className={`h-4 w-4 ${refreshing ? "animate-spin" : ""}`}
+                />
               </Button>
             </div>
           </div>
@@ -310,7 +331,12 @@ const Brands = () => {
           {error && (
             <div className="mb-4 p-4 border border-destructive/20 rounded-lg bg-destructive/5">
               <p className="text-sm text-destructive">{error}</p>
-              <Button variant="outline" size="sm" onClick={handleRefresh} className="mt-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleRefresh}
+                className="mt-2"
+              >
                 Try Again
               </Button>
             </div>
@@ -322,11 +348,19 @@ const Brands = () => {
                 <TableRow>
                   <TableHead className="min-w-[50px]">Logo</TableHead>
                   <TableHead className="min-w-[200px]">Brand Name</TableHead>
-                  <TableHead className="hidden md:table-cell min-w-[250px]">Description</TableHead>
-                  <TableHead className="text-center min-w-[100px]">Products</TableHead>
+                  <TableHead className="hidden md:table-cell min-w-[250px]">
+                    Description
+                  </TableHead>
+                  <TableHead className="text-center min-w-[100px]">
+                    Products
+                  </TableHead>
                   <TableHead className="min-w-[80px]">Status</TableHead>
-                  <TableHead className="hidden lg:table-cell min-w-[120px]">Created</TableHead>
-                  <TableHead className="text-right min-w-[120px]">Actions</TableHead>
+                  <TableHead className="hidden lg:table-cell min-w-[120px]">
+                    Created
+                  </TableHead>
+                  <TableHead className="text-right min-w-[120px]">
+                    Actions
+                  </TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -334,18 +368,21 @@ const Brands = () => {
                   <TableRow>
                     <TableCell colSpan={7} className="text-center py-8">
                       <div className="text-muted-foreground">
-                        {searchTerm ? 'No brands found matching your search.' : 'No brands found.'}
+                        {searchTerm
+                          ? "No brands found matching your search."
+                          : "No brands found."}
                       </div>
-                      {hasPermission(PERMISSIONS.PRODUCTS_CREATE) && !searchTerm && (
-                        <Button
-                          variant="outline"
-                          onClick={() => setIsAddDialogOpen(true)}
-                          className="mt-2"
-                        >
-                          <Plus className="mr-2 h-4 w-4" />
-                          Create Your First Brand
-                        </Button>
-                      )}
+                      {hasPermission(PERMISSIONS.PRODUCTS_CREATE) &&
+                        !searchTerm && (
+                          <Button
+                            variant="outline"
+                            onClick={() => setIsAddDialogOpen(true)}
+                            className="mt-2"
+                          >
+                            <Plus className="mr-2 h-4 w-4" />
+                            Create Your First Brand
+                          </Button>
+                        )}
                     </TableCell>
                   </TableRow>
                 ) : (
@@ -354,19 +391,26 @@ const Brands = () => {
                       <TableCell>
                         <div className="w-10 h-10 rounded-lg bg-muted flex items-center justify-center">
                           {brand.logoUrl ? (
-                            <img 
-                              src={brand.logoUrl} 
+                            <img
+                              src={brand.logoUrl}
                               alt={brand.name}
                               className="w-8 h-8 object-contain"
                               onError={(e) => {
-                                e.currentTarget.style.display = 'none';
-                                e.currentTarget.nextSibling!.style.display = 'block';
+                                const img = e.currentTarget;
+                                const fallbackElement =
+                                  img.nextElementSibling as HTMLElement;
+                                if (fallbackElement) {
+                                  img.style.display = "none";
+                                  fallbackElement.style.display = "block";
+                                }
                               }}
                             />
                           ) : null}
-                          <Image 
-                            className="h-4 w-4 text-muted-foreground" 
-                            style={{ display: brand.logoUrl ? 'none' : 'block' }}
+                          <Image
+                            className="h-4 w-4 text-muted-foreground"
+                            style={{
+                              display: brand.logoUrl ? "none" : "block",
+                            }}
                           />
                         </div>
                       </TableCell>
@@ -383,7 +427,7 @@ const Brands = () => {
                       </TableCell>
                       <TableCell className="hidden md:table-cell">
                         <div className="max-w-xs truncate">
-                          {brand.description || 'No description'}
+                          {brand.description || "No description"}
                         </div>
                       </TableCell>
                       <TableCell className="text-center">
@@ -391,17 +435,15 @@ const Brands = () => {
                           {brand._count.products}
                         </Badge>
                       </TableCell>
-                      <TableCell>
-                        {getStatusBadge(brand)}
-                      </TableCell>
+                      <TableCell>{getStatusBadge(brand)}</TableCell>
                       <TableCell className="hidden lg:table-cell text-muted-foreground">
                         {formatDate(brand.createdAt)}
                       </TableCell>
                       <TableCell className="text-right">
                         <div className="flex justify-end gap-1">
-                          <Button 
-                            variant="ghost" 
-                            size="sm" 
+                          <Button
+                            variant="ghost"
+                            size="sm"
                             onClick={() => handleView(brand)}
                             className="h-8 w-8 p-0 sm:h-auto sm:w-auto sm:px-2"
                           >
@@ -410,9 +452,9 @@ const Brands = () => {
                           </Button>
 
                           {hasPermission(PERMISSIONS.PRODUCTS_UPDATE) && (
-                            <Button 
-                              variant="ghost" 
-                              size="sm" 
+                            <Button
+                              variant="ghost"
+                              size="sm"
                               onClick={() => handleEdit(brand)}
                               className="h-8 w-8 p-0 sm:h-auto sm:w-auto sm:px-2"
                             >
@@ -422,9 +464,9 @@ const Brands = () => {
                           )}
 
                           {hasPermission(PERMISSIONS.PRODUCTS_DELETE) && (
-                            <Button 
-                              variant="ghost" 
-                              size="sm" 
+                            <Button
+                              variant="ghost"
+                              size="sm"
                               onClick={() => handleDeleteClick(brand)}
                               className="h-8 w-8 p-0 sm:h-auto sm:w-auto sm:px-2 text-destructive hover:text-destructive"
                             >
@@ -473,19 +515,23 @@ const Brands = () => {
       )}
 
       {/* Delete Confirmation Dialog */}
-      <AlertDialog open={!!brandToDelete} onOpenChange={() => setBrandToDelete(null)}>
+      <AlertDialog
+        open={!!brandToDelete}
+        onOpenChange={() => setBrandToDelete(null)}
+      >
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Delete Brand</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to delete "{brandToDelete?.name}"? 
-              This action cannot be undone and will fail if the brand has associated products.
+              Are you sure you want to delete "{brandToDelete?.name}"? This
+              action cannot be undone and will fail if the brand has associated
+              products.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction 
-              onClick={handleDeleteConfirm} 
+            <AlertDialogAction
+              onClick={handleDeleteConfirm}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
               Delete Brand

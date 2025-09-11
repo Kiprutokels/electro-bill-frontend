@@ -54,6 +54,15 @@ const BrandViewDialog: React.FC<BrandViewDialogProps> = ({
 
   const hasWebsite = brand.website && brand.website.trim() !== '';
 
+  const handleImageError = (e: React.SyntheticEvent<HTMLImageElement>) => {
+    const img = e.currentTarget;
+    const fallbackElement = img.nextElementSibling as HTMLElement;
+    if (fallbackElement) {
+      img.style.display = 'none';
+      fallbackElement.style.display = 'block';
+    }
+  };
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
@@ -66,10 +75,7 @@ const BrandViewDialog: React.FC<BrandViewDialogProps> = ({
                     src={brand.logoUrl} 
                     alt={brand.name}
                     className="w-6 h-6 object-contain"
-                    onError={(e) => {
-                      e.currentTarget.style.display = 'none';
-                      e.currentTarget.nextSibling!.style.display = 'block';
-                    }}
+                    onError={handleImageError}
                   />
                 ) : null}
                 <Image 

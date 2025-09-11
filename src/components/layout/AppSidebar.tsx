@@ -34,6 +34,7 @@ const navigation = [
   { name: 'Customers', href: ROUTES.CUSTOMERS, icon: Users, permission: PERMISSIONS.CUSTOMERS_READ },
   { name: 'Products', href: ROUTES.PRODUCTS, icon: Package, permission: PERMISSIONS.PRODUCTS_READ },
   { name: 'Inventory', href: ROUTES.INVENTORY, icon: Warehouse, permission: PERMISSIONS.INVENTORY_READ },
+  { name: 'Quotations', href: ROUTES.QUOTATIONS, icon: FileText, permission: PERMISSIONS.SALES_READ },
   { name: 'Invoices', href: ROUTES.INVOICES, icon: FileText, permission: PERMISSIONS.SALES_READ },
   { name: 'Payments', href: ROUTES.PAYMENTS, icon: CreditCard, permission: PERMISSIONS.PAYMENTS_READ },
   { name: 'Transactions', href: ROUTES.TRANSACTIONS, icon: Receipt, permission: PERMISSIONS.SALES_READ },
