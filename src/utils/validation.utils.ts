@@ -67,3 +67,46 @@ export const validateNumberRange = (value: number, min: number, max: number, fie
   }
   return null;
 };
+
+export const validateUrl = (value: string, fieldName: string): string | null => {
+  if (!value) return null;
+  
+  try {
+    new URL(value);
+    return null;
+  } catch {
+    return `${fieldName} must be a valid URL`;
+  }
+};
+
+export const validateNumber = (value: number, fieldName: string, options?: { min?: number; max?: number }): string | null => {
+  if (value === undefined || value === null || isNaN(value)) {
+    return `${fieldName} must be a valid number`;
+  }
+  
+  if (options?.min !== undefined && value < options.min) {
+    return `${fieldName} must be at least ${options.min}`;
+  }
+  
+  if (options?.max !== undefined && value > options.max) {
+    return `${fieldName} must be at most ${options.max}`;
+  }
+  
+  return null;
+};
+
+export const validateDecimal = (value: number, fieldName: string, options?: { min?: number; max?: number }): string | null => {
+  if (value === undefined || value === null || isNaN(value)) {
+    return `${fieldName} must be a valid decimal number`;
+  }
+  
+  if (options?.min !== undefined && value < options.min) {
+    return `${fieldName} must be at least ${options.min}`;
+  }
+  
+  if (options?.max !== undefined && value > options.max) {
+    return `${fieldName} must be at most ${options.max}`;
+  }
+  
+  return null;
+};

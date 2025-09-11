@@ -15,3 +15,6 @@ export type { InventoryItem, StockAdjustment, InventorySummary } from './invento
 export type { Invoice, InvoiceItem, CreateInvoiceRequest, UpdateInvoiceRequest, InvoiceSummary } from './invoices.service';
 export type { Receipt, PaymentMethod, CreatePaymentRequest, PaymentSummary } from './payments.service';
 export type { Transaction, TransactionSummary } from './transactions.service';
+export type { Role, Permission } from './roles.service';
+export type { Brand, CreateBrandRequest, UpdateBrandRequest } from './brands.service';
+export type { ProductCategory, CreateCategoryRequest, UpdateCategoryRequest } from './categories.service';

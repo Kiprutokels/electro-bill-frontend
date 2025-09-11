@@ -1,5 +1,4 @@
 import React, { useState, useEffect, useMemo } from "react";
-import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -13,13 +12,6 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
   AlertDialog,
   AlertDialogAction,
   AlertDialogCancel,
@@ -32,42 +24,36 @@ import {
 import {
   Plus,
   Search,
-  Package,
-  AlertTriangle,
+  Folder,
+  FolderOpen,
   Edit,
   Trash2,
   Eye,
   RefreshCw,
   Loader2,
-  Folder,
-  Tag,
+  ArrowLeft,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { PERMISSIONS } from "@/utils/constants";
-import { productsService, Product } from "@/api/services/products.service";
 import {
   categoriesService,
   ProductCategory,
 } from "@/api/services/categories.service";
-import { brandsService, Brand } from "@/api/services/brands.service";
 import { useDebounce } from "@/hooks/useDebounce";
 import { toast } from "sonner";
-import { formatCurrency } from "@/utils/currency.utils";
-import AddProductDialog from "@/components/products/AddProductDialog";
-import EditProductDialog from "@/components/products/EditProductDialog";
-import ProductViewDialog from "@/components/products/ProductViewDialog";
+import { formatDate } from "@/utils/format.utils";
+import { useNavigate } from "react-router-dom";
+import AddCategoryDialog from "@/components/categories/AddCategoryDialog";
+import EditCategoryDialog from "@/components/categories/EditCategoryDialog";
+import CategoryViewDialog from "@/components/categories/CategoryViewDialog";
 
-const Products = () => {
+const Categories = () => {
   const navigate = useNavigate();
   const { hasPermission } = useAuth();
-  const [products, setProducts] = useState<Product[]>([]);
   const [categories, setCategories] = useState<ProductCategory[]>([]);
-  const [brands, setBrands] = useState<Brand[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
-  const [filterCategory, setFilterCategory] = useState("all");
-  const [filterBrand, setFilterBrand] = useState("all");
   const [includeInactive, setIncludeInactive] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
 
@@ -75,13 +61,16 @@ const Products = () => {
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
-  const [productToDelete, setProductToDelete] = useState<Product | null>(null);
+  const [selectedCategory, setSelectedCategory] =
+    useState<ProductCategory | null>(null);
+  const [categoryToDelete, setCategoryToDelete] =
+    useState<ProductCategory | null>(null);
   const [showEditDialog, setShowEditDialog] = useState(false);
   const [showViewDialog, setShowViewDialog] = useState(false);
-  const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
+
   const debouncedSearchTerm = useDebounce(searchTerm, 300);
 
-  const fetchData = async (showRefreshing = false) => {
+  const fetchCategories = async (showRefreshing = false) => {
     try {
       if (showRefreshing) {
         setRefreshing(true);
@@ -90,22 +79,11 @@ const Products = () => {
       }
       setError(null);
 
-      const [productsData, categoriesData, brandsData] = await Promise.all([
-        productsService.getProducts({
-          includeInactive,
-          categoryId: filterCategory !== "all" ? filterCategory : undefined,
-          brandId: filterBrand !== "all" ? filterBrand : undefined,
-        }),
-        categoriesService.getCategories(true),
-        brandsService.getBrands(true),
-      ]);
-
-      setProducts(productsData);
-      setCategories(categoriesData);
-      setBrands(brandsData);
+      const data = await categoriesService.getCategories(includeInactive);
+      setCategories(data);
     } catch (err: any) {
       const errorMessage =
-        err.response?.data?.message || "Failed to fetch data";
+        err.response?.data?.message || "Failed to fetch categories";
       setError(errorMessage);
       toast.error(errorMessage);
     } finally {
@@ -114,133 +92,116 @@ const Products = () => {
     }
   };
 
-  // Effects
   useEffect(() => {
-    fetchData();
-  }, [filterCategory, filterBrand, includeInactive]);
+    fetchCategories();
+  }, [includeInactive]);
 
-  // Filter products based on search
-  const filteredProducts = useMemo(() => {
-    return products.filter(
-      (product) =>
-        product.name
+  // Filter categories based on search
+  const filteredCategories = useMemo(() => {
+    return categories.filter(
+      (category) =>
+        category.name
           .toLowerCase()
           .includes(debouncedSearchTerm.toLowerCase()) ||
-        product.sku.toLowerCase().includes(debouncedSearchTerm.toLowerCase()) ||
-        product.category.name
-          .toLowerCase()
-          .includes(debouncedSearchTerm.toLowerCase()) ||
-        (product.brand?.name || "")
+        (category.description || "")
           .toLowerCase()
           .includes(debouncedSearchTerm.toLowerCase())
     );
-  }, [products, debouncedSearchTerm]);
+  }, [categories, debouncedSearchTerm]);
 
   // Handlers
   const handleRefresh = () => {
-    fetchData(true);
+    fetchCategories(true);
   };
 
-  const handleView = (product: Product) => {
-    setSelectedProduct(product);
+  const handleView = (category: ProductCategory) => {
+    setSelectedCategory(category);
     setIsViewDialogOpen(true);
   };
 
-  const handleEdit = (product: Product) => {
-    setSelectedProduct(product);
+  const handleEdit = (category: ProductCategory) => {
+    setSelectedCategory(category);
     setIsEditDialogOpen(true);
   };
 
-  const handleDeleteClick = (product: Product) => {
-    setProductToDelete(product);
+  const handleDeleteClick = (category: ProductCategory) => {
+    setCategoryToDelete(category);
   };
 
   const handleDeleteConfirm = async () => {
-    if (!productToDelete) return;
+    if (!categoryToDelete) return;
 
     try {
-      await productsService.deleteProduct(productToDelete.id);
-      toast.success("Product deleted successfully");
-      fetchData();
-      setProductToDelete(null);
+      await categoriesService.deleteCategory(categoryToDelete.id);
+      toast.success("Category deleted successfully");
+      fetchCategories();
+      setCategoryToDelete(null);
     } catch (err: any) {
       const errorMessage =
-        err.response?.data?.message || "Failed to delete product";
+        err.response?.data?.message || "Failed to delete category";
       toast.error(errorMessage);
     }
   };
 
-  const handleToggleStatus = async (product: Product) => {
+  const handleToggleStatus = async (category: ProductCategory) => {
     try {
-      await productsService.toggleProductStatus(product.id);
+      await categoriesService.toggleCategoryStatus(category.id);
       toast.success(
-        `Product ${product.isActive ? "deactivated" : "activated"} successfully`
+        `Category ${
+          category.isActive ? "deactivated" : "activated"
+        } successfully`
       );
-      fetchData();
+      fetchCategories();
     } catch (err: any) {
       const errorMessage =
-        err.response?.data?.message || "Failed to update product status";
+        err.response?.data?.message || "Failed to update category status";
       toast.error(errorMessage);
     }
   };
 
-  const handleProductAdded = (newProduct: Product) => {
-    setProducts((prev) => [newProduct, ...prev]);
-    toast.success("Product created successfully");
+  const handleCategoryAdded = (newCategory: ProductCategory) => {
+    setCategories((prev) => [newCategory, ...prev]);
+    toast.success("Category created successfully");
   };
 
-  const handleProductUpdated = (updatedProduct: Product) => {
-    setProducts((prev) =>
-      prev.map((p) => (p.id === updatedProduct.id ? updatedProduct : p))
+  const handleCategoryUpdated = (updatedCategory: ProductCategory) => {
+    setCategories((prev) =>
+      prev.map((c) => (c.id === updatedCategory.id ? updatedCategory : c))
     );
-    toast.success("Product updated successfully");
+    toast.success("Category updated successfully");
   };
 
-  const getStatusBadge = (product: Product) => {
-    if (!product.isActive) {
-      return <Badge variant="secondary">Inactive</Badge>;
-    }
-
-    const totalQuantity = product.totalQuantity || 0;
-    const reorderLevel = product.reorderLevel;
-
-    if (totalQuantity <= reorderLevel / 2 && reorderLevel > 0) {
-      return <Badge variant="destructive">Critical</Badge>;
-    } else if (totalQuantity <= reorderLevel && reorderLevel > 0) {
-      return (
-        <Badge className="bg-yellow-500 hover:bg-yellow-600">Low Stock</Badge>
-      );
-    } else {
-      return <Badge className="bg-green-500 hover:bg-green-600">Active</Badge>;
-    }
+  const getStatusBadge = (category: ProductCategory) => {
+    return category.isActive ? (
+      <Badge className="bg-green-500 hover:bg-green-600">Active</Badge>
+    ) : (
+      <Badge variant="secondary">Inactive</Badge>
+    );
   };
 
   // Calculate stats
   const stats = useMemo(() => {
-    const activeProducts = products.filter((p) => p.isActive);
-    const lowStockProducts = products.filter((p) => {
-      const totalQuantity = p.totalQuantity || 0;
-      return totalQuantity <= p.reorderLevel && p.reorderLevel > 0;
-    });
-    const totalValue = products.reduce(
-      (sum, p) => sum + p.sellingPrice * (p.totalQuantity || 0),
+    const activeCategories = categories.filter((c) => c.isActive);
+    const rootCategories = categories.filter((c) => !c.parentCategoryId);
+    const totalProducts = categories.reduce(
+      (sum, c) => sum + c._count.products,
       0
     );
 
     return {
-      totalProducts: products.length,
-      activeProducts: activeProducts.length,
-      lowStockProducts: lowStockProducts.length,
-      totalValue,
+      totalCategories: categories.length,
+      activeCategories: activeCategories.length,
+      rootCategories: rootCategories.length,
+      totalProducts,
     };
-  }, [products]);
+  }, [categories]);
 
-  if (loading && products.length === 0) {
+  if (loading && categories.length === 0) {
     return (
       <div className="flex items-center justify-center h-96">
         <div className="flex flex-col items-center space-y-4">
           <Loader2 className="h-8 w-8 animate-spin text-primary" />
-          <p className="text-sm text-muted-foreground">Loading products...</p>
+          <p className="text-sm text-muted-foreground">Loading categories...</p>
         </div>
       </div>
     );
@@ -250,41 +211,32 @@ const Products = () => {
     <div className="space-y-4 sm:space-y-6">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-4">
-        <div>
-          <h1 className="text-2xl sm:text-3xl font-bold text-foreground">
-            Product Management
-          </h1>
-          <p className="text-sm text-muted-foreground">
-            Manage your inventory and product catalog
-          </p>
-        </div>
-        <div className="flex gap-2 w-full sm:w-auto">
+        <div className="flex items-center gap-4">
           <Button
-            variant="outline"
-            onClick={() => navigate("/categories")}
-            className="flex-1 sm:flex-none"
+            variant="ghost"
+            size="icon"
+            onClick={() => navigate("/products")}
           >
-            <Folder className="mr-2 h-4 w-4" />
-            Manage Categories
+            <ArrowLeft className="h-4 w-4" />
           </Button>
-          <Button
-            variant="outline"
-            onClick={() => navigate("/brands")}
-            className="flex-1 sm:flex-none"
-          >
-            <Tag className="mr-2 h-4 w-4" />
-            Manage Brands
-          </Button>
-          {hasPermission(PERMISSIONS.PRODUCTS_CREATE) && (
-            <Button
-              onClick={() => setIsAddDialogOpen(true)}
-              className="flex-1 sm:flex-none"
-            >
-              <Plus className="mr-2 h-4 w-4" />
-              Add Product
-            </Button>
-          )}
+          <div>
+            <h1 className="text-2xl sm:text-3xl font-bold text-foreground">
+              Categories
+            </h1>
+            <p className="text-sm text-muted-foreground">
+              Manage product categories and hierarchy
+            </p>
+          </div>
         </div>
+        {hasPermission(PERMISSIONS.PRODUCTS_CREATE) && (
+          <Button
+            onClick={() => setIsAddDialogOpen(true)}
+            className="w-full sm:w-auto"
+          >
+            <Plus className="mr-2 h-4 w-4" />
+            Add Category
+          </Button>
+        )}
       </div>
 
       {/* Stats Cards */}
@@ -292,30 +244,43 @@ const Products = () => {
         <Card className="border-l-4 border-l-primary">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">
-              Total Products
+              Total Categories
             </CardTitle>
-            <Package className="h-4 w-4 text-primary" />
+            <Folder className="h-4 w-4 text-primary" />
           </CardHeader>
           <CardContent>
             <div className="text-xl sm:text-2xl font-bold text-foreground">
-              {stats.totalProducts}
+              {stats.totalCategories}
             </div>
             <p className="text-xs text-muted-foreground">
-              {stats.activeProducts} active
+              {stats.activeCategories} active
             </p>
           </CardContent>
         </Card>
 
-        <Card className="border-l-4 border-l-yellow-500">
+        <Card className="border-l-4 border-l-green-500">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">
-              Low Stock Items
+              Root Categories
             </CardTitle>
-            <AlertTriangle className="h-4 w-4 text-yellow-500" />
+            <FolderOpen className="h-4 w-4 text-green-500" />
           </CardHeader>
           <CardContent>
             <div className="text-xl sm:text-2xl font-bold text-foreground">
-              {stats.lowStockProducts}
+              {stats.rootCategories}
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="border-l-4 border-l-blue-500">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">
+              Total Products
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-xl sm:text-2xl font-bold text-foreground">
+              {stats.totalProducts}
             </div>
           </CardContent>
         </Card>
@@ -323,28 +288,19 @@ const Products = () => {
         <Card className="border-l-4 border-l-accent">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">
-              Inventory Value
+              Active Categories
             </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-xl sm:text-2xl font-bold text-foreground">
-              {formatCurrency(stats.totalValue)}
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="border-l-4 border-l-green-500">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              Categories
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-xl sm:text-2xl font-bold text-foreground">
-              {categories.filter((c) => c.isActive).length}
+              {stats.activeCategories}
             </div>
             <p className="text-xs text-muted-foreground">
-              {brands.filter((b) => b.isActive).length} brands
+              {(
+                (stats.activeCategories / Math.max(stats.totalCategories, 1)) *
+                100
+              ).toFixed(1)}
+              % of total
             </p>
           </CardContent>
         </Card>
@@ -354,47 +310,24 @@ const Products = () => {
       <Card>
         <CardHeader>
           <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
-            <CardTitle>Product Inventory</CardTitle>
+            <CardTitle>Category Management</CardTitle>
             <div className="flex gap-2 w-full sm:w-auto">
               <div className="relative flex-1 sm:w-64">
                 <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                 <Input
-                  placeholder="Search products..."
+                  placeholder="Search categories..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   className="pl-10"
                 />
               </div>
-              <Select value={filterCategory} onValueChange={setFilterCategory}>
-                <SelectTrigger className="w-40">
-                  <SelectValue placeholder="Category" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Categories</SelectItem>
-                  {categories
-                    .filter((c) => c.isActive)
-                    .map((category) => (
-                      <SelectItem key={category.id} value={category.id}>
-                        {category.name}
-                      </SelectItem>
-                    ))}
-                </SelectContent>
-              </Select>
-              <Select value={filterBrand} onValueChange={setFilterBrand}>
-                <SelectTrigger className="w-32">
-                  <SelectValue placeholder="Brand" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Brands</SelectItem>
-                  {brands
-                    .filter((b) => b.isActive)
-                    .map((brand) => (
-                      <SelectItem key={brand.id} value={brand.id}>
-                        {brand.name}
-                      </SelectItem>
-                    ))}
-                </SelectContent>
-              </Select>
+              <Button
+                variant="outline"
+                onClick={() => setIncludeInactive(!includeInactive)}
+                className={includeInactive ? "bg-accent" : ""}
+              >
+                {includeInactive ? "Show Active Only" : "Show All"}
+              </Button>
               <Button
                 variant="outline"
                 size="icon"
@@ -428,32 +361,36 @@ const Products = () => {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead className="min-w-[100px]">SKU</TableHead>
-                  <TableHead className="min-w-[200px]">Product Name</TableHead>
-                  <TableHead className="hidden sm:table-cell">
-                    Category
+                  <TableHead className="min-w-[200px]">Category Name</TableHead>
+                  <TableHead className="hidden md:table-cell min-w-[200px]">
+                    Description
                   </TableHead>
-                  <TableHead className="hidden md:table-cell">Brand</TableHead>
-                  <TableHead className="text-right min-w-[80px]">
-                    Stock
+                  <TableHead className="hidden sm:table-cell min-w-[150px]">
+                    Parent Category
                   </TableHead>
-                  <TableHead className="text-right hidden lg:table-cell min-w-[100px]">
-                    Price
+                  <TableHead className="text-center min-w-[80px]">
+                    Products
+                  </TableHead>
+                  <TableHead className="text-center min-w-[100px]">
+                    Subcategories
                   </TableHead>
                   <TableHead className="min-w-[80px]">Status</TableHead>
+                  <TableHead className="hidden lg:table-cell min-w-[120px]">
+                    Created
+                  </TableHead>
                   <TableHead className="text-right min-w-[120px]">
                     Actions
                   </TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredProducts.length === 0 ? (
+                {filteredCategories.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={8} className="text-center py-8">
                       <div className="text-muted-foreground">
                         {searchTerm
-                          ? "No products found matching your search."
-                          : "No products found."}
+                          ? "No categories found matching your search."
+                          : "No categories found."}
                       </div>
                       {hasPermission(PERMISSIONS.PRODUCTS_CREATE) &&
                         !searchTerm && (
@@ -463,57 +400,66 @@ const Products = () => {
                             className="mt-2"
                           >
                             <Plus className="mr-2 h-4 w-4" />
-                            Add Your First Product
+                            Create Your First Category
                           </Button>
                         )}
                     </TableCell>
                   </TableRow>
                 ) : (
-                  filteredProducts.map((product) => (
-                    <TableRow key={product.id}>
-                      <TableCell className="font-medium">
-                        {product.sku}
-                      </TableCell>
+                  filteredCategories.map((category) => (
+                    <TableRow key={category.id}>
                       <TableCell>
-                        <div>
-                          <div className="font-medium">{product.name}</div>
-                          <div className="text-sm text-muted-foreground sm:hidden">
-                            {product.category.name} •{" "}
-                            {product.brand?.name || "No Brand"}
-                          </div>
-                          <div className="text-sm text-muted-foreground lg:hidden">
-                            {formatCurrency(product.sellingPrice)}
+                        <div className="flex items-center space-x-2">
+                          {category.subCategories.length > 0 ? (
+                            <FolderOpen className="h-4 w-4 text-blue-500" />
+                          ) : (
+                            <Folder className="h-4 w-4 text-gray-500" />
+                          )}
+                          <div>
+                            <div className="font-medium">{category.name}</div>
+                            <div className="text-sm text-muted-foreground md:hidden">
+                              {category.description}
+                            </div>
+                            <div className="text-sm text-muted-foreground lg:hidden">
+                              Created {formatDate(category.createdAt)}
+                            </div>
                           </div>
                         </div>
                       </TableCell>
-                      <TableCell className="hidden sm:table-cell">
-                        {product.category.name}
-                      </TableCell>
                       <TableCell className="hidden md:table-cell">
-                        {product.brand?.name || "No Brand"}
+                        <div className="max-w-xs truncate">
+                          {category.description || "No description"}
+                        </div>
                       </TableCell>
-                      <TableCell className="text-right">
-                        <span
-                          className={
-                            (product.totalQuantity || 0) <=
-                              product.reorderLevel && product.reorderLevel > 0
-                              ? "text-red-600 font-medium"
-                              : ""
-                          }
-                        >
-                          {product.totalQuantity || 0}
-                        </span>
+                      <TableCell className="hidden sm:table-cell">
+                        {category.parentCategory ? (
+                          <Badge variant="outline">
+                            {category.parentCategory.name}
+                          </Badge>
+                        ) : (
+                          <Badge variant="secondary">Root</Badge>
+                        )}
                       </TableCell>
-                      <TableCell className="text-right hidden lg:table-cell">
-                        {formatCurrency(product.sellingPrice)}
+                      <TableCell className="text-center">
+                        <Badge variant="outline" className="font-mono">
+                          {category._count.products}
+                        </Badge>
                       </TableCell>
-                      <TableCell>{getStatusBadge(product)}</TableCell>
+                      <TableCell className="text-center">
+                        <Badge variant="outline" className="font-mono">
+                          {category._count.subCategories}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>{getStatusBadge(category)}</TableCell>
+                      <TableCell className="hidden lg:table-cell text-muted-foreground">
+                        {formatDate(category.createdAt)}
+                      </TableCell>
                       <TableCell className="text-right">
                         <div className="flex justify-end gap-1">
                           <Button
                             variant="ghost"
                             size="sm"
-                            onClick={() => handleView(product)}
+                            onClick={() => handleView(category)}
                             className="h-8 w-8 p-0 sm:h-auto sm:w-auto sm:px-2"
                           >
                             <Eye className="h-4 w-4 sm:mr-1" />
@@ -524,7 +470,7 @@ const Products = () => {
                             <Button
                               variant="ghost"
                               size="sm"
-                              onClick={() => handleEdit(product)}
+                              onClick={() => handleEdit(category)}
                               className="h-8 w-8 p-0 sm:h-auto sm:w-auto sm:px-2"
                             >
                               <Edit className="h-4 w-4 sm:mr-1" />
@@ -536,7 +482,7 @@ const Products = () => {
                             <Button
                               variant="ghost"
                               size="sm"
-                              onClick={() => handleDeleteClick(product)}
+                              onClick={() => handleDeleteClick(category)}
                               className="h-8 w-8 p-0 sm:h-auto sm:w-auto sm:px-2 text-destructive hover:text-destructive"
                             >
                               <Trash2 className="h-4 w-4 sm:mr-1" />
@@ -555,50 +501,48 @@ const Products = () => {
       </Card>
 
       {/* Dialogs */}
-      <AddProductDialog
+      <AddCategoryDialog
         open={isAddDialogOpen}
         onOpenChange={setIsAddDialogOpen}
-        onProductAdded={handleProductAdded}
+        onCategoryAdded={handleCategoryAdded}
         categories={categories}
-        brands={brands}
       />
 
-      {selectedProduct && (
+      {selectedCategory && (
         <>
-          <EditProductDialog
+          <EditCategoryDialog
             open={isEditDialogOpen}
             onOpenChange={setIsEditDialogOpen}
-            product={selectedProduct}
-            onProductUpdated={handleProductUpdated}
+            category={selectedCategory}
+            onCategoryUpdated={handleCategoryUpdated}
             categories={categories}
-            brands={brands}
           />
 
-          <ProductViewDialog
+          <CategoryViewDialog
             open={isViewDialogOpen}
             onOpenChange={setIsViewDialogOpen}
-            product={selectedProduct}
+            category={selectedCategory}
             onEdit={() => {
               setIsViewDialogOpen(false);
               setIsEditDialogOpen(true);
             }}
-            onToggleStatus={() => handleToggleStatus(selectedProduct)}
+            onToggleStatus={() => handleToggleStatus(selectedCategory)}
           />
         </>
       )}
 
       {/* Delete Confirmation Dialog */}
       <AlertDialog
-        open={!!productToDelete}
-        onOpenChange={() => setProductToDelete(null)}
+        open={!!categoryToDelete}
+        onOpenChange={() => setCategoryToDelete(null)}
       >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete Product</AlertDialogTitle>
+            <AlertDialogTitle>Delete Category</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to delete "{productToDelete?.name}"? This
-              action cannot be undone and will fail if the product has related
-              records.
+              Are you sure you want to delete "{categoryToDelete?.name}"? This
+              action cannot be undone and will fail if the category has products
+              or subcategories.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -607,7 +551,7 @@ const Products = () => {
               onClick={handleDeleteConfirm}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
-              Delete Product
+              Delete Category
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -616,4 +560,4 @@ const Products = () => {
   );
 };
 
-export default Products;
+export default Categories;
