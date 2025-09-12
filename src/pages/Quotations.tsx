@@ -1,4 +1,5 @@
-import React, { useState, useMemo } from "react";
+import { useState, useMemo } from "react";
+
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -51,7 +52,7 @@ import {
   Send,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
-import { PERMISSIONS } from "@/lib/permissions";
+import { PERMISSIONS } from "@/utils/constants";
 import { Quotation, QuotationStatus } from "@/api/services/quotations.service";
 import { formatCurrency, formatDate } from "@/utils/format.utils";
 import { useQuotations } from "@/hooks/useQuotations";
@@ -78,18 +79,26 @@ const Quotations = () => {
     updateFilters,
     updateQuotationInList,
     removeQuotationFromList,
-    addQuotationToList,
     setCurrentPage,
   } = useQuotations();
 
-  const { loading: actionLoading, updateStatus, convertToInvoice, deleteQuotation } = useQuotationActions();
+  const {
+    loading: actionLoading,
+    updateStatus,
+    convertToInvoice,
+    deleteQuotation,
+  } = useQuotationActions();
 
   // Dialog states
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
-  const [quotationToDelete, setQuotationToDelete] = useState<Quotation | null>(null);
-  const [selectedQuotation, setSelectedQuotation] = useState<Quotation | null>(null);
+  const [quotationToDelete, setQuotationToDelete] = useState<Quotation | null>(
+    null
+  );
+  const [selectedQuotation, setSelectedQuotation] = useState<Quotation | null>(
+    null
+  );
 
   const handleView = (quotation: Quotation) => {
     setSelectedQuotation(quotation);
@@ -117,7 +126,10 @@ const Quotations = () => {
     }
   };
 
-  const handleStatusUpdate = async (quotation: Quotation, status: QuotationStatus) => {
+  const handleStatusUpdate = async (
+    quotation: Quotation,
+    status: QuotationStatus
+  ) => {
     try {
       const updatedQuotation = await updateStatus(quotation, status);
       updateQuotationInList(updatedQuotation);
@@ -145,10 +157,12 @@ const Quotations = () => {
   };
 
   const handleStatusFilterChange = (value: string) => {
-    const newFilters = value === "all" 
-      ? {} 
-      : { ...filters, status: value as QuotationStatus };
-    updateFilters(newFilters);
+    if (value === "all") {
+      const { status, ...restFilters } = filters;
+      updateFilters(restFilters);
+    } else {
+      updateFilters({ ...filters, status: value as QuotationStatus });
+    }
   };
 
   const getStatusBadge = (status: QuotationStatus) => {
@@ -156,38 +170,38 @@ const Quotations = () => {
       [QuotationStatus.DRAFT]: {
         variant: "secondary" as const,
         icon: Clock,
-        className: "bg-gray-100 text-gray-800"
+        className: "bg-gray-100 text-gray-800",
       },
       [QuotationStatus.SENT]: {
         variant: "default" as const,
         icon: ArrowRight,
-        className: "bg-blue-500 text-white hover:bg-blue-600"
+        className: "bg-blue-500 text-white hover:bg-blue-600",
       },
       [QuotationStatus.APPROVED]: {
         variant: "default" as const,
         icon: CheckCircle,
-        className: "bg-green-500 text-white hover:bg-green-600"
+        className: "bg-green-500 text-white hover:bg-green-600",
       },
       [QuotationStatus.REJECTED]: {
         variant: "destructive" as const,
         icon: XCircle,
-        className: ""
+        className: "",
       },
       [QuotationStatus.EXPIRED]: {
         variant: "secondary" as const,
         icon: Clock,
-        className: "bg-orange-100 text-orange-800"
+        className: "bg-orange-100 text-orange-800",
       },
       [QuotationStatus.CONVERTED]: {
         variant: "default" as const,
         icon: FileText,
-        className: "bg-purple-500 text-white hover:bg-purple-600"
+        className: "bg-purple-500 text-white hover:bg-purple-600",
       },
     };
 
     const config = statusConfigs[status];
     const Icon = config.icon;
-    
+
     return (
       <Badge variant={config.variant} className={config.className}>
         <Icon className="w-3 h-3 mr-1" />
@@ -199,9 +213,16 @@ const Quotations = () => {
   // Calculate stats
   const stats = useMemo(() => {
     const totalQuotations = totalItems;
-    const draftCount = quotations.filter(q => q.status === QuotationStatus.DRAFT).length;
-    const approvedCount = quotations.filter(q => q.status === QuotationStatus.APPROVED).length;
-    const totalValue = quotations.reduce((sum, q) => sum + Number(q.totalAmount || 0), 0);
+    const draftCount = quotations.filter(
+      (q) => q.status === QuotationStatus.DRAFT
+    ).length;
+    const approvedCount = quotations.filter(
+      (q) => q.status === QuotationStatus.APPROVED
+    ).length;
+    const totalValue = quotations.reduce(
+      (sum, q) => sum + Number(q.totalAmount || 0),
+      0
+    );
 
     return {
       totalQuotations,
@@ -223,16 +244,18 @@ const Quotations = () => {
   }
 
   return (
-    <div className="space-y-4 sm:space-y-6">
+    <div className="space-y-4 sm:space-y-6 p-4 sm:p-6">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-4">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-2xl sm:text-3xl font-bold text-foreground">Quotations</h1>
-          <p className="text-sm text-muted-foreground">
+          <h1 className="text-2xl sm:text-3xl font-bold text-foreground">
+            Quotations
+          </h1>
+          <p className="text-sm text-muted-foreground mt-1">
             Manage sales quotations and proposals
           </p>
         </div>
-        {hasPermission(PERMISSIONS.SALES.CREATE) && (
+        {hasPermission(PERMISSIONS.SALES_CREATE) && (
           <Button
             onClick={() => setIsAddDialogOpen(true)}
             className="w-full sm:w-auto"
@@ -244,7 +267,7 @@ const Quotations = () => {
       </div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <Card className="border-l-4 border-l-primary">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">
@@ -253,7 +276,7 @@ const Quotations = () => {
             <FileText className="h-4 w-4 text-primary" />
           </CardHeader>
           <CardContent>
-            <div className="text-xl sm:text-2xl font-bold text-foreground">
+            <div className="text-2xl font-bold text-foreground">
               {stats.totalQuotations}
             </div>
           </CardContent>
@@ -267,7 +290,7 @@ const Quotations = () => {
             <Clock className="h-4 w-4 text-yellow-500" />
           </CardHeader>
           <CardContent>
-            <div className="text-xl sm:text-2xl font-bold text-foreground">
+            <div className="text-2xl font-bold text-foreground">
               {stats.draftCount}
             </div>
           </CardContent>
@@ -281,7 +304,7 @@ const Quotations = () => {
             <CheckCircle className="h-4 w-4 text-green-500" />
           </CardHeader>
           <CardContent>
-            <div className="text-xl sm:text-2xl font-bold text-foreground">
+            <div className="text-2xl font-bold text-foreground">
               {stats.approvedCount}
             </div>
           </CardContent>
@@ -294,7 +317,7 @@ const Quotations = () => {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-xl sm:text-2xl font-bold text-foreground">
+            <div className="text-2xl font-bold text-foreground">
               {formatCurrency(stats.totalValue)}
             </div>
           </CardContent>
@@ -306,7 +329,7 @@ const Quotations = () => {
         <CardHeader>
           <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
             <CardTitle>Quotation Management</CardTitle>
-            <div className="flex gap-2 w-full sm:w-auto">
+            <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
               <div className="relative flex-1 sm:w-64">
                 <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                 <Input
@@ -316,11 +339,11 @@ const Quotations = () => {
                   className="pl-10"
                 />
               </div>
-              <Select 
-                value={filters.status || "all"} 
+              <Select
+                value={filters.status || "all"}
                 onValueChange={handleStatusFilterChange}
               >
-                <SelectTrigger className="w-40">
+                <SelectTrigger className="w-full sm:w-40">
                   <SelectValue placeholder="Status" />
                 </SelectTrigger>
                 <SelectContent>
@@ -339,14 +362,16 @@ const Quotations = () => {
                 disabled={refreshing}
                 title="Refresh"
               >
-                <RefreshCw className={`h-4 w-4 ${refreshing ? "animate-spin" : ""}`} />
+                <RefreshCw
+                  className={`h-4 w-4 ${refreshing ? "animate-spin" : ""}`}
+                />
               </Button>
             </div>
           </div>
         </CardHeader>
-        <CardContent>
+        <CardContent className="p-0 sm:p-6">
           {error && (
-            <div className="mb-4 p-4 border border-destructive/20 rounded-lg bg-destructive/5">
+            <div className="mb-4 mx-4 sm:mx-0 p-4 border border-destructive/20 rounded-lg bg-destructive/5">
               <p className="text-sm text-destructive">{error}</p>
               <Button
                 variant="outline"
@@ -359,158 +384,193 @@ const Quotations = () => {
             </div>
           )}
 
-          <div className="rounded-md border overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="min-w-[120px]">Quotation #</TableHead>
-                  <TableHead className="min-w-[200px]">Customer</TableHead>
-                  <TableHead className="hidden sm:table-cell">Date</TableHead>
-                  <TableHead className="hidden md:table-cell">Valid Until</TableHead>
-                  <TableHead className="text-right min-w-[100px]">Amount</TableHead>
-                  <TableHead className="min-w-[100px]">Status</TableHead>
-                  <TableHead className="text-right min-w-[60px]">Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {quotations.length === 0 ? (
+          <div className="rounded-md border overflow-hidden">
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
                   <TableRow>
-                    <TableCell colSpan={7} className="text-center py-8">
-                      <div className="text-muted-foreground">
-                        {searchTerm
-                          ? "No quotations found matching your search."
-                          : "No quotations found."}
-                      </div>
-                      {hasPermission(PERMISSIONS.SALES.CREATE) && !searchTerm && (
-                        <Button
-                          variant="outline"
-                          onClick={() => setIsAddDialogOpen(true)}
-                          className="mt-2"
-                        >
-                          <Plus className="mr-2 h-4 w-4" />
-                          Create Your First Quotation
-                        </Button>
-                      )}
-                    </TableCell>
+                    <TableHead className="min-w-[120px]">Quotation #</TableHead>
+                    <TableHead className="min-w-[200px]">Customer</TableHead>
+                    <TableHead className="hidden sm:table-cell">Date</TableHead>
+                    <TableHead className="hidden md:table-cell">
+                      Valid Until
+                    </TableHead>
+                    <TableHead className="text-right min-w-[100px]">
+                      Amount
+                    </TableHead>
+                    <TableHead className="min-w-[100px]">Status</TableHead>
+                    <TableHead className="text-right min-w-[60px]">
+                      Actions
+                    </TableHead>
                   </TableRow>
-                ) : (
-                  quotations.map((quotation) => (
-                    <TableRow key={quotation.id}>
-                      <TableCell className="font-medium">
-                        {quotation.quotationNumber}
-                      </TableCell>
-                      <TableCell>
-                        <div>
-                          <div className="font-medium">
-                            {quotation.customer?.businessName || quotation.customer?.contactPerson || 'N/A'}
-                          </div>
-                          <div className="text-sm text-muted-foreground">
-                            {quotation.customer?.contactPerson && quotation.customer?.businessName 
-                              ? quotation.customer.contactPerson 
-                              : quotation.customer?.email || 'N/A'}
-                          </div>
+                </TableHeader>
+                <TableBody>
+                  {quotations.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={7} className="text-center py-8">
+                        <div className="text-muted-foreground">
+                          {searchTerm
+                            ? "No quotations found matching your search."
+                            : "No quotations found."}
                         </div>
-                      </TableCell>
-                      <TableCell className="hidden sm:table-cell">
-                        {formatDate(quotation.quotationDate)}
-                      </TableCell>
-                      <TableCell className="hidden md:table-cell">
-                        {formatDate(quotation.validUntil)}
-                      </TableCell>
-                      <TableCell className="text-right">
-                        {formatCurrency(Number(quotation.totalAmount || 0))}
-                      </TableCell>
-                      <TableCell>
-                        {getStatusBadge(quotation.status)}
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" className="h-8 w-8 p-0">
-                              <span className="sr-only">Open menu</span>
-                              <MoreHorizontal className="h-4 w-4" />
+                        {hasPermission(PERMISSIONS.SALES_CREATE) &&
+                          !searchTerm && (
+                            <Button
+                              variant="outline"
+                              onClick={() => setIsAddDialogOpen(true)}
+                              className="mt-2"
+                            >
+                              <Plus className="mr-2 h-4 w-4" />
+                              Create Your First Quotation
                             </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                            <DropdownMenuItem onClick={() => handleView(quotation)}>
-                              <Eye className="mr-2 h-4 w-4" />
-                              View
-                            </DropdownMenuItem>
-
-                            {hasPermission(PERMISSIONS.SALES.UPDATE) && 
-                             quotation.status === QuotationStatus.DRAFT && (
-                              <DropdownMenuItem onClick={() => handleEdit(quotation)}>
-                                <Edit className="mr-2 h-4 w-4" />
-                                Edit
-                              </DropdownMenuItem>
-                            )}
-
-                            {hasPermission(PERMISSIONS.SALES.UPDATE) && 
-                             quotation.status === QuotationStatus.DRAFT && (
-                              <DropdownMenuItem 
-                                onClick={() => handleStatusUpdate(quotation, QuotationStatus.SENT)}
-                              >
-                                <Send className="mr-2 h-4 w-4" />
-                                Send to Customer
-                              </DropdownMenuItem>
-                            )}
-
-                            {hasPermission(PERMISSIONS.SALES.UPDATE) && 
-                             quotation.status === QuotationStatus.SENT && (
-                              <>
-                                <DropdownMenuItem 
-                                  onClick={() => handleStatusUpdate(quotation, QuotationStatus.APPROVED)}
-                                  className="text-green-600"
-                                >
-                                  <CheckCircle className="mr-2 h-4 w-4" />
-                                  Approve
-                                </DropdownMenuItem>
-                                <DropdownMenuItem 
-                                  onClick={() => handleStatusUpdate(quotation, QuotationStatus.REJECTED)}
-                                  className="text-red-600"
-                                >
-                                  <XCircle className="mr-2 h-4 w-4" />
-                                  Reject
-                                </DropdownMenuItem>
-                              </>
-                            )}
-
-                            {hasPermission(PERMISSIONS.SALES.CONVERT) && 
-                             quotation.status === QuotationStatus.APPROVED && (
-                              <DropdownMenuItem 
-                                onClick={() => handleConvertToInvoice(quotation)}
-                                className="text-blue-600"
-                              >
-                                <ArrowRight className="mr-2 h-4 w-4" />
-                                Convert to Invoice
-                              </DropdownMenuItem>
-                            )}
-
-                            {hasPermission(PERMISSIONS.SALES.DELETE) && 
-                             quotation.status === QuotationStatus.DRAFT && (
-                              <DropdownMenuItem 
-                                onClick={() => handleDeleteClick(quotation)}
-                                className="text-red-600"
-                              >
-                                <Trash2 className="mr-2 h-4 w-4" />
-                                Delete
-                              </DropdownMenuItem>
-                            )}
-                          </DropdownMenuContent>
-                        </DropdownMenu>
+                          )}
                       </TableCell>
                     </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
+                  ) : (
+                    quotations.map((quotation) => (
+                      <TableRow key={quotation.id}>
+                        <TableCell className="font-medium">
+                          {quotation.quotationNumber}
+                        </TableCell>
+                        <TableCell>
+                          <div>
+                            <div className="font-medium">
+                              {quotation.customer?.businessName ||
+                                quotation.customer?.contactPerson ||
+                                "N/A"}
+                            </div>
+                            <div className="text-sm text-muted-foreground">
+                              {quotation.customer?.contactPerson &&
+                              quotation.customer?.businessName
+                                ? quotation.customer.contactPerson
+                                : quotation.customer?.email || "N/A"}
+                            </div>
+                          </div>
+                        </TableCell>
+                        <TableCell className="hidden sm:table-cell">
+                          {formatDate(quotation.quotationDate)}
+                        </TableCell>
+                        <TableCell className="hidden md:table-cell">
+                          {formatDate(quotation.validUntil)}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          {formatCurrency(Number(quotation.totalAmount || 0))}
+                        </TableCell>
+                        <TableCell>
+                          {getStatusBadge(quotation.status)}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="ghost" className="h-8 w-8 p-0">
+                                <span className="sr-only">Open menu</span>
+                                <MoreHorizontal className="h-4 w-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              <DropdownMenuItem
+                                onClick={() => handleView(quotation)}
+                              >
+                                <Eye className="mr-2 h-4 w-4" />
+                                View
+                              </DropdownMenuItem>
+
+                              {hasPermission(PERMISSIONS.SALES_UPDATE) &&
+                                quotation.status === QuotationStatus.DRAFT && (
+                                  <DropdownMenuItem
+                                    onClick={() => handleEdit(quotation)}
+                                  >
+                                    <Edit className="mr-2 h-4 w-4" />
+                                    Edit
+                                  </DropdownMenuItem>
+                                )}
+
+                              {hasPermission(PERMISSIONS.SALES_UPDATE) &&
+                                quotation.status === QuotationStatus.DRAFT && (
+                                  <DropdownMenuItem
+                                    onClick={() =>
+                                      handleStatusUpdate(
+                                        quotation,
+                                        QuotationStatus.SENT
+                                      )
+                                    }
+                                  >
+                                    <Send className="mr-2 h-4 w-4" />
+                                    Send to Customer
+                                  </DropdownMenuItem>
+                                )}
+
+                              {hasPermission(PERMISSIONS.SALES_UPDATE) &&
+                                quotation.status === QuotationStatus.SENT && (
+                                  <>
+                                    <DropdownMenuItem
+                                      onClick={() =>
+                                        handleStatusUpdate(
+                                          quotation,
+                                          QuotationStatus.APPROVED
+                                        )
+                                      }
+                                      className="text-green-600"
+                                    >
+                                      <CheckCircle className="mr-2 h-4 w-4" />
+                                      Approve
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem
+                                      onClick={() =>
+                                        handleStatusUpdate(
+                                          quotation,
+                                          QuotationStatus.REJECTED
+                                        )
+                                      }
+                                      className="text-red-600"
+                                    >
+                                      <XCircle className="mr-2 h-4 w-4" />
+                                      Reject
+                                    </DropdownMenuItem>
+                                  </>
+                                )}
+
+                              {hasPermission(PERMISSIONS.SALES_UPDATE) &&
+                                quotation.status ===
+                                  QuotationStatus.APPROVED && (
+                                  <DropdownMenuItem
+                                    onClick={() =>
+                                      handleConvertToInvoice(quotation)
+                                    }
+                                    className="text-blue-600"
+                                  >
+                                    <ArrowRight className="mr-2 h-4 w-4" />
+                                    Convert to Invoice
+                                  </DropdownMenuItem>
+                                )}
+
+                              {hasPermission(PERMISSIONS.SALES_DELETE) &&
+                                quotation.status === QuotationStatus.DRAFT && (
+                                  <DropdownMenuItem
+                                    onClick={() => handleDeleteClick(quotation)}
+                                    className="text-red-600"
+                                  >
+                                    <Trash2 className="mr-2 h-4 w-4" />
+                                    Delete
+                                  </DropdownMenuItem>
+                                )}
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  )}
+                </TableBody>
+              </Table>
+            </div>
           </div>
 
           {/* Pagination */}
           {totalPages > 1 && (
-            <div className="flex items-center justify-between pt-4">
+            <div className="flex flex-col sm:flex-row items-center justify-between pt-4 px-4 sm:px-0 gap-4">
               <p className="text-sm text-muted-foreground">
-                Showing {((currentPage - 1) * 10) + 1} to {Math.min(currentPage * 10, totalItems)} of {totalItems} entries
+                Showing {(currentPage - 1) * 10 + 1} to{" "}
+                {Math.min(currentPage * 10, totalItems)} of {totalItems} entries
               </p>
               <div className="flex gap-2">
                 <Button
@@ -574,8 +634,9 @@ const Quotations = () => {
           <AlertDialogHeader>
             <AlertDialogTitle>Delete Quotation</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to delete quotation "{quotationToDelete?.quotationNumber}"?
-              This action cannot be undone.
+              Are you sure you want to delete quotation "
+              {quotationToDelete?.quotationNumber}"? This action cannot be
+              undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -591,7 +652,7 @@ const Quotations = () => {
                   Deleting...
                 </>
               ) : (
-                'Delete Quotation'
+                "Delete Quotation"
               )}
             </AlertDialogAction>
           </AlertDialogFooter>

@@ -1,21 +1,21 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from "react";
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
-} from '@/components/ui/dialog';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
+} from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '@/components/ui/select';
+} from "@/components/ui/select";
 import {
   Table,
   TableBody,
@@ -23,14 +23,19 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from '@/components/ui/table';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { FileText, Loader2, Search, Trash2 } from 'lucide-react';
-import { quotationsService, Quotation, CreateQuotationRequest, ProductSearchResult } from '@/api/services/quotations.service';
-import { customersService, Customer } from '@/api/services/customers.service';
-import { validateRequired } from '@/utils/validation.utils';
-import { formatCurrency } from '@/utils/format.utils';
-import { toast } from 'sonner';
+} from "@/components/ui/table";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { FileText, Loader2, Search, Trash2 } from "lucide-react";
+import {
+  quotationsService,
+  Quotation,
+  CreateQuotationRequest,
+  ProductSearchResult,
+} from "@/api/services/quotations.service";
+import { customersService, Customer } from "@/api/services/customers.service";
+import { validateRequired } from "@/utils/validation.utils";
+import { formatCurrency } from "@/utils/format.utils";
+import { toast } from "sonner";
 
 interface QuotationItem {
   productId: string;
@@ -55,39 +60,35 @@ const AddQuotationDialog: React.FC<AddQuotationDialogProps> = ({
   const [loading, setLoading] = useState(false);
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [searchResults, setSearchResults] = useState<ProductSearchResult[]>([]);
-  const [productSearch, setProductSearch] = useState('');
+  const [productSearch, setProductSearch] = useState("");
   const [searchLoading, setSearchLoading] = useState(false);
-  
+
   const [formData, setFormData] = useState<CreateQuotationRequest>({
-    customerId: '',
-    validUntil: '',
-    notes: '',
+    customerId: "",
+    validUntil: "",
+    notes: "",
     discountAmount: 0,
     items: [],
   });
-  
+
   const [quotationItems, setQuotationItems] = useState<QuotationItem[]>([]);
   const [errors, setErrors] = useState<Record<string, string>>({});
 
   useEffect(() => {
     if (open) {
       fetchCustomers();
-      // Reset form but leave validUntil empty - let user choose
-      setFormData(prev => ({
-        ...prev,
-        validUntil: '',
-      }));
+      resetForm();
     }
   }, [open]);
 
   const fetchCustomers = async () => {
     try {
       const response = await customersService.getCustomers();
-      // Handle both direct array and paginated response formats
       const customersData = Array.isArray(response) ? response : response.data;
       setCustomers(customersData.filter((c: Customer) => c.isActive));
     } catch (error) {
-      console.error('Failed to fetch customers:', error);
+      console.error("Failed to fetch customers:", error);
+      toast.error("Failed to fetch customers");
     }
   };
 
@@ -102,39 +103,45 @@ const AddQuotationDialog: React.FC<AddQuotationDialogProps> = ({
       const results = await quotationsService.searchProducts(search);
       setSearchResults(results);
     } catch (error) {
-      console.error('Failed to search products:', error);
+      console.error("Failed to search products:", error);
+      toast.error("Failed to search products");
     } finally {
       setSearchLoading(false);
     }
   };
 
   const addProductToQuotation = (product: ProductSearchResult) => {
-    const existingItemIndex = quotationItems.findIndex(item => item.productId === product.id);
-    
+    const existingItemIndex = quotationItems.findIndex(
+      (item) => item.productId === product.id
+    );
+
     if (existingItemIndex >= 0) {
       const updatedItems = [...quotationItems];
       updatedItems[existingItemIndex].quantity += 1;
-      updatedItems[existingItemIndex].total = updatedItems[existingItemIndex].quantity * updatedItems[existingItemIndex].unitPrice;
+      updatedItems[existingItemIndex].total =
+        updatedItems[existingItemIndex].quantity *
+        updatedItems[existingItemIndex].unitPrice;
       setQuotationItems(updatedItems);
     } else {
+      const unitPrice = Number(product.sellingPrice);
       const newItem: QuotationItem = {
         productId: product.id,
         productName: product.name,
         productSku: product.sku,
-        unitPrice: Number(product.sellingPrice), // Fix: Convert string to number
+        unitPrice: unitPrice,
         quantity: 1,
-        total: Number(product.sellingPrice), // Fix: Convert string to number
+        total: unitPrice,
       };
-      setQuotationItems(prev => [...prev, newItem]);
+      setQuotationItems((prev) => [...prev, newItem]);
     }
-    
-    setProductSearch('');
+
+    setProductSearch("");
     setSearchResults([]);
   };
 
   const updateItemQuantity = (index: number, quantity: number) => {
     if (quantity <= 0) return;
-    
+
     const updatedItems = [...quotationItems];
     updatedItems[index].quantity = quantity;
     updatedItems[index].total = quantity * updatedItems[index].unitPrice;
@@ -142,17 +149,17 @@ const AddQuotationDialog: React.FC<AddQuotationDialogProps> = ({
   };
 
   const removeItem = (index: number) => {
-    setQuotationItems(prev => prev.filter((_, i) => i !== index));
+    setQuotationItems((prev) => prev.filter((_, i) => i !== index));
   };
 
   const validateForm = (): boolean => {
     const newErrors: Record<string, string> = {};
 
-    const customerError = validateRequired(formData.customerId, 'Customer');
+    const customerError = validateRequired(formData.customerId, "Customer");
     if (customerError) newErrors.customerId = customerError;
 
     if (quotationItems.length === 0) {
-      newErrors.items = 'At least one item is required';
+      newErrors.items = "At least one item is required";
     }
 
     setErrors(newErrors);
@@ -173,7 +180,7 @@ const AddQuotationDialog: React.FC<AddQuotationDialogProps> = ({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!validateForm()) {
       return;
     }
@@ -181,8 +188,11 @@ const AddQuotationDialog: React.FC<AddQuotationDialogProps> = ({
     setLoading(true);
     try {
       const requestData: CreateQuotationRequest = {
-        ...formData,
-        items: quotationItems.map(item => ({
+        customerId: formData.customerId,
+        validUntil: formData.validUntil || undefined,
+        notes: formData.notes || undefined,
+        discountAmount: formData.discountAmount || 0,
+        items: quotationItems.map((item) => ({
           productId: item.productId,
           quantity: item.quantity,
         })),
@@ -191,9 +201,10 @@ const AddQuotationDialog: React.FC<AddQuotationDialogProps> = ({
       const newQuotation = await quotationsService.create(requestData);
       onQuotationAdded(newQuotation);
       onOpenChange(false);
-      resetForm();
+      toast.success("Quotation created successfully");
     } catch (err: any) {
-      const errorMessage = err.response?.data?.message || 'Failed to create quotation';
+      const errorMessage =
+        err.response?.data?.message || "Failed to create quotation";
       toast.error(errorMessage);
     } finally {
       setLoading(false);
@@ -202,14 +213,14 @@ const AddQuotationDialog: React.FC<AddQuotationDialogProps> = ({
 
   const resetForm = () => {
     setFormData({
-      customerId: '',
-      validUntil: '',
-      notes: '',
+      customerId: "",
+      validUntil: "",
+      notes: "",
       discountAmount: 0,
       items: [],
     });
     setQuotationItems([]);
-    setProductSearch('');
+    setProductSearch("");
     setSearchResults([]);
     setErrors({});
   };
@@ -225,17 +236,23 @@ const AddQuotationDialog: React.FC<AddQuotationDialogProps> = ({
             Create New Quotation
           </DialogTitle>
         </DialogHeader>
-        
-        <form onSubmit={handleSubmit} className="space-y-6">
+
+        <form onSubmit={handleSubmit} className="space-y-4 md:space-y-6">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {/* Customer Selection */}
             <div>
-              <Label htmlFor="customerId">Customer <span className="text-destructive">*</span></Label>
+              <Label htmlFor="customerId">
+                Customer <span className="text-destructive">*</span>
+              </Label>
               <Select
                 value={formData.customerId}
-                onValueChange={(value) => setFormData(prev => ({ ...prev, customerId: value }))}
+                onValueChange={(value) =>
+                  setFormData((prev) => ({ ...prev, customerId: value }))
+                }
               >
-                <SelectTrigger className={errors.customerId ? 'border-destructive' : ''}>
+                <SelectTrigger
+                  className={errors.customerId ? "border-destructive" : ""}
+                >
                   <SelectValue placeholder="Select customer" />
                 </SelectTrigger>
                 <SelectContent>
@@ -246,7 +263,11 @@ const AddQuotationDialog: React.FC<AddQuotationDialogProps> = ({
                   ))}
                 </SelectContent>
               </Select>
-              {errors.customerId && <p className="text-sm text-destructive mt-1">{errors.customerId}</p>}
+              {errors.customerId && (
+                <p className="text-sm text-destructive mt-1">
+                  {errors.customerId}
+                </p>
+              )}
             </div>
 
             {/* Valid Until Date */}
@@ -256,7 +277,12 @@ const AddQuotationDialog: React.FC<AddQuotationDialogProps> = ({
                 id="validUntil"
                 type="date"
                 value={formData.validUntil}
-                onChange={(e) => setFormData(prev => ({ ...prev, validUntil: e.target.value }))}
+                onChange={(e) =>
+                  setFormData((prev) => ({
+                    ...prev,
+                    validUntil: e.target.value,
+                  }))
+                }
               />
             </div>
           </div>
@@ -289,17 +315,27 @@ const AddQuotationDialog: React.FC<AddQuotationDialogProps> = ({
                     {searchResults.map((product) => (
                       <div
                         key={product.id}
-                        className="p-3 hover:bg-muted cursor-pointer border-b last:border-b-0"
+                        className="p-3 hover:bg-muted cursor-pointer border-b last:border-b-0 transition-colors"
                         onClick={() => addProductToQuotation(product)}
                       >
                         <div className="flex justify-between items-center">
-                          <div>
+                          <div className="flex-1">
                             <p className="font-medium">{product.name}</p>
-                            <p className="text-sm text-muted-foreground">SKU: {product.sku}</p>
+                            <p className="text-sm text-muted-foreground">
+                              SKU: {product.sku}
+                            </p>
                           </div>
                           <div className="text-right">
-                            <p className="font-medium">{formatCurrency(Number(product.sellingPrice))}</p>
-                            <p className="text-xs text-muted-foreground">Stock: {product.inventory?.reduce((sum: number, inv: any) => sum + inv.quantityAvailable, 0) || 0}</p>
+                            <p className="font-medium">
+                              {formatCurrency(Number(product.sellingPrice))}
+                            </p>
+                            <p className="text-xs text-muted-foreground">
+                              Stock:{" "}
+                              {product.inventory?.reduce(
+                                (sum, inv) => sum + inv.quantityAvailable,
+                                0
+                              ) || 0}
+                            </p>
                           </div>
                         </div>
                       </div>
@@ -317,7 +353,7 @@ const AddQuotationDialog: React.FC<AddQuotationDialogProps> = ({
             </CardHeader>
             <CardContent>
               {quotationItems.length === 0 ? (
-                <p className="text-muted-foreground text-center py-4">
+                <p className="text-muted-foreground text-center py-8">
                   No items added. Search and add products above.
                 </p>
               ) : (
@@ -325,27 +361,51 @@ const AddQuotationDialog: React.FC<AddQuotationDialogProps> = ({
                   <Table>
                     <TableHeader>
                       <TableRow>
-                        <TableHead>Product</TableHead>
-                        <TableHead>SKU</TableHead>
-                        <TableHead className="text-right">Unit Price</TableHead>
-                        <TableHead className="text-center">Quantity</TableHead>
-                        <TableHead className="text-right">Total</TableHead>
+                        <TableHead className="min-w-[200px]">Product</TableHead>
+                        <TableHead className="hidden md:table-cell">
+                          SKU
+                        </TableHead>
+                        <TableHead className="text-right min-w-[100px]">
+                          Unit Price
+                        </TableHead>
+                        <TableHead className="text-center min-w-[80px]">
+                          Quantity
+                        </TableHead>
+                        <TableHead className="text-right min-w-[100px]">
+                          Total
+                        </TableHead>
                         <TableHead className="w-[50px]"></TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
                       {quotationItems.map((item, index) => (
                         <TableRow key={item.productId}>
-                          <TableCell>{item.productName}</TableCell>
-                          <TableCell className="font-mono">{item.productSku}</TableCell>
-                          <TableCell className="text-right">{formatCurrency(item.unitPrice)}</TableCell>
+                          <TableCell>
+                            <div>
+                              <p className="font-medium">{item.productName}</p>
+                              <p className="text-sm text-muted-foreground md:hidden">
+                                SKU: {item.productSku}
+                              </p>
+                            </div>
+                          </TableCell>
+                          <TableCell className="hidden md:table-cell font-mono text-sm">
+                            {item.productSku}
+                          </TableCell>
+                          <TableCell className="text-right">
+                            {formatCurrency(item.unitPrice)}
+                          </TableCell>
                           <TableCell className="text-center">
                             <Input
                               type="number"
                               min="1"
                               value={item.quantity}
-                              onChange={(e) => updateItemQuantity(index, parseInt(e.target.value) || 1)}
-                              className="w-20 text-center"
+                              onChange={(e) =>
+                                updateItemQuantity(
+                                  index,
+                                  parseInt(e.target.value) || 1
+                                )
+                              }
+                              className="w-16 text-center"
                             />
                           </TableCell>
                           <TableCell className="text-right font-medium">
@@ -368,7 +428,9 @@ const AddQuotationDialog: React.FC<AddQuotationDialogProps> = ({
                   </Table>
                 </div>
               )}
-              {errors.items && <p className="text-sm text-destructive mt-2">{errors.items}</p>}
+              {errors.items && (
+                <p className="text-sm text-destructive mt-2">{errors.items}</p>
+              )}
             </CardContent>
           </Card>
 
@@ -379,7 +441,7 @@ const AddQuotationDialog: React.FC<AddQuotationDialogProps> = ({
                 <CardTitle>Pricing Summary</CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                   <div>
                     <Label htmlFor="discountAmount">Discount Amount</Label>
                     <Input
@@ -388,13 +450,15 @@ const AddQuotationDialog: React.FC<AddQuotationDialogProps> = ({
                       min="0"
                       step="0.01"
                       value={formData.discountAmount}
-                      onChange={(e) => setFormData(prev => ({ 
-                        ...prev, 
-                        discountAmount: parseFloat(e.target.value) || 0 
-                      }))}
+                      onChange={(e) =>
+                        setFormData((prev) => ({
+                          ...prev,
+                          discountAmount: parseFloat(e.target.value) || 0,
+                        }))
+                      }
                     />
                   </div>
-                  
+
                   <div className="space-y-2">
                     <div className="flex justify-between">
                       <span>Subtotal:</span>
@@ -420,19 +484,26 @@ const AddQuotationDialog: React.FC<AddQuotationDialogProps> = ({
             <Textarea
               id="notes"
               value={formData.notes}
-              onChange={(e) => setFormData(prev => ({ ...prev, notes: e.target.value }))}
+              onChange={(e) =>
+                setFormData((prev) => ({ ...prev, notes: e.target.value }))
+              }
               placeholder="Additional notes (optional)"
               rows={3}
             />
           </div>
 
           {/* Form Actions */}
-          <div className="flex gap-2 pt-4">
+          <div className="flex flex-col sm:flex-row gap-2 pt-4">
             <Button type="submit" disabled={loading} className="flex-1">
               {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              {loading ? 'Creating Quotation...' : 'Create Quotation'}
+              {loading ? "Creating Quotation..." : "Create Quotation"}
             </Button>
-            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => onOpenChange(false)}
+              className="flex-1 sm:flex-initial"
+            >
               Cancel
             </Button>
           </div>

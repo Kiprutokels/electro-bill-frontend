@@ -37,19 +37,8 @@ export interface QuotationProduct {
   id: string;
   name: string;
   sku: string;
-  description?: string;
-  categoryId: string;
-  brandId: string;
-  unitOfMeasure: string;
   sellingPrice: string;
-  wholesalePrice: string;
-  weight?: string;
-  dimensions?: string;
-  warrantyPeriodMonths: number;
-  reorderLevel: number;
-  isActive: boolean;
-  createdAt: string;
-  updatedAt: string;
+  unitOfMeasure: string;
   category?: {
     name: string;
   };
@@ -67,7 +56,7 @@ export interface QuotationItem {
   unitPrice: string;
   discountPercentage: string;
   createdAt: string;
-  product: QuotationProduct;
+  product?: QuotationProduct;
 }
 
 export interface QuotationInvoice {
@@ -78,7 +67,6 @@ export interface QuotationInvoice {
 }
 
 export interface Quotation {
-  quotationItems: string;
   id: string;
   quotationNumber: string;
   customerId: string;
