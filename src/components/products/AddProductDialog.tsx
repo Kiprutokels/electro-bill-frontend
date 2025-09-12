@@ -229,14 +229,14 @@ const AddProductDialog: React.FC<AddProductDialogProps> = ({
               <Select
                 value={formData.brandId}
                 onValueChange={(value) =>
-                  setFormData((prev) => ({ ...prev, brandId: value }))
+                  setFormData((prev) => ({ ...prev, brandId: value === "no-brand" ? "" : value }))
                 }
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Select brand (optional)" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">No Brand</SelectItem>
+                  <SelectItem value="no-brand">No Brand</SelectItem>
                   {brands
                     .filter((b) => b.isActive)
                     .map((brand) => (

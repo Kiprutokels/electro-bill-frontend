@@ -64,24 +64,26 @@ export function AppSidebar() {
 
   return (
     <Sidebar 
-      className={collapsed ? "w-12" : "w-64"} 
+      className={`${collapsed ? "w-12" : "w-64"}`} 
       collapsible="icon" 
-      variant="inset"
+      variant="sidebar"
       side={isMobile ? "left" : "left"}
     >
       <SidebarHeader className="border-b border-sidebar-border">
-        <div className={`flex items-center ${collapsed ? 'justify-center p-2' : 'space-x-3 p-3 sm:p-4'}`}>
+        <div className={`flex items-center ${collapsed ? 'justify-center p-3' : 'space-x-3 p-4'}`}>
           <div className={`${collapsed ? 'p-1' : 'p-2'} bg-sidebar-primary rounded-lg flex-shrink-0`}>
             <Building2 className={`${collapsed ? 'h-4 w-4' : 'h-5 w-5 sm:h-6 sm:w-6'} text-sidebar-primary-foreground`} />
           </div>
           {!collapsed && (
             <div className="min-w-0">
-              <h1 className="text-base sm:text-lg font-bold text-sidebar-foreground truncate">ElectroBill</h1>
-              <p className="text-xs sm:text-sm text-sidebar-foreground/70 truncate">Admin Panel</p>
+              <h1 className="text-responsive-lg font-bold text-sidebar-foreground truncate">ElectroBill</h1>
+              <p className="text-responsive-sm text-sidebar-foreground/70 truncate">Admin Panel</p>
             </div>
           )}
         </div>
-        <SidebarTrigger className={`ml-auto mr-2 mb-2 ${collapsed ? 'mx-auto' : 'mr-3 sm:mr-4'}`} />
+        <div className={`flex pb-2 ${collapsed ? 'justify-center px-2' : 'justify-end px-4'}`}>
+          <SidebarTrigger className="text-sidebar-foreground hover:text-sidebar-accent-foreground hover:bg-sidebar-accent" />
+        </div>
       </SidebarHeader>
 
       <SidebarContent>
@@ -98,8 +100,8 @@ export function AppSidebar() {
                       to={item.href} 
                       className={getNavCls({ isActive: isActive(item.href) })}
                     >
-                      <item.icon className="h-5 w-5 flex-shrink-0" />
-                      {!collapsed && <span className="truncate">{item.name}</span>}
+                      <item.icon className="h-4 w-4 sm:h-5 sm:w-5 flex-shrink-0" />
+                      {!collapsed && <span className="truncate text-responsive-sm">{item.name}</span>}
                     </NavLink>
                   </SidebarMenuButton>
                 </SidebarMenuItem>

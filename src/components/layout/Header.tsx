@@ -52,54 +52,55 @@ export const Header = () => {
   };
 
   return (
-    <header className="sticky top-0 z-40 h-14 sm:h-16 border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 px-3 sm:px-4 lg:px-6 flex items-center justify-between">
-      <div className="flex items-center space-x-2 sm:space-x-4 flex-1 min-w-0">
-        <SidebarTrigger className="lg:hidden" />
+    <header className="sticky top-0 z-40 border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 flex items-center justify-between">
+      <div className="flex items-center space-responsive flex-1 min-w-0 padding-responsive">
+        <SidebarTrigger className="md:hidden" />
         {/* Page title could be added here later */}
       </div>
       
-      <div className="flex items-center space-x-2 sm:space-x-4">
+      <div className="flex items-center space-responsive padding-responsive">
         <ThemeToggle />
         
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button 
               variant="ghost" 
-              className="relative h-8 w-8 sm:h-10 sm:w-10 rounded-full hover:bg-accent"
+              className="relative rounded-full hover:bg-accent"
+              size="icon"
             >
-              <Avatar className="h-8 w-8 sm:h-10 sm:w-10">
+              <Avatar className="h-8 w-8 sm:h-9 sm:w-9 md:h-10 md:w-10">
                 <AvatarImage 
                   src={undefined} // You can add profile image URL here when available
                   alt={`${user?.firstName} ${user?.lastName}`}
                 />
-                <AvatarFallback className="bg-primary text-primary-foreground text-xs sm:text-sm font-medium">
+                <AvatarFallback className="bg-primary text-primary-foreground text-responsive-sm font-medium">
                   {getInitials(user?.firstName, user?.lastName)}
                 </AvatarFallback>
               </Avatar>
             </Button>
           </DropdownMenuTrigger>
           
-          <DropdownMenuContent align="end" className="w-56">
+          <DropdownMenuContent align="end" className="w-56 sm:w-64">
             <DropdownMenuLabel className="font-normal">
               <div className="flex flex-col space-y-1">
                 <div className="flex items-center space-x-2">
-                  <p className="text-sm font-medium leading-none truncate">
+                  <p className="text-responsive-sm font-medium leading-none truncate">
                     {user?.firstName} {user?.lastName}
                   </p>
                   {user?.role && (
                     <Badge 
                       variant={getRoleBadgeVariant(user.role)} 
-                      className="text-xs"
+                      className="text-responsive-sm"
                     >
                       {formatRoleName(user.role)}
                     </Badge>
                   )}
                 </div>
-                <p className="text-xs text-muted-foreground truncate">
+                <p className="text-responsive-sm text-muted-foreground truncate">
                   {user?.email}
                 </p>
                 {user?.username && (
-                  <p className="text-xs text-muted-foreground truncate">
+                  <p className="text-responsive-sm text-muted-foreground truncate">
                     @{user.username}
                   </p>
                 )}
