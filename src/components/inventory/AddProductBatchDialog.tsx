@@ -9,13 +9,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Package, Loader2, Search } from "lucide-react";
 import {
@@ -66,8 +59,7 @@ const AddProductBatchDialog: React.FC<AddProductBatchDialogProps> = ({
 
   const fetchProducts = async () => {
     try {
-      const response = await productsService.getProducts();
-      const productsData = Array.isArray(response) ? response : response.data;
+      const productsData = await productsService.getAll();
       setProducts(productsData.filter((p: Product) => p.isActive));
     } catch (error) {
       console.error("Failed to fetch products:", error);
@@ -83,9 +75,18 @@ const AddProductBatchDialog: React.FC<AddProductBatchDialogProps> = ({
 
     setSearchLoading(true);
     try {
-      const response = await productsService.getProducts(1, 10, search);
-      const productsData = Array.isArray(response) ? response : response.data;
-      setSearchResults(productsData.filter((p: Product) => p.isActive));
+      //to be corrected - with search functionality
+      const allProducts = await productsService.getAll();
+      const filteredProducts = allProducts
+        .filter(
+          (product: Product) =>
+            product.isActive &&
+            (product.name.toLowerCase().includes(search.toLowerCase()) ||
+              product.sku.toLowerCase().includes(search.toLowerCase()))
+        )
+        .slice(0, 10); // Limit to 10 results
+
+      setSearchResults(filteredProducts);
     } catch (error) {
       console.error("Failed to search products:", error);
       setSearchResults([]);
@@ -140,7 +141,8 @@ const AddProductBatchDialog: React.FC<AddProductBatchDialogProps> = ({
       onOpenChange(false);
       toast.success("Product batch created successfully");
     } catch (err: any) {
-      const errorMessage = err.response?.data?.message || "Failed to create batch";
+      const errorMessage =
+        err.response?.data?.message || "Failed to create batch";
       toast.error(errorMessage);
     } finally {
       setLoading(false);
@@ -178,7 +180,7 @@ const AddProductBatchDialog: React.FC<AddProductBatchDialogProps> = ({
             <Label htmlFor="productSearch">
               Product <span className="text-destructive">*</span>
             </Label>
-            
+
             {selectedProduct ? (
               <Card>
                 <CardContent className="p-3">
@@ -186,8 +188,8 @@ const AddProductBatchDialog: React.FC<AddProductBatchDialogProps> = ({
                     <div>
                       <p className="font-medium">{selectedProduct.name}</p>
                       <p className="text-sm text-muted-foreground">
-                        SKU: {selectedProduct.sku} • 
-                        Selling Price: {formatCurrency(Number(selectedProduct.sellingPrice))}
+                        SKU: {selectedProduct.sku} • Selling Price:{" "}
+                        {formatCurrency(Number(selectedProduct.sellingPrice))}
                       </p>
                     </div>
                     <Button
@@ -196,7 +198,7 @@ const AddProductBatchDialog: React.FC<AddProductBatchDialogProps> = ({
                       size="sm"
                       onClick={() => {
                         setSelectedProduct(null);
-                        setFormData(prev => ({ ...prev, productId: "" }));
+                        setFormData((prev) => ({ ...prev, productId: "" }));
                       }}
                     >
                       Change
@@ -216,7 +218,9 @@ const AddProductBatchDialog: React.FC<AddProductBatchDialogProps> = ({
                       setProductSearch(e.target.value);
                       searchProducts(e.target.value);
                     }}
-                    className={`pl-10 ${errors.productId ? "border-destructive" : ""}`}
+                    className={`pl-10 ${
+                      errors.productId ? "border-destructive" : ""
+                    }`}
                   />
                   {searchLoading && (
                     <Loader2 className="absolute right-3 top-3 h-4 w-4 animate-spin text-muted-foreground" />
@@ -268,7 +272,10 @@ const AddProductBatchDialog: React.FC<AddProductBatchDialogProps> = ({
                 id="supplierBatchRef"
                 value={formData.supplierBatchRef}
                 onChange={(e) =>
-                  setFormData((prev) => ({ ...prev, supplierBatchRef: e.target.value }))
+                  setFormData((prev) => ({
+                    ...prev,
+                    supplierBatchRef: e.target.value,
+                  }))
                 }
                 placeholder="Enter supplier reference"
               />
@@ -277,7 +284,8 @@ const AddProductBatchDialog: React.FC<AddProductBatchDialogProps> = ({
             {/* Buying Price */}
             <div className="space-y-2">
               <Label htmlFor="buyingPrice">
-                Buying Price per Unit <span className="text-destructive">*</span>
+                Buying Price per Unit{" "}
+                <span className="text-destructive">*</span>
               </Label>
               <Input
                 id="buyingPrice"
@@ -322,7 +330,9 @@ const AddProductBatchDialog: React.FC<AddProductBatchDialogProps> = ({
                 className={errors.quantityReceived ? "border-destructive" : ""}
               />
               {errors.quantityReceived && (
-                <p className="text-sm text-destructive">{errors.quantityReceived}</p>
+                <p className="text-sm text-destructive">
+                  {errors.quantityReceived}
+                </p>
               )}
             </div>
 
@@ -334,7 +344,10 @@ const AddProductBatchDialog: React.FC<AddProductBatchDialogProps> = ({
                 type="date"
                 value={formData.expiryDate}
                 onChange={(e) =>
-                  setFormData((prev) => ({ ...prev, expiryDate: e.target.value }))
+                  setFormData((prev) => ({
+                    ...prev,
+                    expiryDate: e.target.value,
+                  }))
                 }
               />
             </div>
@@ -350,16 +363,22 @@ const AddProductBatchDialog: React.FC<AddProductBatchDialogProps> = ({
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div>
                     <p className="text-sm text-muted-foreground">Unit Cost</p>
-                    <p className="font-medium">{formatCurrency(formData.buyingPrice)}</p>
+                    <p className="font-medium">
+                      {formatCurrency(formData.buyingPrice)}
+                    </p>
                   </div>
                   <div>
                     <p className="text-sm text-muted-foreground">Quantity</p>
-                    <p className="font-medium">{formData.quantityReceived} units</p>
+                    <p className="font-medium">
+                      {formData.quantityReceived} units
+                    </p>
                   </div>
                   <div>
                     <p className="text-sm text-muted-foreground">Total Cost</p>
                     <p className="font-semibold text-lg">
-                      {formatCurrency(formData.buyingPrice * formData.quantityReceived)}
+                      {formatCurrency(
+                        formData.buyingPrice * formData.quantityReceived
+                      )}
                     </p>
                   </div>
                 </div>
@@ -373,7 +392,9 @@ const AddProductBatchDialog: React.FC<AddProductBatchDialogProps> = ({
             <Textarea
               id="notes"
               value={formData.notes}
-              onChange={(e) => setFormData((prev) => ({ ...prev, notes: e.target.value }))}
+              onChange={(e) =>
+                setFormData((prev) => ({ ...prev, notes: e.target.value }))
+              }
               placeholder="Additional notes about this batch (optional)"
               rows={3}
             />

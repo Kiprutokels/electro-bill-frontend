@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -19,6 +19,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -42,18 +48,20 @@ import {
   Folder,
   Tag,
   Settings,
+  MoreHorizontal,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { PERMISSIONS } from "@/utils/constants";
-import { productsService, Product } from "@/api/services/products.service";
+import { Product, productsService } from "@/api/services/products.service";
 import {
-  categoriesService,
   ProductCategory,
+  categoriesService,
 } from "@/api/services/categories.service";
-import { brandsService, Brand } from "@/api/services/brands.service";
+import { Brand, brandsService } from "@/api/services/brands.service";
 import { useDebounce } from "@/hooks/useDebounce";
+import { useProducts } from "@/hooks/useProducts";
 import { toast } from "sonner";
-import { formatCurrency } from "@/utils/currency.utils";
+import { formatCurrency } from "@/utils/format.utils";
 import AddProductDialog from "@/components/products/AddProductDialog";
 import EditProductDialog from "@/components/products/EditProductDialog";
 import ProductViewDialog from "@/components/products/ProductViewDialog";
@@ -62,16 +70,32 @@ import RestockDialog from "@/components/products/RestockDialog";
 const Products = () => {
   const navigate = useNavigate();
   const { hasPermission } = useAuth();
-  const [products, setProducts] = useState<Product[]>([]);
   const [categories, setCategories] = useState<ProductCategory[]>([]);
   const [brands, setBrands] = useState<Brand[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [filterCategory, setFilterCategory] = useState("all");
   const [filterBrand, setFilterBrand] = useState("all");
-  const [includeInactive, setIncludeInactive] = useState(false);
-  const [refreshing, setRefreshing] = useState(false);
+  const [includeInactive] = useState(false);
+
+  const debouncedSearchTerm = useDebounce(searchTerm, 300);
+
+  const {
+    products,
+    loading,
+    error,
+    refreshing,
+    refresh,
+    updateFilters,
+    addProductToList,
+    updateProductInList,
+    removeProductFromList,
+  } = useProducts({
+    initialFilters: {
+      includeInactive,
+      categoryId: filterCategory !== "all" ? filterCategory : undefined,
+      brandId: filterBrand !== "all" ? filterBrand : undefined,
+    },
+  });
 
   // Dialog states
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
@@ -80,46 +104,32 @@ const Products = () => {
   const [isRestockDialogOpen, setIsRestockDialogOpen] = useState(false);
   const [productToDelete, setProductToDelete] = useState<Product | null>(null);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
-  
-  const debouncedSearchTerm = useDebounce(searchTerm, 300);
 
-  const fetchData = async (showRefreshing = false) => {
-    try {
-      if (showRefreshing) {
-        setRefreshing(true);
-      } else {
-        setLoading(true);
+  // Fetch categories and brands
+  React.useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const [categoriesData, brandsData] = await Promise.all([
+          categoriesService.getCategories(),
+          brandsService.getBrands(),
+        ]);
+        setCategories(categoriesData);
+        setBrands(brandsData);
+      } catch (error) {
+        console.error("Failed to fetch categories and brands:", error);
       }
-      setError(null);
-
-      const [productsData, categoriesData, brandsData] = await Promise.all([
-        productsService.getProducts({
-          includeInactive,
-          categoryId: filterCategory !== "all" ? filterCategory : undefined,
-          brandId: filterBrand !== "all" ? filterBrand : undefined,
-        }),
-        categoriesService.getCategories(true),
-        brandsService.getBrands(true),
-      ]);
-
-      setProducts(productsData);
-      setCategories(categoriesData);
-      setBrands(brandsData);
-    } catch (err: any) {
-      const errorMessage =
-        err.response?.data?.message || "Failed to fetch data";
-      setError(errorMessage);
-      toast.error(errorMessage);
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
-    }
-  };
-
-  // Effects
-  useEffect(() => {
+    };
     fetchData();
-  }, [filterCategory, filterBrand, includeInactive]);
+  }, []);
+
+  // Update filters when dropdowns change
+  React.useEffect(() => {
+    updateFilters({
+      includeInactive,
+      categoryId: filterCategory !== "all" ? filterCategory : undefined,
+      brandId: filterBrand !== "all" ? filterBrand : undefined,
+    });
+  }, [filterCategory, filterBrand, includeInactive, updateFilters]);
 
   // Filter products based on search
   const filteredProducts = useMemo(() => {
@@ -139,10 +149,6 @@ const Products = () => {
   }, [products, debouncedSearchTerm]);
 
   // Handlers
-  const handleRefresh = () => {
-    fetchData(true);
-  };
-
   const handleView = (product: Product) => {
     setSelectedProduct(product);
     setIsViewDialogOpen(true);
@@ -166,10 +172,10 @@ const Products = () => {
     if (!productToDelete) return;
 
     try {
-      await productsService.deleteProduct(productToDelete.id);
-      toast.success("Product deleted successfully");
-      fetchData();
+      await productsService.delete(productToDelete.id);
+      removeProductFromList(productToDelete.id);
       setProductToDelete(null);
+      toast.success("Product deleted successfully");
     } catch (err: any) {
       const errorMessage =
         err.response?.data?.message || "Failed to delete product";
@@ -179,11 +185,11 @@ const Products = () => {
 
   const handleToggleStatus = async (product: Product) => {
     try {
-      await productsService.toggleProductStatus(product.id);
+      const updatedProduct = await productsService.toggleStatus(product.id);
+      updateProductInList(updatedProduct);
       toast.success(
         `Product ${product.isActive ? "deactivated" : "activated"} successfully`
       );
-      fetchData();
     } catch (err: any) {
       const errorMessage =
         err.response?.data?.message || "Failed to update product status";
@@ -192,20 +198,15 @@ const Products = () => {
   };
 
   const handleProductAdded = (newProduct: Product) => {
-    setProducts((prev) => [newProduct, ...prev]);
-    toast.success("Product created successfully");
+    addProductToList(newProduct);
   };
 
   const handleProductUpdated = (updatedProduct: Product) => {
-    setProducts((prev) =>
-      prev.map((p) => (p.id === updatedProduct.id ? updatedProduct : p))
-    );
-    toast.success("Product updated successfully");
+    updateProductInList(updatedProduct);
   };
 
   const handleRestockComplete = () => {
-    fetchData();
-    toast.success("Stock updated successfully");
+    refresh();
   };
 
   const getStatusBadge = (product: Product) => {
@@ -216,14 +217,16 @@ const Products = () => {
     const totalQuantity = product.totalQuantity || 0;
     const reorderLevel = product.reorderLevel;
 
-    if (totalQuantity <= reorderLevel / 2 && reorderLevel > 0) {
-      return <Badge variant="destructive">Critical</Badge>;
+    if (totalQuantity === 0) {
+      return <Badge variant="destructive">Out of Stock</Badge>;
     } else if (totalQuantity <= reorderLevel && reorderLevel > 0) {
       return (
         <Badge className="bg-yellow-500 hover:bg-yellow-600">Low Stock</Badge>
       );
     } else {
-      return <Badge className="bg-green-500 hover:bg-green-600">Active</Badge>;
+      return (
+        <Badge className="bg-green-500 hover:bg-green-600">In Stock</Badge>
+      );
     }
   };
 
@@ -259,9 +262,9 @@ const Products = () => {
   }
 
   return (
-    <div className="space-y-4 sm:space-y-6">
+    <div className="space-y-4 sm:space-y-6 p-4 sm:p-6">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-4">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h1 className="text-2xl sm:text-3xl font-bold text-foreground">
             Product Management
@@ -277,7 +280,7 @@ const Products = () => {
             className="flex-1 sm:flex-none"
           >
             <Folder className="mr-2 h-4 w-4" />
-            Manage Categories
+            Categories
           </Button>
           <Button
             variant="outline"
@@ -285,7 +288,7 @@ const Products = () => {
             className="flex-1 sm:flex-none"
           >
             <Tag className="mr-2 h-4 w-4" />
-            Manage Brands
+            Brands
           </Button>
           {hasPermission(PERMISSIONS.PRODUCTS_CREATE) && (
             <Button
@@ -300,7 +303,7 @@ const Products = () => {
       </div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <Card className="border-l-4 border-l-primary">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">
@@ -309,7 +312,7 @@ const Products = () => {
             <Package className="h-4 w-4 text-primary" />
           </CardHeader>
           <CardContent>
-            <div className="text-xl sm:text-2xl font-bold text-foreground">
+            <div className="text-2xl font-bold text-foreground">
               {stats.totalProducts}
             </div>
             <p className="text-xs text-muted-foreground">
@@ -326,21 +329,8 @@ const Products = () => {
             <AlertTriangle className="h-4 w-4 text-yellow-500" />
           </CardHeader>
           <CardContent>
-            <div className="text-xl sm:text-2xl font-bold text-foreground">
+            <div className="text-2xl font-bold text-foreground">
               {stats.lowStockProducts}
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="border-l-4 border-l-accent">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              Inventory Value
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-xl sm:text-2xl font-bold text-foreground">
-              {formatCurrency(stats.totalValue)}
             </div>
           </CardContent>
         </Card>
@@ -348,11 +338,24 @@ const Products = () => {
         <Card className="border-l-4 border-l-green-500">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">
+              Inventory Value
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-foreground">
+              {formatCurrency(stats.totalValue)}
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="border-l-4 border-l-blue-500">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">
               Categories
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-xl sm:text-2xl font-bold text-foreground">
+            <div className="text-2xl font-bold text-foreground">
               {categories.filter((c) => c.isActive).length}
             </div>
             <p className="text-xs text-muted-foreground">
@@ -367,7 +370,7 @@ const Products = () => {
         <CardHeader>
           <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
             <CardTitle>Product Inventory</CardTitle>
-            <div className="flex gap-2 w-full sm:w-auto">
+            <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
               <div className="relative flex-1 sm:w-64">
                 <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                 <Input
@@ -378,7 +381,7 @@ const Products = () => {
                 />
               </div>
               <Select value={filterCategory} onValueChange={setFilterCategory}>
-                <SelectTrigger className="w-40">
+                <SelectTrigger className="w-full sm:w-40">
                   <SelectValue placeholder="Category" />
                 </SelectTrigger>
                 <SelectContent>
@@ -393,7 +396,7 @@ const Products = () => {
                 </SelectContent>
               </Select>
               <Select value={filterBrand} onValueChange={setFilterBrand}>
-                <SelectTrigger className="w-32">
+                <SelectTrigger className="w-full sm:w-32">
                   <SelectValue placeholder="Brand" />
                 </SelectTrigger>
                 <SelectContent>
@@ -410,7 +413,7 @@ const Products = () => {
               <Button
                 variant="outline"
                 size="icon"
-                onClick={handleRefresh}
+                onClick={refresh}
                 disabled={refreshing}
                 title="Refresh"
               >
@@ -421,14 +424,14 @@ const Products = () => {
             </div>
           </div>
         </CardHeader>
-        <CardContent>
+        <CardContent className="p-0 sm:p-6">
           {error && (
-            <div className="mb-4 p-4 border border-destructive/20 rounded-lg bg-destructive/5">
+            <div className="mb-4 mx-4 sm:mx-0 p-4 border border-destructive/20 rounded-lg bg-destructive/5">
               <p className="text-sm text-destructive">{error}</p>
               <Button
                 variant="outline"
                 size="sm"
-                onClick={handleRefresh}
+                onClick={refresh}
                 className="mt-2"
               >
                 Try Again
@@ -436,148 +439,146 @@ const Products = () => {
             </div>
           )}
 
-          <div className="rounded-md border overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="min-w-[100px]">SKU</TableHead>
-                  <TableHead className="min-w-[200px]">Product Name</TableHead>
-                  <TableHead className="hidden sm:table-cell">
-                    Category
-                  </TableHead>
-                  <TableHead className="hidden md:table-cell">Brand</TableHead>
-                  <TableHead className="text-right min-w-[80px]">
-                    Stock
-                  </TableHead>
-                  <TableHead className="text-right hidden lg:table-cell min-w-[100px]">
-                    Price
-                  </TableHead>
-                  <TableHead className="min-w-[80px]">Status</TableHead>
-                  <TableHead className="text-right min-w-[140px]">
-                    Actions
-                  </TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredProducts.length === 0 ? (
+          <div className="rounded-md border overflow-hidden">
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
                   <TableRow>
-                    <TableCell colSpan={8} className="text-center py-8">
-                      <div className="text-muted-foreground">
-                        {searchTerm
-                          ? "No products found matching your search."
-                          : "No products found."}
-                      </div>
-                      {hasPermission(PERMISSIONS.PRODUCTS_CREATE) &&
-                        !searchTerm && (
-                          <Button
-                            variant="outline"
-                            onClick={() => setIsAddDialogOpen(true)}
-                            className="mt-2"
-                          >
-                            <Plus className="mr-2 h-4 w-4" />
-                            Add Your First Product
-                          </Button>
-                        )}
-                    </TableCell>
+                    <TableHead className="min-w-[100px]">SKU</TableHead>
+                    <TableHead className="min-w-[200px]">
+                      Product Name
+                    </TableHead>
+                    <TableHead className="hidden sm:table-cell">
+                      Category
+                    </TableHead>
+                    <TableHead className="hidden md:table-cell">
+                      Brand
+                    </TableHead>
+                    <TableHead className="text-right min-w-[80px]">
+                      Stock
+                    </TableHead>
+                    <TableHead className="text-right hidden lg:table-cell min-w-[100px]">
+                      Price
+                    </TableHead>
+                    <TableHead className="min-w-[80px]">Status</TableHead>
+                    <TableHead className="text-right min-w-[60px]">
+                      Actions
+                    </TableHead>
                   </TableRow>
-                ) : (
-                  filteredProducts.map((product) => (
-                    <TableRow key={product.id}>
-                      <TableCell className="font-medium">
-                        {product.sku}
-                      </TableCell>
-                      <TableCell>
-                        <div>
-                          <div className="font-medium">{product.name}</div>
-                          <div className="text-sm text-muted-foreground sm:hidden">
-                            {product.category.name} •{" "}
-                            {product.brand?.name || "No Brand"}
-                          </div>
-                          <div className="text-sm text-muted-foreground lg:hidden">
-                            {formatCurrency(product.sellingPrice)}
-                          </div>
+                </TableHeader>
+                <TableBody>
+                  {filteredProducts.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={8} className="text-center py-8">
+                        <div className="text-muted-foreground">
+                          {searchTerm
+                            ? "No products found matching your search."
+                            : "No products found."}
                         </div>
-                      </TableCell>
-                      <TableCell className="hidden sm:table-cell">
-                        {product.category.name}
-                      </TableCell>
-                      <TableCell className="hidden md:table-cell">
-                        {product.brand?.name || "No Brand"}
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <span
-                          className={
-                            (product.totalQuantity || 0) <=
-                              product.reorderLevel && product.reorderLevel > 0
-                              ? "text-red-600 font-medium"
-                              : ""
-                          }
-                        >
-                          {product.totalQuantity || 0}
-                        </span>
-                      </TableCell>
-                      <TableCell className="text-right hidden lg:table-cell">
-                        {formatCurrency(product.sellingPrice)}
-                      </TableCell>
-                      <TableCell>{getStatusBadge(product)}</TableCell>
-                      <TableCell className="text-right">
-                        <div className="flex justify-end gap-1">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => handleView(product)}
-                            className="h-8 w-8 p-0 sm:h-auto sm:w-auto sm:px-2"
-                            title="View"
-                          >
-                            <Eye className="h-4 w-4 sm:mr-1" />
-                            <span className="hidden sm:inline">View</span>
-                          </Button>
-
-                          {hasPermission(PERMISSIONS.PRODUCTS_UPDATE) && (
-                            <>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => handleRestock(product)}
-                                className="h-8 w-8 p-0 sm:h-auto sm:w-auto sm:px-2"
-                                title="Restock"
-                              >
-                                <Settings className="h-4 w-4 sm:mr-1" />
-                                <span className="hidden sm:inline">Restock</span>
-                              </Button>
-                              
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => handleEdit(product)}
-                                className="h-8 w-8 p-0 sm:h-auto sm:w-auto sm:px-2"
-                                title="Edit"
-                              >
-                                <Edit className="h-4 w-4 sm:mr-1" />
-                                <span className="hidden sm:inline">Edit</span>
-                              </Button>
-                            </>
-                          )}
-
-                          {hasPermission(PERMISSIONS.PRODUCTS_DELETE) && (
+                        {hasPermission(PERMISSIONS.PRODUCTS_CREATE) &&
+                          !searchTerm && (
                             <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => handleDeleteClick(product)}
-                              className="h-8 w-8 p-0 sm:h-auto sm:w-auto sm:px-2 text-destructive hover:text-destructive"
-                              title="Delete"
+                              variant="outline"
+                              onClick={() => setIsAddDialogOpen(true)}
+                              className="mt-2"
                             >
-                              <Trash2 className="h-4 w-4 sm:mr-1" />
-                              <span className="hidden sm:inline">Delete</span>
+                              <Plus className="mr-2 h-4 w-4" />
+                              Add Your First Product
                             </Button>
                           )}
-                        </div>
                       </TableCell>
                     </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
+                  ) : (
+                    filteredProducts.map((product) => (
+                      <TableRow key={product.id}>
+                        <TableCell className="font-mono text-sm">
+                          {product.sku}
+                        </TableCell>
+                        <TableCell>
+                          <div>
+                            <div className="font-medium">{product.name}</div>
+                            <div className="text-sm text-muted-foreground sm:hidden">
+                              {product.category.name} •{" "}
+                              {product.brand?.name || "No Brand"}
+                            </div>
+                            <div className="text-sm text-muted-foreground lg:hidden">
+                              {formatCurrency(product.sellingPrice)}
+                            </div>
+                          </div>
+                        </TableCell>
+                        <TableCell className="hidden sm:table-cell">
+                          {product.category.name}
+                        </TableCell>
+                        <TableCell className="hidden md:table-cell">
+                          {product.brand?.name || "No Brand"}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <span
+                            className={
+                              (product.totalQuantity || 0) <=
+                                product.reorderLevel && product.reorderLevel > 0
+                                ? "text-red-600 font-medium"
+                                : ""
+                            }
+                          >
+                            {product.totalQuantity || 0}
+                          </span>
+                        </TableCell>
+                        <TableCell className="text-right hidden lg:table-cell">
+                          {formatCurrency(product.sellingPrice)}
+                        </TableCell>
+                        <TableCell>{getStatusBadge(product)}</TableCell>
+                        <TableCell className="text-right">
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="ghost" className="h-8 w-8 p-0">
+                                <span className="sr-only">Open menu</span>
+                                <MoreHorizontal className="h-4 w-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              <DropdownMenuItem
+                                onClick={() => handleView(product)}
+                              >
+                                <Eye className="mr-2 h-4 w-4" />
+                                View
+                              </DropdownMenuItem>
+
+                              {hasPermission(PERMISSIONS.PRODUCTS_UPDATE) && (
+                                <>
+                                  <DropdownMenuItem
+                                    onClick={() => handleRestock(product)}
+                                  >
+                                    <Settings className="mr-2 h-4 w-4" />
+                                    Restock
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem
+                                    onClick={() => handleEdit(product)}
+                                  >
+                                    <Edit className="mr-2 h-4 w-4" />
+                                    Edit
+                                  </DropdownMenuItem>
+                                </>
+                              )}
+
+                              {hasPermission(PERMISSIONS.PRODUCTS_DELETE) && (
+                                <DropdownMenuItem
+                                  onClick={() => handleDeleteClick(product)}
+                                  className="text-red-600"
+                                >
+                                  <Trash2 className="mr-2 h-4 w-4" />
+                                  Delete
+                                </DropdownMenuItem>
+                              )}
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  )}
+                </TableBody>
+              </Table>
+            </div>
           </div>
         </CardContent>
       </Card>

@@ -1,28 +1,32 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from "react";
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
-} from '@/components/ui/dialog';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
-import { Switch } from '@/components/ui/switch';
+} from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '@/components/ui/select';
-import { Loader2, Package } from 'lucide-react';
-import { Product, UpdateProductData, productsService } from '@/api/services/products.service';
-import { ProductCategory } from '@/api/services/categories.service';
-import { Brand } from '@/api/services/brands.service';
-import { validateRequired, validateNumber, validateDecimal } from '@/utils/validation.utils';
-import { toast } from 'sonner';
+} from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
+import { Edit, Loader2 } from "lucide-react";
+import {
+  Product,
+  UpdateProductRequest,
+  productsService,
+} from "@/api/services/products.service";
+import { ProductCategory } from "@/api/services/categories.service";
+import { Brand } from "@/api/services/brands.service";
+import { validateRequired } from "@/utils/validation.utils";
+import { toast } from "sonner";
 
 interface EditProductDialogProps {
   open: boolean;
@@ -41,30 +45,24 @@ const EditProductDialog: React.FC<EditProductDialogProps> = ({
   categories,
   brands,
 }) => {
-  const [formData, setFormData] = useState<UpdateProductData>({
-    name: '',
-    description: '',
-    sku: '',
-    categoryId: '',
-    brandId: '',
-    sellingPrice: 0,
-    wholesalePrice: 0,
-    reorderLevel: 0,
-    isActive: true,
-  });
+  const [loading, setLoading] = useState(false);
+  const [formData, setFormData] = useState<UpdateProductRequest>({});
   const [errors, setErrors] = useState<Record<string, string>>({});
-  const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
     if (product && open) {
       setFormData({
-        name: product.name,
-        description: product.description || '',
         sku: product.sku,
+        name: product.name,
+        description: product.description || "",
         categoryId: product.categoryId,
-        brandId: product.brandId || 'no-brand',
+        brandId: product.brandId || "no-brand", 
+        unitOfMeasure: product.unitOfMeasure,
         sellingPrice: product.sellingPrice,
         wholesalePrice: product.wholesalePrice || 0,
+        weight: product.weight || 0,
+        dimensions: product.dimensions || "",
+        warrantyPeriodMonths: product.warrantyPeriodMonths,
         reorderLevel: product.reorderLevel,
         isActive: product.isActive,
       });
@@ -75,25 +73,18 @@ const EditProductDialog: React.FC<EditProductDialogProps> = ({
   const validateForm = (): boolean => {
     const newErrors: Record<string, string> = {};
 
-    const nameError = validateRequired(formData.name || '', 'Product name');
-    if (nameError) newErrors.name = nameError;
-
-    const skuError = validateRequired(formData.sku || '', 'SKU');
+    const skuError = validateRequired(formData.sku || "", "SKU");
     if (skuError) newErrors.sku = skuError;
 
-    const categoryError = validateRequired(formData.categoryId || '', 'Category');
+    const nameError = validateRequired(formData.name || "", "Product name");
+    if (nameError) newErrors.name = nameError;
+
+    const categoryError = validateRequired(formData.categoryId || "", "Category");
     if (categoryError) newErrors.categoryId = categoryError;
 
-    const sellingPriceError = validateDecimal(formData.sellingPrice || 0, 'Selling price', { min: 0.01 });
-    if (sellingPriceError) newErrors.sellingPrice = sellingPriceError;
-
-    if (formData.wholesalePrice !== null && formData.wholesalePrice !== undefined && formData.wholesalePrice > 0) {
-      const wholesalePriceError = validateDecimal(formData.wholesalePrice, 'Wholesale price', { min: 0 });
-      if (wholesalePriceError) newErrors.wholesalePrice = wholesalePriceError;
+    if ((formData.sellingPrice || 0) <= 0) {
+      newErrors.sellingPrice = "Selling price must be greater than 0";
     }
-
-    const reorderError = validateNumber(formData.reorderLevel || 0, 'Reorder level', { min: 0 });
-    if (reorderError) newErrors.reorderLevel = reorderError;
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
@@ -101,116 +92,120 @@ const EditProductDialog: React.FC<EditProductDialogProps> = ({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!product || !validateForm()) return;
 
-    setIsLoading(true);
+    if (!validateForm() || !product) {
+      return;
+    }
+
+    setLoading(true);
     try {
-      const cleanData: UpdateProductData = {
+      const requestData: UpdateProductRequest = {
         ...formData,
-        brandId: formData.brandId === 'no-brand' ? undefined : formData.brandId || undefined,
+        description: formData.description || undefined,
+        brandId: formData.brandId === "no-brand" ? undefined : formData.brandId,
         wholesalePrice: formData.wholesalePrice || undefined,
+        weight: formData.weight || undefined,
+        dimensions: formData.dimensions || undefined,
       };
 
-      const updatedProduct = await productsService.updateProduct(product.id, cleanData);
+      const updatedProduct = await productsService.update(product.id, requestData);
       onProductUpdated(updatedProduct);
-      toast.success('Product updated successfully');
       onOpenChange(false);
-    } catch (error: any) {
-      toast.error(error.response?.data?.message || error.message || 'Failed to update product');
+      toast.success("Product updated successfully");
+    } catch (err: any) {
+      const errorMessage = err.response?.data?.message || "Failed to update product";
+      toast.error(errorMessage);
     } finally {
-      setIsLoading(false);
+      setLoading(false);
     }
   };
 
-  const handleClose = () => {
-    if (!isLoading) {
-      setFormData({
-        name: '',
-        description: '',
-        sku: '',
-        categoryId: '',
-        brandId: '',
-        sellingPrice: 0,
-        wholesalePrice: 0,
-        reorderLevel: 0,
-        isActive: true,
-      });
-      setErrors({});
-      onOpenChange(false);
-    }
-  };
-
-  const handleInputChange = (field: keyof UpdateProductData, value: any) => {
-    setFormData(prev => ({ ...prev, [field]: value }));
-    // Clear error when user starts typing
-    if (errors[field]) {
-      setErrors(prev => ({ ...prev, [field]: '' }));
-    }
-  };
-
-  const activeCategories = categories.filter(c => c.isActive && c.id && c.id.toString().trim() !== '');
-  const activeBrands = brands.filter(b => b.isActive && b.id && b.id.toString().trim() !== '');
+  if (!product) return null;
 
   return (
-    <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="sm:max-w-[700px] max-h-[90vh] overflow-y-auto">
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <Package className="h-5 w-5" />
-            Edit Product
+            <Edit className="h-5 w-5" />
+            Edit Product - {product.name}
           </DialogTitle>
         </DialogHeader>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit} className="space-y-4 md:space-y-6">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* SKU */}
             <div className="space-y-2">
-              <Label htmlFor="name">Product Name <span className="text-destructive">*</span></Label>
-              <Input
-                id="name"
-                value={formData.name || ''}
-                onChange={(e) => handleInputChange('name', e.target.value)}
-                placeholder="Enter product name"
-                className={errors.name ? 'border-destructive' : ''}
-                disabled={isLoading}
-              />
-              {errors.name && (
-                <p className="text-sm text-destructive">{errors.name}</p>
-              )}
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="sku">SKU <span className="text-destructive">*</span></Label>
+              <Label htmlFor="sku">
+                SKU <span className="text-destructive">*</span>
+              </Label>
               <Input
                 id="sku"
-                value={formData.sku || ''}
-                onChange={(e) => handleInputChange('sku', e.target.value)}
-                placeholder="Enter SKU"
-                className={errors.sku ? 'border-destructive' : ''}
-                disabled={isLoading}
+                value={formData.sku || ""}
+                onChange={(e) =>
+                  setFormData((prev) => ({ ...prev, sku: e.target.value }))
+                }
+                placeholder="e.g., SKU-TP-WR841N"
+                className={errors.sku ? "border-destructive" : ""}
               />
-              {errors.sku && (
-                <p className="text-sm text-destructive">{errors.sku}</p>
-              )}
+              {errors.sku && <p className="text-sm text-destructive">{errors.sku}</p>}
+            </div>
+
+            {/* Product Name */}
+            <div className="space-y-2">
+              <Label htmlFor="name">
+                Product Name <span className="text-destructive">*</span>
+              </Label>
+              <Input
+                id="name"
+                value={formData.name || ""}
+                onChange={(e) =>
+                  setFormData((prev) => ({ ...prev, name: e.target.value }))
+                }
+                placeholder="Product name"
+                className={errors.name ? "border-destructive" : ""}
+              />
+              {errors.name && <p className="text-sm text-destructive">{errors.name}</p>}
             </div>
           </div>
 
+          {/* Description */}
+          <div className="space-y-2">
+            <Label htmlFor="description">Description</Label>
+            <Textarea
+              id="description"
+              value={formData.description || ""}
+              onChange={(e) =>
+                setFormData((prev) => ({ ...prev, description: e.target.value }))
+              }
+              placeholder="Product description (optional)"
+              rows={3}
+            />
+          </div>
+
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* Category */}
             <div className="space-y-2">
-              <Label htmlFor="category">Category <span className="text-destructive">*</span></Label>
+              <Label htmlFor="categoryId">
+                Category <span className="text-destructive">*</span>
+              </Label>
               <Select
-                value={formData.categoryId || ''}
-                onValueChange={(value) => handleInputChange('categoryId', value)}
-                disabled={isLoading}
+                value={formData.categoryId || ""}
+                onValueChange={(value) =>
+                  setFormData((prev) => ({ ...prev, categoryId: value }))
+                }
               >
-                <SelectTrigger className={errors.categoryId ? 'border-destructive' : ''}>
+                <SelectTrigger className={errors.categoryId ? "border-destructive" : ""}>
                   <SelectValue placeholder="Select category" />
                 </SelectTrigger>
                 <SelectContent>
-                  {activeCategories.map((category) => (
-                    <SelectItem key={category.id} value={category.id.toString()}>
-                      {category.parentCategory ? `${category.parentCategory.name} > ` : ''}{category.name}
-                    </SelectItem>
-                  ))}
+                  {categories
+                    .filter((c) => c.isActive)
+                    .map((category) => (
+                      <SelectItem key={category.id} value={category.id}>
+                        {category.name}
+                      </SelectItem>
+                    ))}
                 </SelectContent>
               </Select>
               {errors.categoryId && (
@@ -218,59 +213,72 @@ const EditProductDialog: React.FC<EditProductDialogProps> = ({
               )}
             </div>
 
+            {/* Brand */}
             <div className="space-y-2">
-              <Label htmlFor="brand">Brand</Label>
+              <Label htmlFor="brandId">Brand</Label>
               <Select
-                value={formData.brandId || 'no-brand'}
-                onValueChange={(value) => handleInputChange('brandId', value)}
-                disabled={isLoading}
+                value={formData.brandId || "no-brand"}
+                onValueChange={(value) =>
+                  setFormData((prev) => ({ ...prev, brandId: value }))
+                }
               >
                 <SelectTrigger>
-                  <SelectValue placeholder="Select brand" />
+                  <SelectValue placeholder="Select brand (optional)" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="no-brand">No Brand</SelectItem>
-                  {activeBrands.map((brand) => (
-                    <SelectItem key={brand.id} value={brand.id.toString()}>
-                      {brand.name}
-                    </SelectItem>
-                  ))}
+                  {brands
+                    .filter((b) => b.isActive)
+                    .map((brand) => (
+                      <SelectItem key={brand.id} value={brand.id}>
+                        {brand.name}
+                      </SelectItem>
+                    ))}
                 </SelectContent>
               </Select>
             </div>
           </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="description">Description</Label>
-            <Textarea
-              id="description"
-              value={formData.description || ''}
-              onChange={(e) => handleInputChange('description', e.target.value)}
-              placeholder="Enter product description"
-              rows={3}
-              disabled={isLoading}
-            />
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {/* Unit of Measure */}
             <div className="space-y-2">
-              <Label htmlFor="sellingPrice">Selling Price <span className="text-destructive">*</span></Label>
+              <Label htmlFor="unitOfMeasure">Unit of Measure</Label>
+              <Input
+                id="unitOfMeasure"
+                value={formData.unitOfMeasure || ""}
+                onChange={(e) =>
+                  setFormData((prev) => ({ ...prev, unitOfMeasure: e.target.value }))
+                }
+                placeholder="PCS"
+              />
+            </div>
+
+            {/* Selling Price */}
+            <div className="space-y-2">
+              <Label htmlFor="sellingPrice">
+                Selling Price <span className="text-destructive">*</span>
+              </Label>
               <Input
                 id="sellingPrice"
                 type="number"
-                min="0.01"
+                min="0"
                 step="0.01"
-                value={formData.sellingPrice || ''}
-                onChange={(e) => handleInputChange('sellingPrice', parseFloat(e.target.value) || 0)}
+                value={formData.sellingPrice || ""}
+                onChange={(e) =>
+                  setFormData((prev) => ({
+                    ...prev,
+                    sellingPrice: parseFloat(e.target.value) || 0,
+                  }))
+                }
                 placeholder="0.00"
-                className={errors.sellingPrice ? 'border-destructive' : ''}
-                disabled={isLoading}
+                className={errors.sellingPrice ? "border-destructive" : ""}
               />
               {errors.sellingPrice && (
                 <p className="text-sm text-destructive">{errors.sellingPrice}</p>
               )}
             </div>
 
+            {/* Wholesale Price */}
             <div className="space-y-2">
               <Label htmlFor="wholesalePrice">Wholesale Price</Label>
               <Input
@@ -278,68 +286,113 @@ const EditProductDialog: React.FC<EditProductDialogProps> = ({
                 type="number"
                 min="0"
                 step="0.01"
-                value={formData.wholesalePrice || ''}
-                onChange={(e) => handleInputChange('wholesalePrice', parseFloat(e.target.value) || 0)}
+                value={formData.wholesalePrice || ""}
+                onChange={(e) =>
+                  setFormData((prev) => ({
+                    ...prev,
+                    wholesalePrice: parseFloat(e.target.value) || 0,
+                  }))
+                }
                 placeholder="0.00"
-                className={errors.wholesalePrice ? 'border-destructive' : ''}
-                disabled={isLoading}
               />
-              {errors.wholesalePrice && (
-                <p className="text-sm text-destructive">{errors.wholesalePrice}</p>
-              )}
             </div>
           </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="reorderLevel">Reorder Level <span className="text-destructive">*</span></Label>
-            <Input
-              id="reorderLevel"
-              type="number"
-              min="0"
-              value={formData.reorderLevel || ''}
-              onChange={(e) => handleInputChange('reorderLevel', parseInt(e.target.value) || 0)}
-              placeholder="0"
-              className={errors.reorderLevel ? 'border-destructive' : ''}
-              disabled={isLoading}
-            />
-            {errors.reorderLevel && (
-              <p className="text-sm text-destructive">{errors.reorderLevel}</p>
-            )}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {/* Weight */}
+            <div className="space-y-2">
+              <Label htmlFor="weight">Weight (KG)</Label>
+              <Input
+                id="weight"
+                type="number"
+                min="0"
+                step="0.001"
+                value={formData.weight || ""}
+                onChange={(e) =>
+                  setFormData((prev) => ({
+                    ...prev,
+                    weight: parseFloat(e.target.value) || 0,
+                  }))
+                }
+                placeholder="0.000"
+              />
+            </div>
+
+            {/* Warranty Period */}
+            <div className="space-y-2">
+              <Label htmlFor="warrantyPeriodMonths">Warranty (Months)</Label>
+              <Input
+                id="warrantyPeriodMonths"
+                type="number"
+                min="0"
+                value={formData.warrantyPeriodMonths || ""}
+                onChange={(e) =>
+                  setFormData((prev) => ({
+                    ...prev,
+                    warrantyPeriodMonths: parseInt(e.target.value) || 0,
+                  }))
+                }
+                placeholder="0"
+              />
+            </div>
+
+            {/* Reorder Level */}
+            <div className="space-y-2">
+              <Label htmlFor="reorderLevel">Reorder Level</Label>
+              <Input
+                id="reorderLevel"
+                type="number"
+                min="0"
+                value={formData.reorderLevel || ""}
+                onChange={(e) =>
+                  setFormData((prev) => ({
+                    ...prev,
+                    reorderLevel: parseInt(e.target.value) || 0,
+                  }))
+                }
+                placeholder="0"
+              />
+            </div>
           </div>
 
+          {/* Dimensions */}
+          <div className="space-y-2">
+            <Label htmlFor="dimensions">Dimensions</Label>
+            <Input
+              id="dimensions"
+              value={formData.dimensions || ""}
+              onChange={(e) =>
+                setFormData((prev) => ({ ...prev, dimensions: e.target.value }))
+              }
+              placeholder="e.g., 20cm x 15cm x 5cm"
+            />
+          </div>
+
+          {/* Active Status */}
           <div className="flex items-center space-x-2">
             <Switch
               id="isActive"
               checked={formData.isActive || false}
-              onCheckedChange={(checked) => handleInputChange('isActive', checked)}
-              disabled={isLoading}
+              onCheckedChange={(checked) =>
+                setFormData((prev) => ({ ...prev, isActive: checked }))
+              }
             />
             <Label htmlFor="isActive">Active Product</Label>
           </div>
 
-          <div className="flex gap-2 pt-4">
+          {/* Actions */}
+          <div className="flex flex-col sm:flex-row gap-2 pt-4">
+            <Button type="submit" disabled={loading} className="flex-1">
+              {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              {loading ? "Updating Product..." : "Update Product"}
+            </Button>
             <Button
               type="button"
               variant="outline"
-              onClick={handleClose}
-              disabled={isLoading}
-              className="flex-1"
+              onClick={() => onOpenChange(false)}
+              className="flex-1 sm:flex-initial"
             >
               Cancel
-            </Button>
-            <Button
-              type="submit"
-              disabled={isLoading}
-              className="flex-1"
-            >
-              {isLoading ? (
-                <>
-                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                  Updating...
-                </>
-              ) : (
-                'Update Product'
-              )}
             </Button>
           </div>
         </form>
