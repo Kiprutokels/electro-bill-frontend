@@ -163,13 +163,13 @@ const AddProductDialog: React.FC<AddProductDialogProps> = ({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto w-[95vw] sm:w-full">
         <DialogHeader>
           <DialogTitle>Add New Product</DialogTitle>
         </DialogHeader>
         
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <form onSubmit={handleSubmit} className="space-responsive">
+          <div className="grid grid-cols-1 md:grid-cols-2 space-responsive">
             {/* SKU */}
             <div>
               <Label htmlFor="sku">SKU <span className="text-destructive">*</span></Label>
@@ -180,7 +180,7 @@ const AddProductDialog: React.FC<AddProductDialogProps> = ({
                 placeholder="e.g., TPL-AC1200"
                 className={errors.sku ? 'border-destructive' : ''}
               />
-              {errors.sku && <p className="text-sm text-destructive mt-1">{errors.sku}</p>}
+              {errors.sku && <p className="text-responsive-sm text-destructive mt-1">{errors.sku}</p>}
             </div>
 
             {/* Name */}
@@ -193,7 +193,7 @@ const AddProductDialog: React.FC<AddProductDialogProps> = ({
                 placeholder="Enter product name"
                 className={errors.name ? 'border-destructive' : ''}
               />
-              {errors.name && <p className="text-sm text-destructive mt-1">{errors.name}</p>}
+              {errors.name && <p className="text-responsive-sm text-destructive mt-1">{errors.name}</p>}
             </div>
 
             {/* Category */}

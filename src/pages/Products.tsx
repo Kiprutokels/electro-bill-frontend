@@ -259,38 +259,43 @@ const Products = () => {
   }
 
   return (
-    <div className="space-y-4 sm:space-y-6">
+    <div className="space-responsive">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-4">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between space-responsive">
         <div>
-          <h1 className="text-2xl sm:text-3xl font-bold text-foreground">
+          <h1 className="text-responsive-3xl font-bold text-foreground">
             Product Management
           </h1>
-          <p className="text-sm text-muted-foreground">
+          <p className="text-responsive-sm text-muted-foreground">
             Manage your inventory and product catalog
           </p>
         </div>
-        <div className="flex gap-2 w-full sm:w-auto">
+        <div className="flex flex-col sm:flex-row space-responsive w-full sm:w-auto">
           <Button
             variant="outline"
             onClick={() => navigate("/categories")}
             className="flex-1 sm:flex-none"
+            size="sm"
           >
             <Folder className="mr-2 h-4 w-4" />
-            Manage Categories
+            <span className="hidden xs:inline">Manage Categories</span>
+            <span className="xs:hidden">Categories</span>
           </Button>
           <Button
             variant="outline"
             onClick={() => navigate("/brands")}
             className="flex-1 sm:flex-none"
+            size="sm"
           >
             <Tag className="mr-2 h-4 w-4" />
-            Manage Brands
+            <span className="hidden xs:inline">Manage Brands</span>
+            <span className="xs:hidden">Brands</span>
           </Button>
           {hasPermission(PERMISSIONS.PRODUCTS_CREATE) && (
             <Button
               onClick={() => setIsAddDialogOpen(true)}
               className="flex-1 sm:flex-none"
+              size="sm"
             >
               <Plus className="mr-2 h-4 w-4" />
               Add Product
@@ -300,7 +305,7 @@ const Products = () => {
       </div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
+      <div className="grid-responsive grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
         <Card className="border-l-4 border-l-primary">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">
