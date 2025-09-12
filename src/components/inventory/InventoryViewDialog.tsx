@@ -1,269 +1,362 @@
-import React from 'react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { Separator } from '@/components/ui/separator';
-import { Eye, Package, Calendar, User, MapPin, FileText, Edit, Trash2 } from 'lucide-react';
-import { InventoryItem } from '@/api/services/inventory.service';
-import { formatCurrency, formatDate } from '@/utils/format.utils';
-import { PERMISSIONS } from '@/lib/permissions';
-import { useAuth } from '@/contexts/AuthContext';
+import React, { useState, useEffect } from "react";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Separator } from "@/components/ui/separator";
+import {
+  Eye,
+  Package,
+  Calendar,
+  MapPin,
+  Settings,
+  Loader2,
+  Building,
+  Hash,
+} from "lucide-react";
+import {
+  InventoryItem,
+  ProductInventory,
+  inventoryService,
+} from "@/api/services/inventory.service";
+import { formatCurrency, formatDate } from "@/utils/format.utils";
+import { useAuth } from "@/contexts/AuthContext";
+import { PERMISSIONS } from "@/utils/constants";
+import { toast } from "sonner";
 
 interface InventoryViewDialogProps {
-  item: InventoryItem | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onEdit?: (item: InventoryItem) => void;
-  onDelete?: (item: InventoryItem) => void;
-  onAdjust?: (item: InventoryItem) => void;
+  item: InventoryItem | null;
+  onAdjust: (item: InventoryItem) => void;
 }
 
-export function InventoryViewDialog({
-  item,
+const InventoryViewDialog: React.FC<InventoryViewDialogProps> = ({
   open,
   onOpenChange,
-  onEdit,
-  onDelete,
-  onAdjust
-}: InventoryViewDialogProps) {
+  item,
+  onAdjust,
+}) => {
   const { hasPermission } = useAuth();
+  const [productInventory, setProductInventory] = useState<ProductInventory | null>(null);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    const fetchProductInventory = async () => {
+      if (item && open) {
+        setLoading(true);
+        try {
+          const data = await inventoryService.getByProduct(item.productId);
+          setProductInventory(data);
+        } catch (error) {
+          console.error("Failed to fetch product inventory:", error);
+          toast.error("Failed to load detailed inventory information");
+        } finally {
+          setLoading(false);
+        }
+      }
+    };
+
+    if (open) {
+      fetchProductInventory();
+    } else {
+      setProductInventory(null);
+    }
+  }, [item, open]);
 
   if (!item) return null;
 
-  const getStockStatusColor = (quantity: number, minStock: number) => {
-    if (quantity === 0) return 'bg-red-500';
-    if (quantity <= minStock) return 'bg-yellow-500';
-    return 'bg-green-500';
+  const getStockBadge = (available: number, reorderLevel: number) => {
+    if (available === 0) {
+      return (
+        <Badge variant="destructive">
+          Out of Stock
+        </Badge>
+      );
+    }
+    if (available <= reorderLevel && reorderLevel > 0) {
+      return (
+        <Badge variant="default" className="bg-yellow-500 hover:bg-yellow-600">
+          Low Stock
+        </Badge>
+      );
+    }
+    return (
+      <Badge variant="default" className="bg-green-500 hover:bg-green-600">
+        In Stock
+      </Badge>
+    );
   };
-
-  const getStockStatusText = (quantity: number, minStock: number) => {
-    if (quantity === 0) return 'Out of Stock';
-    if (quantity <= minStock) return 'Low Stock';
-    return 'In Stock';
-  };
-
-  // Safe number conversion for unitCost
-  const unitCost = isNaN(Number(item.unitCost)) ? 0 : Number(item.unitCost);
-  const availableQuantity = item.quantityAvailable || item.quantity || 0;
-  const reservedQuantity = item.quantityReserved || 0;
-  const minStock = item.minStock || 0;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Eye className="h-5 w-5" />
             Inventory Details
           </DialogTitle>
+          <DialogDescription>
+            View detailed inventory information and batch details
+          </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-6">
-          {/* Product Information */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div className="space-y-4">
-              <div>
-                <label className="text-sm font-medium text-muted-foreground">Product Name</label>
-                <p className="text-lg font-semibold">{item.product?.name || 'Unknown Product'}</p>
-              </div>
-              
-              <div>
-                <label className="text-sm font-medium text-muted-foreground">SKU</label>
-                <p className="font-mono text-sm bg-muted px-2 py-1 rounded">{item.product?.sku || 'N/A'}</p>
-              </div>
-
-              <div>
-                <label className="text-sm font-medium text-muted-foreground">Category</label>
-                <p>{item.product?.category?.name || 'Uncategorized'}</p>
-              </div>
-
-              <div>
-                <label className="text-sm font-medium text-muted-foreground">Brand</label>
-                <p>{item.product?.brand?.name || 'No Brand'}</p>
-              </div>
-            </div>
-
-            <div className="space-y-4">
-              <div>
-                <label className="text-sm font-medium text-muted-foreground">Available Stock</label>
-                <div className="flex items-center gap-2">
-                  <span className="text-2xl font-bold">{availableQuantity}</span>
-                  <Badge 
-                    className={`${getStockStatusColor(availableQuantity, minStock)} text-white`}
-                  >
-                    {getStockStatusText(availableQuantity, minStock)}
-                  </Badge>
-                </div>
-              </div>
-
-              <div>
-                <label className="text-sm font-medium text-muted-foreground">Reserved Stock</label>
-                <p className="text-lg">{reservedQuantity}</p>
-              </div>
-
-              <div>
-                <label className="text-sm font-medium text-muted-foreground">Minimum Stock</label>
-                <p className="text-lg">{minStock}</p>
-              </div>
-
-              <div>
-                <label className="text-sm font-medium text-muted-foreground">Maximum Stock</label>
-                <p className="text-lg">{item.maxStock || 'Not set'}</p>
-              </div>
+        {loading ? (
+          <div className="flex items-center justify-center py-12">
+            <div className="flex flex-col items-center space-y-4">
+              <Loader2 className="h-8 w-8 animate-spin text-primary" />
+              <p className="text-sm text-muted-foreground">
+                Loading inventory details...
+              </p>
             </div>
           </div>
-
-          <Separator />
-
-          {/* Location and Storage */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div className="space-y-4">
-              <div>
-                <label className="text-sm font-medium text-muted-foreground flex items-center gap-1">
-                  <MapPin className="h-4 w-4" />
-                  Location
-                </label>
-                <p>{item.location || 'Not specified'}</p>
-              </div>
-
-              <div>
-                <label className="text-sm font-medium text-muted-foreground">Bin/Shelf</label>
-                <p>{item.bin || 'Not specified'}</p>
-              </div>
-            </div>
-
-            <div className="space-y-4">
-              <div>
-                <label className="text-sm font-medium text-muted-foreground">Unit Cost</label>
-                <p className="text-lg font-semibold">{formatCurrency(unitCost)}</p>
-              </div>
-
-              <div>
-                <label className="text-sm font-medium text-muted-foreground">Total Value</label>
-                <p className="text-lg font-semibold text-green-600">
-                  {formatCurrency(availableQuantity * unitCost)}
-                </p>
-              </div>
-            </div>
-          </div>
-
-          {/* Batch Information */}
-          {item.batch && (
-            <>
-              <Separator />
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="space-y-4">
+        ) : (
+          <div className="space-y-4 md:space-y-6">
+            {/* Product Information */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Package className="h-5 w-5" />
+                    Product Information
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
                   <div>
-                    <label className="text-sm font-medium text-muted-foreground">Batch Number</label>
-                    <p className="font-mono">{item.batch.batchNumber}</p>
+                    <p className="text-sm text-muted-foreground">Product Name</p>
+                    <p className="font-semibold text-lg">
+                      {item.product?.name || "Unknown Product"}
+                    </p>
                   </div>
                   <div>
-                    <label className="text-sm font-medium text-muted-foreground">Buying Price</label>
-                    <p>{formatCurrency(Number(item.batch.buyingPrice) || 0)}</p>
+                    <p className="text-sm text-muted-foreground">SKU</p>
+                    <p className="font-mono bg-muted px-2 py-1 rounded text-sm">
+                      {item.product?.sku || "N/A"}
+                    </p>
                   </div>
-                </div>
-                <div className="space-y-4">
                   <div>
-                    <label className="text-sm font-medium text-muted-foreground">Received Date</label>
-                    <p>{formatDate(item.batch.receivedDate)}</p>
+                    <p className="text-sm text-muted-foreground">Category</p>
+                    <p>{item.product?.category?.name || "Uncategorized"}</p>
                   </div>
-                  {item.batch.expiryDate && (
+                  {item.product?.brand && (
                     <div>
-                      <label className="text-sm font-medium text-muted-foreground">Expiry Date</label>
-                      <p>{formatDate(item.batch.expiryDate)}</p>
+                      <p className="text-sm text-muted-foreground">Brand</p>
+                      <p>{item.product.brand.name}</p>
                     </div>
                   )}
+                  <div>
+                    <p className="text-sm text-muted-foreground">Selling Price</p>
+                    <p className="font-semibold">
+                      {formatCurrency(Number(item.product?.sellingPrice || 0))}
+                    </p>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Hash className="h-5 w-5" />
+                    Stock Information
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div>
+                    <p className="text-sm text-muted-foreground">Available Quantity</p>
+                    <div className="flex items-center gap-2">
+                      <span className="text-2xl font-bold">
+                        {productInventory?.totalAvailable || item.quantityAvailable || 0}
+                      </span>
+                      {getStockBadge(
+                        productInventory?.totalAvailable || item.quantityAvailable || 0,
+                        item.product?.reorderLevel || 0
+                      )}
+                    </div>
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground">Reserved Quantity</p>
+                    <p className="text-lg">
+                      {productInventory?.totalReserved || item.quantityReserved || 0}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground">Total Quantity</p>
+                    <p className="text-lg font-medium">
+                      {productInventory?.totalQuantity || 
+                        (item.quantityAvailable || 0) + (item.quantityReserved || 0)}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground">Reorder Level</p>
+                    <p className="text-lg">{item.product?.reorderLevel || 0}</p>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Location and Batch Information */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <MapPin className="h-5 w-5" />
+                    Location Details
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div>
+                    <p className="text-sm text-muted-foreground">Storage Location</p>
+                    <p className="flex items-center gap-2">
+                      <Building className="h-4 w-4" />
+                      {item.location || "Not specified"}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground">Last Stock Update</p>
+                    <p className="flex items-center gap-2">
+                      <Calendar className="h-4 w-4" />
+                      {formatDate(item.lastStockUpdate || item.updatedAt)}
+                    </p>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {item.batch && (
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <Package className="h-5 w-5" />
+                      Batch Information
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div>
+                      <p className="text-sm text-muted-foreground">Batch Number</p>
+                      <p className="font-mono bg-muted px-2 py-1 rounded text-sm">
+                        {item.batch.batchNumber}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-muted-foreground">Buying Price</p>
+                      <p className="font-medium">
+                        {formatCurrency(Number(item.batch.buyingPrice || 0))}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-muted-foreground">Received Date</p>
+                      <p>{formatDate(item.batch.receivedDate)}</p>
+                    </div>
+                    {item.batch.expiryDate && (
+                      <div>
+                        <p className="text-sm text-muted-foreground">Expiry Date</p>
+                        <p>{formatDate(item.batch.expiryDate)}</p>
+                      </div>
+                    )}
+                    {item.batch.supplierBatchRef && (
+                      <div>
+                        <p className="text-sm text-muted-foreground">Supplier Reference</p>
+                        <p className="font-mono text-sm">{item.batch.supplierBatchRef}</p>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              )}
+            </div>
+
+            {/* All Batches for this Product */}
+            {productInventory && productInventory.batches.length > 1 && (
+              <Card>
+                <CardHeader>
+                  <CardTitle>All Batches for this Product</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-3">
+                    {productInventory.batches.map((batch) => (
+                      <div
+                        key={batch.id}
+                        className="flex items-center justify-between p-3 border rounded-lg"
+                      >
+                        <div className="flex-1">
+                          <p className="font-mono text-sm font-medium">
+                            {batch.batch?.batchNumber || "No batch number"}
+                          </p>
+                          <p className="text-sm text-muted-foreground">
+                            Location: {batch.location} •{" "}
+                            Available: {batch.quantityAvailable} •{" "}
+                            Reserved: {batch.quantityReserved}
+                          </p>
+                        </div>
+                        {batch.batch?.expiryDate && (
+                          <div className="text-right">
+                            <p className="text-sm text-muted-foreground">
+                              Expires: {formatDate(batch.batch.expiryDate)}
+                            </p>
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Financial Information */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Financial Summary</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div>
+                    <p className="text-sm text-muted-foreground">Cost per Unit</p>
+                    <p className="font-semibold">
+                      {item.batch
+                        ? formatCurrency(Number(item.batch.buyingPrice || 0))
+                        : "N/A"}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground">Total Stock Value (Cost)</p>
+                    <p className="font-semibold">
+                      {item.batch
+                        ? formatCurrency(
+                            (item.quantityAvailable || 0) * Number(item.batch.buyingPrice || 0)
+                          )
+                        : "N/A"}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground">Total Stock Value (Selling)</p>
+                    <p className="font-semibold text-green-600">
+                      {formatCurrency(
+                        (item.quantityAvailable || 0) * Number(item.product?.sellingPrice || 0)
+                      )}
+                    </p>
+                  </div>
                 </div>
-              </div>
-            </>
-          )}
+              </CardContent>
+            </Card>
 
-          <Separator />
-
-          {/* Dates and Tracking */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div className="space-y-4">
-              <div>
-                <label className="text-sm font-medium text-muted-foreground flex items-center gap-1">
-                  <Calendar className="h-4 w-4" />
-                  Last Updated
-                </label>
-                <p>{formatDate(item.lastUpdated || item.lastStockUpdate)}</p>
-              </div>
-
-              <div>
-                <label className="text-sm font-medium text-muted-foreground">Last Counted</label>
-                <p>{item.lastCounted ? formatDate(item.lastCounted) : 'Never'}</p>
-              </div>
-            </div>
-
-            <div className="space-y-4">
-              <div>
-                <label className="text-sm font-medium text-muted-foreground flex items-center gap-1">
-                  <User className="h-4 w-4" />
-                  Updated By
-                </label>
-                <p>{item.updatedBy || 'System'}</p>
-              </div>
-
-              <div>
-                <label className="text-sm font-medium text-muted-foreground">Supplier</label>
-                <p>{item.supplier || 'Not specified'}</p>
-              </div>
+            {/* Actions */}
+            <div className="flex justify-end gap-2 pt-4 border-t">
+              {hasPermission(PERMISSIONS.INVENTORY_UPDATE) && (
+                <Button onClick={() => onAdjust(item)}>
+                  <Settings className="mr-2 h-4 w-4" />
+                  Adjust Stock
+                </Button>
+              )}
             </div>
           </div>
-
-          {/* Notes */}
-          {item.notes && (
-            <>
-              <Separator />
-              <div>
-                <label className="text-sm font-medium text-muted-foreground flex items-center gap-1">
-                  <FileText className="h-4 w-4" />
-                  Notes
-                </label>
-                <p className="mt-1 p-3 bg-muted rounded-md text-sm">{item.notes}</p>
-              </div>
-            </>
-          )}
-
-          {/* Product Description */}
-          {item.product?.description && (
-            <>
-              <Separator />
-              <div>
-                <label className="text-sm font-medium text-muted-foreground">Product Description</label>
-                <p className="mt-1 text-sm text-muted-foreground">{item.product.description}</p>
-              </div>
-            </>
-          )}
-        </div>
-
-        {/* Action Buttons */}
-        <div className="flex justify-between pt-4 border-t">
-          <div className="flex gap-2">
-            {hasPermission(PERMISSIONS.INVENTORY.UPDATE) && onEdit && (
-              <Button variant="outline" onClick={() => onEdit(item)}>
-                <Edit className="h-4 w-4 mr-2" />
-                Edit
-              </Button>
-            )}
-            {hasPermission(PERMISSIONS.INVENTORY.UPDATE) && onAdjust && (
-              <Button variant="outline" onClick={() => onAdjust(item)}>
-                <Package className="h-4 w-4 mr-2" />
-                Adjust Stock
-              </Button>
-            )}
-          </div>
-          
-          {hasPermission(PERMISSIONS.INVENTORY.DELETE) && onDelete && (
-            <Button variant="destructive" onClick={() => onDelete(item)}>
-              <Trash2 className="h-4 w-4 mr-2" />
-              Delete
-            </Button>
-          )}
-        </div>
+        )}
       </DialogContent>
     </Dialog>
   );
-}
+};
+
+export default InventoryViewDialog;

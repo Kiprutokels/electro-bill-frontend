@@ -17,14 +17,15 @@ import AdminLayout from "./components/layout/AdminLayout";
 import NotFound from "./pages/NotFound";
 import { Loader2 } from "lucide-react";
 import Invoices from "./pages/Invoices";
-import { Inventory } from "./pages/Inventory";
+import Inventory from "./pages/Inventory";
 import Quotations from "./pages/Quotations";
+import ProductBatches from "./pages/Inventory/Batches";
 
 const queryClient = new QueryClient();
 
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   const { user, isLoading, isAuthenticated } = useAuth();
-  
+
   if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
@@ -35,11 +36,11 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
       </div>
     );
   }
-  
+
   if (!isAuthenticated || !user) {
     return <Navigate to="/login" replace />;
   }
-  
+
   return <>{children}</>;
 };
 
@@ -69,12 +70,34 @@ const App = () => (
                 <Route path="users" element={<Users />} />
                 <Route path="categories" element={<Categories />} />
                 <Route path="brands" element={<Brands />} />
-                <Route path="inventory" element={<Inventory/>} />
-                <Route path="quotations" element={<Quotations/>} />
-                <Route path="invoices" element={<Invoices/>} />
-                <Route path="payments" element={<div className="p-8 text-center text-muted-foreground">Payments - Coming Soon</div>} />
-                <Route path="transactions" element={<div className="p-8 text-center text-muted-foreground">Transactions - Coming Soon</div>} />
-                <Route path="settings/*" element={<div className="p-8 text-center text-muted-foreground">Settings - Coming Soon</div>} />
+                <Route path="inventory" element={<Inventory />} />
+                <Route path="inventory/batches" element={<ProductBatches />} />
+                <Route path="quotations" element={<Quotations />} />
+                <Route path="invoices" element={<Invoices />} />
+                <Route
+                  path="payments"
+                  element={
+                    <div className="p-8 text-center text-muted-foreground">
+                      Payments - Coming Soon
+                    </div>
+                  }
+                />
+                <Route
+                  path="transactions"
+                  element={
+                    <div className="p-8 text-center text-muted-foreground">
+                      Transactions - Coming Soon
+                    </div>
+                  }
+                />
+                <Route
+                  path="settings/*"
+                  element={
+                    <div className="p-8 text-center text-muted-foreground">
+                      Settings - Coming Soon
+                    </div>
+                  }
+                />
                 <Route path="*" element={<NotFound />} />
               </Route>
             </Routes>

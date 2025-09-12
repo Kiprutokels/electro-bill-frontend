@@ -1,236 +1,92 @@
-import apiClient from '../client/axios';
-import { API_ENDPOINTS } from '../client/endpoints';
-
-export enum InventoryAdjustmentType {
-  INCREASE = 'increase',
-  DECREASE = 'decrease',
-  SET = 'set',
-}
-
-export interface InventoryItem {
-  id: string;
-  productId: string;
-  batchId?: string;
-  quantity: number;
-  quantityAvailable: number;
-  quantityReserved: number;
-  minStock: number;
-  maxStock?: number;
-  reorderPoint?: number;
-  location?: string;
-  bin?: string;
-  unitCost: number; // This will be calculated from batch data
-  lastUpdated: string;
-  lastStockUpdate: string;
-  lastCounted?: string;
-  updatedBy?: string;
-  supplier?: string;
-  notes?: string;
-  product: {
-    id: string;
-    name: string;
-    sku: string;
-    sellingPrice: number;
-    reorderLevel: number;
-    description?: string;
-    category?: {
-      id: string;
-      name: string;
-    };
-    brand?: {
-      id: string;
-      name: string;
-    };
-  };
-  batch?: {
-    id: string;
-    batchNumber: string;
-    buyingPrice: number;
-    expiryDate?: string;
-    receivedDate: string;
-  };
-}
-
-export interface InventoryAdjustmentRequest {
-  newQuantity: number;
-  adjustmentType: InventoryAdjustmentType;
-  adjustmentQuantity: number;
-  reason: string;
-  notes?: string;
-  unitCost?: number;
-}
-
-export interface InventoryFilters {
-  productId?: string;
-  categoryId?: string;
-  location?: string;
-  lowStock?: boolean;
-  includeZeroStock?: boolean;
-}
-
-export interface InventorySummary {
-  totalProducts: number;
-  productsInStock: number;
-  productsOutOfStock: number;
-  lowStockCount: number;
-  totalValue: number;
-  avgStockLevel: number;
-}
-
-// Transform API response to add calculated unitCost
-const transformInventoryItem = (item: any): InventoryItem => {
-  // Use buyingPrice from batch as unitCost, fallback to sellingPrice
-  const unitCost = item.batch?.buyingPrice ? Number(item.batch.buyingPrice) : 
-                   (item.product?.sellingPrice ? Number(item.product.sellingPrice) : 0);
-
-  return {
-    ...item,
-    unitCost,
-    quantity: item.quantityAvailable || item.quantity || 0,
-    quantityAvailable: item.quantityAvailable || 0,
-    quantityReserved: item.quantityReserved || 0,
-    minStock: item.product?.reorderLevel || item.minStock || 0,
-    lastStockUpdate: item.lastStockUpdate || item.updatedAt,
-    product: {
-      ...item.product,
-      sellingPrice: Number(item.product?.sellingPrice) || 0,
-      reorderLevel: item.product?.reorderLevel || 0,
-    },
-    batch: item.batch ? {
-      ...item.batch,
-      buyingPrice: Number(item.batch.buyingPrice) || 0,
-    } : undefined,
-  };
-};
+import apiClient from "../client/axios";
+import { API_ENDPOINTS } from "../client/endpoints";
+import {
+  InventoryItem,
+  InventoryFilters,
+  InventoryPaginatedResponse,
+  InventorySummary,
+  LowStockProduct,
+  ExpiredStock,
+  ProductInventory,
+  ManualInventoryAdjustment,
+  InventoryValuation,
+} from "../types/inventory.types";
 
 export const inventoryService = {
-  // Get all inventory items with pagination and filters
+  // Get all inventory with pagination and filters
   getAll: async (
     page = 1,
     limit = 10,
     search?: string,
     filters: InventoryFilters = {}
-  ): Promise<{
-    data: InventoryItem[];
-    meta: {
-      total: number;
-      page: number;
-      limit: number;
-      totalPages: number;
-    };
-  }> => {
-    const params = {
+  ): Promise<InventoryPaginatedResponse> => {
+    const params: any = {
       page,
       limit,
-      search,
-      ...filters,
     };
-    
-    const response = await apiClient.get(API_ENDPOINTS.INVENTORY.BASE, { params });
-    
-    // Transform the response data
-    const transformedData = response.data.data?.map(transformInventoryItem) || [];
-    
-    return {
-      data: transformedData,
-      meta: response.data.meta || {
-        total: 0,
-        page: 1,
-        limit: 10,
-        totalPages: 0,
-      },
-    };
-  },
 
-  // Backward compatibility method
-  getInventory: async (
-    page = 1,
-    limit = 10,
-    search?: string,
-    filters: InventoryFilters = {}
-  ) => {
-    return inventoryService.getAll(page, limit, search, filters);
-  },
+    if (search) params.search = search;
+    if (filters.productId) params.productId = filters.productId;
+    if (filters.categoryId) params.categoryId = filters.categoryId;
+    if (filters.location) params.location = filters.location;
+    if (filters.lowStock !== undefined) params.lowStock = filters.lowStock;
+    if (filters.includeZeroStock !== undefined) params.includeZeroStock = filters.includeZeroStock;
 
-  // Get single inventory item by ID
-  getById: async (id: string): Promise<InventoryItem> => {
-    const response = await apiClient.get(API_ENDPOINTS.INVENTORY.BY_ID(id));
-    return transformInventoryItem(response.data);
-  },
-
-  // Get inventory by product ID
-  getByProduct: async (productId: string): Promise<{
-    product: {
-      id: string;
-      name: string;
-      sku: string;
-      sellingPrice: number;
-      reorderLevel: number;
-    };
-    totalQuantity: number;
-    totalReserved: number;
-    totalAvailable: number;
-    batches: InventoryItem[];
-  }> => {
-    const response = await apiClient.get(
-      API_ENDPOINTS.INVENTORY.BY_PRODUCT(productId)
-    );
-    
-    const data = response.data;
-    return {
-      ...data,
-      batches: data.batches?.map(transformInventoryItem) || [],
-    };
-  },
-
-  // Get inventory summary/statistics
-  getSummary: async (): Promise<InventorySummary> => {
-    const response = await apiClient.get(API_ENDPOINTS.INVENTORY.SUMMARY);
+    const response = await apiClient.get(API_ENDPOINTS.INVENTORY.BASE, {
+      params,
+    });
     return response.data;
   },
 
-  // Backward compatibility method
-  getInventorySummary: async (): Promise<InventorySummary> => {
-    return inventoryService.getSummary();
+  // Get inventory summary statistics
+  getSummary: async (): Promise<InventorySummary> => {
+    const response = await apiClient.get<InventorySummary>(
+      API_ENDPOINTS.INVENTORY.SUMMARY
+    );
+    return response.data;
   },
 
   // Get low stock products
-  getLowStock: async (): Promise<InventoryItem[]> => {
-    const response = await apiClient.get(API_ENDPOINTS.INVENTORY.LOW_STOCK);
-    return response.data?.map(transformInventoryItem) || [];
-  },
-
-  // Adjust stock for specific inventory item
-  adjustStock: async (id: string, data: InventoryAdjustmentRequest): Promise<InventoryItem> => {
-    const response = await apiClient.patch(
-      API_ENDPOINTS.INVENTORY.ADJUST_STOCK(id),
-      data
+  getLowStock: async (): Promise<LowStockProduct[]> => {
+    const response = await apiClient.get<LowStockProduct[]>(
+      API_ENDPOINTS.INVENTORY.LOW_STOCK
     );
-    return transformInventoryItem(response.data);
+    return response.data;
   },
 
-  // Create new inventory item
-  create: async (data: Partial<InventoryItem>): Promise<InventoryItem> => {
-    const response = await apiClient.post(API_ENDPOINTS.INVENTORY.BASE, data);
-    return transformInventoryItem(response.data);
+  // Get expired stock
+  getExpired: async (): Promise<ExpiredStock[]> => {
+    const response = await apiClient.get<ExpiredStock[]>(
+      `${API_ENDPOINTS.INVENTORY.BASE}/expired`
+    );
+    return response.data;
   },
 
-  // Update inventory item
-  update: async (id: string, data: Partial<InventoryItem>): Promise<InventoryItem> => {
-    const response = await apiClient.patch(API_ENDPOINTS.INVENTORY.BY_ID(id), data);
-    return transformInventoryItem(response.data);
+  // Get inventory valuation report
+  getValuation: async (): Promise<InventoryValuation> => {
+    const response = await apiClient.get<InventoryValuation>(
+      `${API_ENDPOINTS.INVENTORY.BASE}/valuation`
+    );
+    return response.data;
   },
 
-  // Delete inventory item
-  delete: async (id: string): Promise<void> => {
-    await apiClient.delete(API_ENDPOINTS.INVENTORY.BY_ID(id));
+  // Get inventory for specific product
+  getByProduct: async (productId: string): Promise<ProductInventory> => {
+    const response = await apiClient.get<ProductInventory>(
+      API_ENDPOINTS.INVENTORY.BY_PRODUCT(productId)
+    );
+    return response.data;
   },
 
-  // Search products for inventory management
-  searchProducts: async (search: string): Promise<any[]> => {
-    const response = await apiClient.get(`${API_ENDPOINTS.PRODUCTS.BASE}/search`, {
-      params: { search, limit: 10 }
-    });
-    return response.data || [];
+  // Manual inventory adjustment
+  adjustInventory: async (adjustment: ManualInventoryAdjustment): Promise<ProductInventory> => {
+    const response = await apiClient.post<ProductInventory>(
+      `${API_ENDPOINTS.INVENTORY.BASE}/adjust`,
+      adjustment
+    );
+    return response.data;
   },
 };
+
+// Export types for easier imports
+export * from "../types/inventory.types";

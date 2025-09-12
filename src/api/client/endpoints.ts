@@ -58,6 +58,14 @@ export const API_ENDPOINTS = {
     LOCATIONS: "/inventory/locations",
     LOW_STOCK: "/inventory/low-stock",
   },
+  PRODUCT_BATCHES: {
+    BASE: "/product-batches",
+    BY_ID: (id: string) => `/product-batches/${id}`,
+    EXPIRING: "/product-batches/expiring",
+    FIFO: (productId: string, quantity: number) =>
+      `/product-batches/fifo/${productId}/${quantity}`,
+    ADJUST_STOCK: (id: string) => `/product-batches/${id}/adjust-stock`,
+  },
 
   // Payments
   PAYMENTS: {
@@ -95,15 +103,6 @@ export const API_ENDPOINTS = {
   PERMISSIONS: {
     BASE: "/permissions",
     BY_MODULE: (module: string) => `/permissions/modules/${module}`,
-  },
-
-  PRODUCT_BATCHES: {
-    BASE: "/product-batches",
-    BY_ID: (id: string) => `/product-batches/${id}`,
-    EXPIRING: "/product-batches/expiring",
-    FIFO: (productId: string, quantity: number) =>
-      `/product-batches/fifo/${productId}/${quantity}`,
-    ADJUST_STOCK: (id: string) => `/product-batches/${id}/adjust-stock`,
   },
 
   // Quotations

@@ -245,10 +245,10 @@ const Invoices = () => {
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h1 className="text-2xl sm:text-3xl font-bold text-foreground">
-            Invoices
+            Orders
           </h1>
           <p className="text-sm text-muted-foreground mt-1">
-            Manage sales invoices and billing
+            Manage sales Orders and billing
           </p>
         </div>
         {hasPermission(PERMISSIONS.SALES_CREATE) && (
@@ -267,7 +267,7 @@ const Invoices = () => {
         <Card className="border-l-4 border-l-primary">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">
-              Total Invoices
+              Total Orders
             </CardTitle>
             <Receipt className="h-4 w-4 text-primary" />
           </CardHeader>
