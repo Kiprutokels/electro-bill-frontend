@@ -123,4 +123,7 @@ export const API_ENDPOINTS = {
     SUMMARY: "/invoices/summary",
     SEARCH_PRODUCTS: "/invoices/search-products",
   },
+  DASHBOARD: {
+    OVERVIEW: "/dashboard/overview",
+  },
 } as const;
