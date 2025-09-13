@@ -15,6 +15,7 @@ import { LogOut, User, Settings, Shield } from 'lucide-react';
 import { SidebarTrigger } from '@/components/ui/sidebar';
 import { ThemeToggle } from '@/components/ui/theme-toggle';
 import { useNavigate } from 'react-router-dom';
+import { PERMISSIONS, ROUTES } from '@/utils/constants';
 
 export const Header = () => {
   const { user, logout } = useAuth();
@@ -26,7 +27,7 @@ export const Header = () => {
   };
 
   const handleProfile = () => {
-    navigate('/settings/profile');
+    navigate('/profile');
   };
 
   const getInitials = (firstName?: string, lastName?: string) => {
@@ -127,7 +128,7 @@ export const Header = () => {
             
             {user?.role === 'ADMIN' && (
               <DropdownMenuItem 
-                onClick={() => navigate('/settings/roles')}
+                onClick={() => navigate('/roles')}
                 className="flex items-center space-x-2 cursor-pointer"
               >
                 <Shield className="h-4 w-4" />
