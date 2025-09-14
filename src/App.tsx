@@ -20,6 +20,8 @@ import Invoices from "./pages/Invoices";
 import Inventory from "./pages/Inventory";
 import Quotations from "./pages/Quotations";
 import ProductBatches from "./pages/Inventory/Batches";
+import Payments from "./pages/Payments";
+import NewPayment from "./pages/NewPayment";
 
 const queryClient = new QueryClient();
 
@@ -74,14 +76,8 @@ const App = () => (
                 <Route path="inventory/batches" element={<ProductBatches />} />
                 <Route path="quotations" element={<Quotations />} />
                 <Route path="invoices" element={<Invoices />} />
-                <Route
-                  path="payments"
-                  element={
-                    <div className="p-8 text-center text-muted-foreground">
-                      Payments - Coming Soon
-                    </div>
-                  }
-                />
+                <Route path="payments" element={<Payments />} />
+                <Route path="payments/new" element={<NewPayment />} />
                 <Route
                   path="transactions"
                   element={

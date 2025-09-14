@@ -68,16 +68,25 @@ export const API_ENDPOINTS = {
   },
 
   // Payments
-  PAYMENTS: {
-    BASE: "/payments",
-    RECEIPTS: "/payments/receipts",
-    RECEIPT_BY_ID: (id: string) => `/payments/receipts/${id}`,
-    RECEIPT_BY_NUMBER: (number: string) =>
-      `/payments/receipts/by-number/${number}`,
-    CUSTOMER_OUTSTANDING: (customerId: string) =>
-      `/payments/customers/${customerId}/outstanding-invoices`,
-    SUMMARY: "/payments/summary",
-  },
+  // PAYMENTS: {
+  //   BASE: "/payments",
+  //   RECEIPTS: "/payments/receipts",
+  //   RECEIPT_BY_ID: (id: string) => `/payments/receipts/${id}`,
+  //   RECEIPT_BY_NUMBER: (number: string) =>
+  //     `/payments/receipts/by-number/${number}`,
+  //   CUSTOMER_OUTSTANDING: (customerId: string) =>
+  //     `/payments/customers/${customerId}/outstanding-invoices`,
+  //   SUMMARY: "/payments/summary",
+  // },
+
+PAYMENTS: {
+  BASE: "/payments",
+  PAYMENT_METHODS: "/payments/payment-methods",
+  PROCESS: "/payments/process",
+  RECEIPTS: "/payments/receipts",
+  RECEIPT_BY_ID: (id: string) => `/payments/receipts/${id}`,
+  CUSTOMER_OUTSTANDING: (customerId: string) => `/payments/customers/${customerId}/outstanding-invoices`,
+},
 
   TRANSACTIONS: {
     BASE: "/transactions",
