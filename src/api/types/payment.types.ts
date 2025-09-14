@@ -1,144 +1,153 @@
 export interface PaymentMethod {
   id: string;
   name: string;
-  type: "CASH" | "MPESA" | "BANK_TRANSFER" | "CARD" | "CHECK";
+  type: 'CASH' | 'BANK_TRANSFER' | 'MOBILE_MONEY' | 'CHEQUE' | 'CARD';
   isActive: boolean;
-  createdAt: string;
   _count?: {
     receipts: number;
   };
 }
 
+export interface PaymentItem {
+  invoiceId: string;
+  amountPaid: number;
+}
+
+export interface CreatePaymentDto {
+  customerId: string;
+  paymentMethodId: string;
+  totalAmount: number;
+  referenceNumber?: string;
+  notes?: string;
+  items: PaymentItem[];
+}
+
 export interface Receipt {
   id: string;
   receiptNumber: string;
-  customerId?: string;
-  supplierId?: string;
-  invoiceId?: string;
+  customerId: string;
   paymentMethodId: string;
-  amount: number;
-  paymentDate: string;
+  totalAmount: number;
+  paymentDate: string | Date;
   referenceNumber?: string;
   notes?: string;
-  createdBy: string;
-  createdAt: string;
-  customer?: {
+  balanceIssued: number;
+  balanceCredited: number;
+  createdAt: string | Date;
+  updatedAt: string | Date;
+  customer: {
     id: string;
     customerCode: string;
-    businessName?: string;
-    contactPerson?: string;
-    phone: string;
-    email?: string;
+    businessName: string | null;
+    contactPerson: string | null;
+    phone: string | null;
+    email: string | null;
   };
-  supplier?: {
+  paymentMethod: {
     id: string;
-    supplierCode: string;
-    companyName: string;
-    contactPerson?: string;
-    phone: string;
-    email?: string;
+    name: string;
+    type: string;
   };
+  createdByUser: {
+    id: string;
+    firstName: string;
+    lastName: string;
+  };
+  items: ReceiptItem[];
+  _count?: {
+    items: number;
+  };
+}
+
+export interface ReceiptItem {
+  id: string;
+  receiptId: string;
+  invoiceId: string;
+  invoiceNumber: string;
+  invoiceTotal: number;
+  amountPaid: number;
+  previousBalance: number;
   invoice?: {
     id: string;
     invoiceNumber: string;
+    invoiceDate: string | Date;
     totalAmount: number;
-    amountPaid: number;
     status: string;
-  };
-  paymentMethod: PaymentMethod;
-  createdByUser: {
-    firstName: string;
-    lastName: string;
-    username: string;
   };
 }
 
 export interface OutstandingInvoice {
   id: string;
   invoiceNumber: string;
-  invoiceDate: string;
-  dueDate: string;
+  invoiceDate: string | Date;
+  dueDate: string | Date;
   totalAmount: number;
   amountPaid: number;
-  status: string;
   outstandingBalance: number;
+  status: string;
+  isOverdue: boolean;
 }
 
-export interface CustomerOutstanding {
-  customer: {
-    id: string;
-    customerCode: string;
-    businessName?: string;
-    contactPerson?: string;
-  };
-  totalOutstanding: number;
-  outstandingInvoices: OutstandingInvoice[];
-}
-
-export interface CreatePaymentRequest {
-  customerId: string;
-  paymentMethodId: string;
-  totalAmount: number;
-  referenceNumber?: string;
-  notes?: string;
-  invoiceAllocations?: Array<{
-    invoiceId: string;
-    amount: number;
-  }>;
-}
-
-export interface PaymentSummary {
-  totalReceipts: number;
-  totalAmount: number;
-  paymentMethodSummary: Array<{
-    paymentMethod: string;
-    type: string;
-    count: number;
-    amount: number;
-  }>;
-  dailySummary: Array<{
-    date: string;
-    count: number;
-    amount: number;
-  }>;
-}
-
-export interface Transaction {
-  id: string;
-  transactionNumber: string;
-  transactionType:
-    | "INVOICE"
-    | "RECEIPT"
-    | "PURCHASE"
-    | "PAYMENT"
-    | "ADJUSTMENT";
-  referenceId?: string;
+export interface PaymentQueryDto {
   customerId?: string;
-  supplierId?: string;
-  debit: number;
-  credit: number;
-  balanceBf: number;
-  balanceCf: number;
-  transactionDate: string;
-  description?: string;
-  notes?: string;
-  createdBy: string;
-  createdAt: string;
-  customer?: {
-    id: string;
-    customerCode: string;
-    businessName?: string;
-    contactPerson?: string;
+  paymentMethodId?: string;
+  startDate?: string;
+  endDate?: string;
+  page?: number;
+  limit?: number;
+  search?: string;
+}
+
+export interface PaymentFilters {
+  customerId?: string;
+  paymentMethodId?: string;
+  startDate?: string;
+  endDate?: string;
+}
+
+export interface PaymentPaginatedResponse {
+  data: Receipt[];
+  meta: {
+    total: number;
+    page: number;
+    limit: number;
+    totalPages: number;
   };
-  supplier?: {
-    id: string;
-    supplierCode: string;
-    companyName: string;
-    contactPerson?: string;
-  };
-  createdByUser: {
-    firstName: string;
-    lastName: string;
-    username: string;
-  };
+}
+
+export interface TaxInformation {
+  taxRate: number;
+  totalBeforeTax: number;
+  taxAmount: number;
+  totalAmountPaidToInvoices: number;
+  totalAmountReceived: number;
+  balanceIssued: number;
+  balanceCredited: number;
+}
+
+export interface BalanceExplanation {
+  previousBalance: number;
+  paymentReceived: number;
+  invoicePayments: number;
+  excessCredit: number;
+  newBalance: number;
+  balanceType: 'DEBT' | 'CREDIT' | 'ZERO';
+}
+
+export interface SystemSettings {
+  businessName: string;
+  businessType?: string;
+  email?: string;
+  phone?: string;
+  addressLine1?: string;
+  addressLine2?: string;
+  city?: string;
+  country?: string;
+  taxNumber?: string;
+}
+
+export interface ReceiptWithDetails extends Receipt {
+  taxInformation: TaxInformation;
+  balanceExplanation?: BalanceExplanation;
+  systemSettings: SystemSettings;
 }

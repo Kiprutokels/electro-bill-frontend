@@ -15,7 +15,6 @@ import { LogOut, User, Settings, Shield } from 'lucide-react';
 import { SidebarTrigger } from '@/components/ui/sidebar';
 import { ThemeToggle } from '@/components/ui/theme-toggle';
 import { useNavigate } from 'react-router-dom';
-import { PERMISSIONS, ROUTES } from '@/utils/constants';
 
 export const Header = () => {
   const { user, logout } = useAuth();
