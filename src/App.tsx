@@ -22,6 +22,7 @@ import Quotations from "./pages/Quotations";
 import ProductBatches from "./pages/Inventory/Batches";
 import Payments from "./pages/Payments";
 import NewPayment from "./pages/NewPayment";
+import Settings from "./pages/Settings";
 
 const queryClient = new QueryClient();
 
@@ -78,19 +79,12 @@ const App = () => (
                 <Route path="invoices" element={<Invoices />} />
                 <Route path="payments" element={<Payments />} />
                 <Route path="payments/new" element={<NewPayment />} />
+                <Route path="settings/*" element={<Settings />} />
                 <Route
                   path="transactions"
                   element={
                     <div className="p-8 text-center text-muted-foreground">
                       Transactions - Coming Soon
-                    </div>
-                  }
-                />
-                <Route
-                  path="settings/*"
-                  element={
-                    <div className="p-8 text-center text-muted-foreground">
-                      Settings - Coming Soon
                     </div>
                   }
                 />

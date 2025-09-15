@@ -10,11 +10,11 @@ export { transactionsService } from './transactions.service';
 // Export types
 export type { User, CreateUserRequest, UpdateUserRequest } from './users.service';
 export type { Customer, CreateCustomerRequest, UpdateCustomerRequest } from './customers.service';
-export type { Product, ProductCategory, Brand, CreateProductRequest, UpdateProductRequest } from './products.service';
-export type { InventoryItem, StockAdjustment, InventorySummary } from './inventory.service';
-export type { Invoice, InvoiceItem, CreateInvoiceRequest, UpdateInvoiceRequest, InvoiceSummary } from './invoices.service';
+export type { Product, ProductCategory, CreateProductRequest, UpdateProductRequest } from './products.service';
+export type { InventoryItem, InventorySummary } from './inventory.service';
+export type { Invoice, InvoiceItem, CreateInvoiceRequest, UpdateInvoiceRequest } from './invoices.service';
 export type { Receipt, PaymentMethod, CreatePaymentRequest, PaymentSummary } from './payments.service';
 export type { Transaction, TransactionSummary } from './transactions.service';
 export type { Role, Permission } from './roles.service';
-export type { Brand, CreateBrandRequest, UpdateBrandRequest } from './brands.service';
-export type { ProductCategory, CreateCategoryRequest, UpdateCategoryRequest } from './categories.service';
+export type { CreateBrandRequest, UpdateBrandRequest } from './brands.service';
+export type { CreateCategoryRequest, UpdateCategoryRequest } from './categories.service';

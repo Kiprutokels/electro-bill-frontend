@@ -67,18 +67,6 @@ export const API_ENDPOINTS = {
     ADJUST_STOCK: (id: string) => `/product-batches/${id}/adjust-stock`,
   },
 
-  // Payments
-  // PAYMENTS: {
-  //   BASE: "/payments",
-  //   RECEIPTS: "/payments/receipts",
-  //   RECEIPT_BY_ID: (id: string) => `/payments/receipts/${id}`,
-  //   RECEIPT_BY_NUMBER: (number: string) =>
-  //     `/payments/receipts/by-number/${number}`,
-  //   CUSTOMER_OUTSTANDING: (customerId: string) =>
-  //     `/payments/customers/${customerId}/outstanding-invoices`,
-  //   SUMMARY: "/payments/summary",
-  // },
-
 PAYMENTS: {
   BASE: "/payments",
   PAYMENT_METHODS: "/payments/payment-methods",
@@ -134,5 +122,11 @@ PAYMENTS: {
   },
   DASHBOARD: {
     OVERVIEW: "/dashboard/overview",
+  },
+
+    SETTINGS: {
+    BASE: "/settings",
+    BY_ID: (id: string) => `/settings/${id}`,
+    ALL: "/settings/all",
   },
 } as const;
