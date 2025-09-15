@@ -23,6 +23,7 @@ import ProductBatches from "./pages/Inventory/Batches";
 import Payments from "./pages/Payments";
 import NewPayment from "./pages/NewPayment";
 import Settings from "./pages/Settings";
+import Transactions from "./pages/Transactions";
 
 const queryClient = new QueryClient();
 
@@ -80,14 +81,7 @@ const App = () => (
                 <Route path="payments" element={<Payments />} />
                 <Route path="payments/new" element={<NewPayment />} />
                 <Route path="settings/*" element={<Settings />} />
-                <Route
-                  path="transactions"
-                  element={
-                    <div className="p-8 text-center text-muted-foreground">
-                      Transactions - Coming Soon
-                    </div>
-                  }
-                />
+                <Route path="transactions" element={<Transactions />} />
                 <Route path="*" element={<NotFound />} />
               </Route>
             </Routes>
