@@ -54,7 +54,6 @@ export const settingsService = {
   },
 };
 
-// Export types for easier imports
 export type {
   SystemSettings,
   CreateSettingsRequest,

@@ -29,7 +29,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { Loader2, CreditCard, AlertTriangle, Calculator, Users } from "lucide-react";
+import { Loader2, CreditCard, AlertTriangle, Calculator, Users, Search, X } from "lucide-react";
 import { formatCurrency, formatDate } from "@/utils/format.utils";
 import { toast } from "sonner";
 import {
@@ -75,6 +75,9 @@ const ProcessPaymentDialog: React.FC<ProcessPaymentDialogProps> = ({
   const [paymentItems, setPaymentItems] = useState<PaymentItem[]>([]);
   const [loadingData, setLoadingData] = useState(false);
   const [selectedCustomer, setSelectedCustomer] = useState<string>(customerId || "");
+  const [customerSearch, setCustomerSearch] = useState("");
+  const [searchingCustomers, setSearchingCustomers] = useState(false);
+  const [showCustomerDropdown, setShowCustomerDropdown] = useState(false);
 
   const [formData, setFormData] = useState({
     paymentMethodId: "",
@@ -85,12 +88,10 @@ const ProcessPaymentDialog: React.FC<ProcessPaymentDialogProps> = ({
 
   const [errors, setErrors] = useState<Record<string, string>>({});
 
-  // Load initial data when dialog opens
   useEffect(() => {
     if (open) {
       loadInitialData();
     } else {
-      // Reset form when dialog closes
       setFormData({
         paymentMethodId: "",
         totalAmount: 0,
@@ -99,13 +100,14 @@ const ProcessPaymentDialog: React.FC<ProcessPaymentDialogProps> = ({
       });
       setPaymentItems([]);
       setErrors({});
+      setCustomerSearch("");
+      setShowCustomerDropdown(false);
       if (!customerId) {
         setSelectedCustomer("");
       }
     }
   }, [open, customerId]);
 
-  // Load outstanding invoices when customer changes
   useEffect(() => {
     if (selectedCustomer && open) {
       loadCustomerInvoices(selectedCustomer);
@@ -115,22 +117,45 @@ const ProcessPaymentDialog: React.FC<ProcessPaymentDialogProps> = ({
     }
   }, [selectedCustomer, open]);
 
+  // Customer search effect
+  useEffect(() => {
+    if (customerSearch && !customerId) {
+      const searchTimeout = setTimeout(() => {
+        searchCustomers(customerSearch);
+      }, 300);
+      
+      return () => clearTimeout(searchTimeout);
+    } else if (!customerSearch) {
+      setCustomers([]);
+      setShowCustomerDropdown(false);
+    }
+  }, [customerSearch, customerId]);
+
+  const searchCustomers = async (search: string) => {
+    if (search.length < 2) return;
+    
+    setSearchingCustomers(true);
+    try {
+      const response = await customersService.getCustomers({ 
+        page: 1, 
+        limit: 10, 
+        search: search.trim()
+      });
+      setCustomers(response.data || []);
+      setShowCustomerDropdown(true);
+    } catch (error) {
+      console.error("Failed to search customers:", error);
+      toast.error("Failed to search customers");
+    } finally {
+      setSearchingCustomers(false);
+    }
+  };
+
   const loadInitialData = async () => {
     setLoadingData(true);
     try {
-      const promises = [paymentService.getActivePaymentMethods()];
-      
-      if (!customerId) {
-        promises.push(customersService.getAll(1, 100));
-      }
-
-      const results = await Promise.all(promises);
-      setPaymentMethods(results[0]);
-      
-      if (!customerId && results[1]) {
-        setCustomers(results[1].data || []);
-      }
-
+      const paymentMethodsData = await paymentService.getActivePaymentMethods();
+      setPaymentMethods(paymentMethodsData);
     } catch (error) {
       console.error("Failed to load initial data:", error);
       toast.error("Failed to load payment data");
@@ -144,7 +169,6 @@ const ProcessPaymentDialog: React.FC<ProcessPaymentDialogProps> = ({
       const invoices = await paymentService.getCustomerOutstandingInvoices(custId);
       setOutstandingInvoices(invoices);
 
-      // Convert to payment items
       const items: PaymentItem[] = invoices.map((invoice) => ({
         invoiceId: invoice.id,
         invoiceNumber: invoice.invoiceNumber,
@@ -157,7 +181,6 @@ const ProcessPaymentDialog: React.FC<ProcessPaymentDialogProps> = ({
         isOverdue: invoice.isOverdue,
       }));
 
-      // Pre-select invoice if specified
       if (preSelectedInvoiceId) {
         const preSelectedItem = items.find(item => item.invoiceId === preSelectedInvoiceId);
         if (preSelectedItem) {
@@ -179,8 +202,18 @@ const ProcessPaymentDialog: React.FC<ProcessPaymentDialogProps> = ({
     }
   };
 
-  const handleCustomerChange = (custId: string) => {
-    setSelectedCustomer(custId);
+  const handleCustomerSelect = (customer: Customer) => {
+    setSelectedCustomer(customer.id);
+    setCustomerSearch(customer.businessName || customer.contactPerson || customer.customerCode);
+    setShowCustomerDropdown(false);
+    setFormData(prev => ({ ...prev, totalAmount: 0 }));
+  };
+
+  const clearCustomerSelection = () => {
+    setSelectedCustomer("");
+    setCustomerSearch("");
+    setCustomers([]);
+    setShowCustomerDropdown(false);
     setFormData(prev => ({ ...prev, totalAmount: 0 }));
   };
 
@@ -189,7 +222,6 @@ const ProcessPaymentDialog: React.FC<ProcessPaymentDialogProps> = ({
     updatedItems[index].selected = selected;
 
     if (selected) {
-      // Auto-fill with full outstanding amount
       updatedItems[index].paymentAmount = updatedItems[index].outstandingBalance;
     } else {
       updatedItems[index].paymentAmount = 0;
@@ -203,11 +235,9 @@ const ProcessPaymentDialog: React.FC<ProcessPaymentDialogProps> = ({
     const updatedItems = [...paymentItems];
     const maxAmount = updatedItems[index].outstandingBalance;
     
-    // Ensure amount doesn't exceed outstanding balance
     const validAmount = Math.min(Math.max(0, amount), maxAmount);
     updatedItems[index].paymentAmount = validAmount;
 
-    // Auto-select if amount > 0
     if (validAmount > 0 && !updatedItems[index].selected) {
       updatedItems[index].selected = true;
     } else if (validAmount === 0 && updatedItems[index].selected) {
@@ -258,7 +288,6 @@ const ProcessPaymentDialog: React.FC<ProcessPaymentDialogProps> = ({
       newErrors.items = "Please select at least one invoice to pay";
     }
 
-    // Validate individual payment amounts
     const invalidItems = selectedItems.filter(item => 
       item.paymentAmount <= 0 || item.paymentAmount > item.outstandingBalance
     );
@@ -318,14 +347,14 @@ const ProcessPaymentDialog: React.FC<ProcessPaymentDialogProps> = ({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-[95vw] w-full sm:max-w-5xl max-h-[95vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
+          <DialogTitle className="flex items-center gap-2 text-lg sm:text-xl">
             <CreditCard className="h-5 w-5" />
             Process Customer Payment
           </DialogTitle>
-          <DialogDescription>
-            Select a customer and invoices to pay, then enter payment details. A receipt will be automatically generated.
+          <DialogDescription className="text-sm">
+            Search and select a customer, then choose invoices to pay and enter payment details.
           </DialogDescription>
         </DialogHeader>
 
@@ -337,63 +366,101 @@ const ProcessPaymentDialog: React.FC<ProcessPaymentDialogProps> = ({
             </div>
           </div>
         ) : (
-          <form onSubmit={handleSubmit} className="space-y-6">
-            {/* Customer Selection */}
+          <form onSubmit={handleSubmit} className="space-y-4 sm:space-y-6">
             {!customerId && (
               <Card>
                 <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
+                  <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
                     <Users className="h-5 w-5" />
                     Select Customer
                   </CardTitle>
                 </CardHeader>
-                <CardContent>
+                <CardContent className="space-y-4">
                   <div>
                     <Label htmlFor="customer">Customer *</Label>
-                    <Select value={selectedCustomer} onValueChange={handleCustomerChange}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select a customer" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {customers.map((customer) => (
-                          <SelectItem key={customer.id} value={customer.id}>
-                            {customer.businessName || customer.contactPerson || "Unknown Customer"}
-                            <span className="text-muted-foreground ml-2">
-                              ({customer.customerCode})
-                            </span>
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    <div className="relative">
+                      <div className="flex items-center space-x-2">
+                        <div className="relative flex-1">
+                          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+                          <Input
+                            placeholder="Search customer by name, code, or phone..."
+                            value={customerSearch}
+                            onChange={(e) => setCustomerSearch(e.target.value)}
+                            className="pl-10 pr-10"
+                          />
+                          {customerSearch && (
+                            <button
+                              type="button"
+                              onClick={clearCustomerSelection}
+                              className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                            >
+                              <X className="h-4 w-4" />
+                            </button>
+                          )}
+                          {searchingCustomers && (
+                            <Loader2 className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin text-gray-400" />
+                          )}
+                        </div>
+                      </div>
+                      
+                      {showCustomerDropdown && customers.length > 0 && (
+                        <div className="absolute z-10 w-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg max-h-60 overflow-auto">
+                          {customers.map((customer) => (
+                            <div
+                              key={customer.id}
+                              onClick={() => handleCustomerSelect(customer)}
+                              className="p-3 hover:bg-gray-50 cursor-pointer border-b border-gray-100 last:border-b-0"
+                            >
+                              <div className="flex flex-col">
+                                <span className="font-medium text-sm">
+                                  {customer.businessName || customer.contactPerson || "Unknown Customer"}
+                                </span>
+                                <div className="text-xs text-gray-500 mt-1">
+                                  Code: {customer.customerCode}
+                                  {customer.phone && ` • Phone: ${customer.phone}`}
+                                  {customer.email && ` • Email: ${customer.email}`}
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
                     {errors.customerId && (
                       <p className="text-sm text-destructive mt-1">{errors.customerId}</p>
                     )}
                   </div>
 
                   {selectedCustomerData && (
-                    <div className="mt-4 p-3 bg-muted rounded-lg">
-                      <h4 className="font-medium mb-2">Customer Details</h4>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm">
+                    <div className="p-4 bg-muted rounded-lg">
+                      <h4 className="font-medium mb-3 text-sm">Selected Customer</h4>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs sm:text-sm">
                         <div>
                           <span className="text-muted-foreground">Name:</span>
-                          <span className="ml-2">
+                          <p className="font-medium break-words">
                             {selectedCustomerData.businessName || selectedCustomerData.contactPerson}
-                          </span>
+                          </p>
                         </div>
                         <div>
                           <span className="text-muted-foreground">Code:</span>
-                          <span className="ml-2">{selectedCustomerData.customerCode}</span>
+                          <p className="font-medium">{selectedCustomerData.customerCode}</p>
                         </div>
                         {selectedCustomerData.email && (
-                          <div>
+                          <div className="sm:col-span-2">
                             <span className="text-muted-foreground">Email:</span>
-                            <span className="ml-2">{selectedCustomerData.email}</span>
+                            <p className="font-medium break-all">{selectedCustomerData.email}</p>
                           </div>
                         )}
-                        {selectedCustomerData.currentBalance && (
+                        {selectedCustomerData.phone && (
+                          <div>
+                            <span className="text-muted-foreground">Phone:</span>
+                            <p className="font-medium">{selectedCustomerData.phone}</p>
+                          </div>
+                        )}
+                        {selectedCustomerData.currentBalance !== undefined && (
                           <div>
                             <span className="text-muted-foreground">Balance:</span>
-                            <span className={`ml-2 font-medium ${
+                            <p className={`font-bold ${
                               Number(selectedCustomerData.currentBalance) > 0 
                                 ? 'text-red-600' 
                                 : Number(selectedCustomerData.currentBalance) < 0
@@ -403,7 +470,7 @@ const ProcessPaymentDialog: React.FC<ProcessPaymentDialogProps> = ({
                               {formatCurrency(Number(selectedCustomerData.currentBalance))}
                               {Number(selectedCustomerData.currentBalance) > 0 && ' (Debt)'}
                               {Number(selectedCustomerData.currentBalance) < 0 && ' (Credit)'}
-                            </span>
+                            </p>
                           </div>
                         )}
                       </div>
@@ -413,9 +480,8 @@ const ProcessPaymentDialog: React.FC<ProcessPaymentDialogProps> = ({
               </Card>
             )}
 
-            {/* Payment Method and Reference */}
             {selectedCustomer && (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                 <div>
                   <Label htmlFor="paymentMethod">Payment Method *</Label>
                   <Select
@@ -424,13 +490,16 @@ const ProcessPaymentDialog: React.FC<ProcessPaymentDialogProps> = ({
                       setFormData(prev => ({ ...prev, paymentMethodId: value }))
                     }
                   >
-                    <SelectTrigger>
+                    <SelectTrigger className="w-full">
                       <SelectValue placeholder="Select payment method" />
                     </SelectTrigger>
                     <SelectContent>
                       {paymentMethods.map((method) => (
                         <SelectItem key={method.id} value={method.id}>
-                          {method.name} ({method.type})
+                          <div className="flex items-center gap-2">
+                            <span>{method.name}</span>
+                            <Badge variant="outline" className="text-xs">{method.type}</Badge>
+                          </div>
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -449,19 +518,19 @@ const ProcessPaymentDialog: React.FC<ProcessPaymentDialogProps> = ({
                     onChange={(e) =>
                       setFormData(prev => ({ ...prev, referenceNumber: e.target.value }))
                     }
+                    className="w-full"
                   />
                 </div>
               </div>
             )}
 
-            {/* Outstanding Invoices */}
             {selectedCustomer && (
               <Card>
-                <CardHeader className="flex flex-row items-center justify-between">
-                  <CardTitle className="flex items-center gap-2">
+                <CardHeader className="flex flex-col sm:flex-row sm:items-center justify-between space-y-2 sm:space-y-0">
+                  <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
                     Outstanding Invoices ({outstandingInvoices.length})
                     {selectedCount > 0 && (
-                      <Badge variant="secondary">
+                      <Badge variant="secondary" className="text-xs">
                         {selectedCount} selected
                       </Badge>
                     )}
@@ -472,6 +541,7 @@ const ProcessPaymentDialog: React.FC<ProcessPaymentDialogProps> = ({
                       variant="outline"
                       size="sm"
                       onClick={handleSelectAll}
+                      className="w-full sm:w-auto"
                     >
                       {paymentItems.every(item => item.selected) ? "Deselect All" : "Select All"}
                     </Button>
@@ -480,7 +550,7 @@ const ProcessPaymentDialog: React.FC<ProcessPaymentDialogProps> = ({
                 <CardContent>
                   {outstandingInvoices.length === 0 ? (
                     <div className="text-center py-8">
-                      <p className="text-muted-foreground">
+                      <p className="text-muted-foreground text-sm">
                         No outstanding invoices found for this customer.
                       </p>
                     </div>
@@ -490,11 +560,11 @@ const ProcessPaymentDialog: React.FC<ProcessPaymentDialogProps> = ({
                         <TableHeader>
                           <TableRow>
                             <TableHead className="w-12">Select</TableHead>
-                            <TableHead>Invoice</TableHead>
+                            <TableHead className="min-w-[120px]">Invoice</TableHead>
                             <TableHead className="hidden md:table-cell">Due Date</TableHead>
                             <TableHead className="text-right">Total</TableHead>
                             <TableHead className="text-right">Outstanding</TableHead>
-                            <TableHead className="text-right min-w-[120px]">Payment Amount</TableHead>
+                            <TableHead className="text-right min-w-[140px]">Payment Amount</TableHead>
                           </TableRow>
                         </TableHeader>
                         <TableBody>
@@ -509,27 +579,25 @@ const ProcessPaymentDialog: React.FC<ProcessPaymentDialogProps> = ({
                                 />
                               </TableCell>
                               <TableCell>
-                                <div className="flex items-center gap-2">
-                                  <div>
-                                    <p className="font-medium">{item.invoiceNumber}</p>
-                                    {item.isOverdue && (
-                                      <Badge variant="destructive" className="mt-1">
-                                        <AlertTriangle className="w-3 h-3 mr-1" />
-                                        Overdue
-                                      </Badge>
-                                    )}
-                                  </div>
+                                <div>
+                                  <p className="font-medium text-sm">{item.invoiceNumber}</p>
+                                  {item.isOverdue && (
+                                    <Badge variant="destructive" className="mt-1 text-xs">
+                                      <AlertTriangle className="w-3 h-3 mr-1" />
+                                      Overdue
+                                    </Badge>
+                                  )}
                                 </div>
                               </TableCell>
                               <TableCell className="hidden md:table-cell">
-                                <div className={`text-sm ${item.isOverdue ? 'text-red-600' : ''}`}>
+                                <div className={`text-xs sm:text-sm ${item.isOverdue ? 'text-red-600 font-medium' : ''}`}>
                                   {formatDate(item.dueDate.toString())}
                                 </div>
                               </TableCell>
-                              <TableCell className="text-right">
+                              <TableCell className="text-right text-sm font-medium">
                                 {formatCurrency(item.totalAmount)}
                               </TableCell>
-                              <TableCell className="text-right font-medium">
+                              <TableCell className="text-right font-bold text-sm text-orange-600">
                                 {formatCurrency(item.outstandingBalance)}
                               </TableCell>
                               <TableCell className="text-right">
@@ -542,8 +610,9 @@ const ProcessPaymentDialog: React.FC<ProcessPaymentDialogProps> = ({
                                   onChange={(e) =>
                                     handlePaymentAmountChange(index, parseFloat(e.target.value) || 0)
                                   }
-                                  className="w-28 text-right"
+                                  className="w-full sm:w-32 text-right text-sm font-medium"
                                   disabled={!item.selected}
+                                  placeholder="0.00"
                                 />
                               </TableCell>
                             </TableRow>
@@ -562,18 +631,17 @@ const ProcessPaymentDialog: React.FC<ProcessPaymentDialogProps> = ({
               </Card>
             )}
 
-            {/* Payment Summary */}
             {selectedCount > 0 && (
               <Card>
                 <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
+                  <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
                     <Calculator className="h-5 w-5" />
                     Payment Summary
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div>
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    <div className="space-y-2">
                       <Label htmlFor="totalAmount">Total Payment Amount</Label>
                       <Input
                         id="totalAmount"
@@ -584,7 +652,7 @@ const ProcessPaymentDialog: React.FC<ProcessPaymentDialogProps> = ({
                         onChange={(e) =>
                           setFormData(prev => ({ ...prev, totalAmount: parseFloat(e.target.value) || 0 }))
                         }
-                        className="text-lg font-bold"
+                        className="text-xl font-bold w-full"
                       />
                       {errors.totalAmount && (
                         <p className="text-sm text-destructive mt-1">{errors.totalAmount}</p>
@@ -592,23 +660,23 @@ const ProcessPaymentDialog: React.FC<ProcessPaymentDialogProps> = ({
                     </div>
 
                     <div className="space-y-3">
-                      <div className="flex justify-between">
+                      <div className="flex justify-between text-sm">
                         <span>Selected Invoices:</span>
-                        <span className="font-medium">{selectedCount}</span>
+                        <span className="font-bold">{selectedCount}</span>
                       </div>
-                      <div className="flex justify-between">
+                      <div className="flex justify-between text-sm">
                         <span>Invoice Payments:</span>
-                        <span className="font-medium">{formatCurrency(selectedTotal)}</span>
+                        <span className="font-bold text-blue-600">{formatCurrency(selectedTotal)}</span>
                       </div>
                       <Separator />
-                      <div className="flex justify-between text-lg font-bold">
+                      <div className="flex justify-between text-base sm:text-lg font-bold">
                         <span>Total Payment:</span>
-                        <span>{formatCurrency(formData.totalAmount)}</span>
+                        <span className="text-green-600">{formatCurrency(formData.totalAmount)}</span>
                       </div>
                       {formData.totalAmount > selectedTotal && (
-                        <div className="flex justify-between text-sm text-green-600">
+                        <div className="flex justify-between text-xs sm:text-sm text-green-600 bg-green-50 p-2 rounded">
                           <span>Excess (Customer Credit):</span>
-                          <span>{formatCurrency(formData.totalAmount - selectedTotal)}</span>
+                          <span className="font-bold">{formatCurrency(formData.totalAmount - selectedTotal)}</span>
                         </div>
                       )}
                     </div>
@@ -617,7 +685,6 @@ const ProcessPaymentDialog: React.FC<ProcessPaymentDialogProps> = ({
               </Card>
             )}
 
-            {/* Notes */}
             {selectedCustomer && (
               <div>
                 <Label htmlFor="notes">Payment Notes</Label>
@@ -629,16 +696,16 @@ const ProcessPaymentDialog: React.FC<ProcessPaymentDialogProps> = ({
                     setFormData(prev => ({ ...prev, notes: e.target.value }))
                   }
                   rows={3}
+                  className="w-full resize-none"
                 />
               </div>
             )}
 
-            {/* Form Actions */}
-            <div className="flex flex-col sm:flex-row gap-2 pt-4">
+            <div className="flex flex-col sm:flex-row gap-3 pt-4">
               <Button 
                 type="submit" 
                 disabled={loading || loadingData || selectedCount === 0} 
-                className="flex-1"
+                className="flex-1 order-2 sm:order-1 h-12"
               >
                 {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 {loading ? "Processing Payment..." : `Process Payment (${formatCurrency(formData.totalAmount)})`}
@@ -647,7 +714,7 @@ const ProcessPaymentDialog: React.FC<ProcessPaymentDialogProps> = ({
                 type="button"
                 variant="outline"
                 onClick={() => onOpenChange(false)}
-                className="flex-1 sm:flex-initial"
+                className="flex-1 sm:flex-initial order-1 sm:order-2 h-12"
                 disabled={loading}
               >
                 Cancel

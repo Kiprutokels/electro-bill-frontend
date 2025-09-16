@@ -1,7 +1,7 @@
 export interface PaymentMethod {
   id: string;
   name: string;
-  type: 'CASH' | 'BANK_TRANSFER' | 'MOBILE_MONEY' | 'CHEQUE' | 'CARD';
+  type: "CASH" | "BANK_TRANSFER" | "MOBILE_MONEY" | "CHEQUE" | "CARD";
   isActive: boolean;
   _count?: {
     receipts: number;
@@ -73,6 +73,27 @@ export interface ReceiptItem {
     invoiceDate: string | Date;
     totalAmount: number;
     status: string;
+    items?: InvoiceItem[];
+  };
+}
+
+export interface InvoiceItem {
+  id: string;
+  invoiceId: string;
+  productId: string;
+  batchId?: string;
+  description: string;
+  quantity: number;
+  unitPrice: number;
+  discountPercentage: number;
+  product: {
+    id: string;
+    name: string;
+    sku: string;
+  };
+  batch?: {
+    id: string;
+    batchNumber: string;
   };
 }
 
@@ -131,7 +152,7 @@ export interface BalanceExplanation {
   invoicePayments: number;
   excessCredit: number;
   newBalance: number;
-  balanceType: 'DEBT' | 'CREDIT' | 'ZERO';
+  balanceType: "DEBT" | "CREDIT" | "ZERO";
 }
 
 export interface SystemSettings {

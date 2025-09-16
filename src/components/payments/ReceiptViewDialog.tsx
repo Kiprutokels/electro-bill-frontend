@@ -17,7 +17,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Loader2, Download, Printer, Receipt, Building } from "lucide-react";
+import { Loader2, Download, Printer, Receipt, Building, Clock } from "lucide-react";
 import { formatCurrency, formatDate, formatDateTime } from "@/utils/format.utils";
 import { toast } from "sonner";
 import {
@@ -52,7 +52,6 @@ const ReceiptViewDialog: React.FC<ReceiptViewDialogProps> = ({
         } catch (error) {
           console.error("Failed to fetch receipt details:", error);
           toast.error("Failed to load receipt details");
-          // Use basic receipt data as fallback
           setFullReceipt({
             ...receipt,
             taxInformation: {
@@ -82,49 +81,432 @@ const ReceiptViewDialog: React.FC<ReceiptViewDialogProps> = ({
   }, [receipt, open]);
 
   const handlePrint = () => {
-    window.print();
-  };
-
-  const handleDownload = () => {
-    if (!fullReceipt) return;
-
     const printContent = document.getElementById('receipt-content');
-    if (!printContent) return;
+    if (!printContent || !fullReceipt) return;
 
     const printWindow = window.open('', '_blank');
     if (!printWindow) return;
+
+    const paymentDateTime = new Date(fullReceipt.paymentDate);
 
     printWindow.document.write(`
       <!DOCTYPE html>
       <html>
         <head>
           <title>Receipt - ${fullReceipt.receiptNumber}</title>
+          <meta charset="utf-8">
           <style>
-            body { font-family: Arial, sans-serif; margin: 20px; }
-            .receipt-header { text-align: center; margin-bottom: 30px; }
-            .business-name { font-size: 24px; font-weight: bold; }
-            .receipt-number { font-size: 18px; color: #666; }
-            .section { margin: 20px 0; }
-            .section-title { font-weight: bold; margin-bottom: 10px; }
-            table { width: 100%; border-collapse: collapse; }
-            th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
-            th { background-color: #f5f5f5; }
+            * { margin: 0; padding: 0; box-sizing: border-box; }
+            body { 
+              font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+              margin: 0; 
+              padding: 20px; 
+              font-size: 12px;
+              line-height: 1.4;
+              color: #333;
+            }
+            .receipt-container {
+              max-width: 800px;
+              margin: 0 auto;
+              background: white;
+            }
+            .receipt-header {
+              text-align: center;
+              margin-bottom: 30px;
+              border-bottom: 2px solid #333;
+              padding-bottom: 20px;
+            }
+            .business-name {
+              font-size: 24px;
+              font-weight: bold;
+              color: #333;
+              margin-bottom: 5px;
+            }
+            .business-details {
+              font-size: 11px;
+              color: #666;
+              margin-bottom: 15px;
+            }
+            .receipt-title {
+              font-size: 20px;
+              font-weight: bold;
+              color: #333;
+              margin-bottom: 5px;
+            }
+            .receipt-number {
+              font-size: 16px;
+              color: #666;
+              margin-bottom: 10px;
+            }
+            .receipt-date {
+              font-size: 12px;
+              color: #666;
+            }
+            .section {
+              margin: 20px 0;
+            }
+            .section-title {
+              font-size: 14px;
+              font-weight: bold;
+              margin-bottom: 10px;
+              color: #333;
+              border-bottom: 1px solid #ddd;
+              padding-bottom: 5px;
+            }
+            .details-grid {
+              display: grid;
+              grid-template-columns: 1fr 1fr;
+              gap: 20px;
+              margin-bottom: 20px;
+            }
+            .detail-item {
+              margin-bottom: 8px;
+            }
+            .detail-label {
+              font-weight: bold;
+              color: #555;
+              display: inline-block;
+              width: 120px;
+            }
+            .detail-value {
+              color: #333;
+            }
+            table {
+              width: 100%;
+              border-collapse: collapse;
+              margin: 15px 0;
+            }
+            th, td {
+              border: 1px solid #ddd;
+              padding: 8px;
+              text-align: left;
+              font-size: 11px;
+            }
+            th {
+              background-color: #f8f9fa;
+              font-weight: bold;
+              color: #333;
+            }
             .text-right { text-align: right; }
-            .total-row { font-weight: bold; background-color: #f9f9f9; }
+            .text-center { text-align: center; }
+            .total-row {
+              font-weight: bold;
+              background-color: #f9f9f9;
+            }
+            .invoice-items-table th,
+            .invoice-items-table td {
+              font-size: 10px;
+              padding: 6px;
+            }
+            .summary-section {
+              background-color: #f8f9fa;
+              padding: 15px;
+              border-radius: 5px;
+              margin: 20px 0;
+            }
+            .summary-row {
+              display: flex;
+              justify-content: space-between;
+              margin-bottom: 5px;
+            }
+            .summary-row.total {
+              font-weight: bold;
+              font-size: 14px;
+              border-top: 1px solid #333;
+              padding-top: 8px;
+              margin-top: 10px;
+            }
+            .footer {
+              text-align: center;
+              margin-top: 40px;
+              padding-top: 20px;
+              border-top: 1px solid #ddd;
+              font-size: 11px;
+              color: #666;
+            }
+            .badge {
+              display: inline-block;
+              padding: 2px 6px;
+              background-color: #e9ecef;
+              color: #495057;
+              font-size: 10px;
+              border-radius: 3px;
+              margin-left: 5px;
+            }
+            .badge-success {
+              background-color: #d4edda;
+              color: #155724;
+            }
+            .badge-danger {
+              background-color: #f8d7da;
+              color: #721c24;
+            }
+            .balance-info {
+              background-color: #e7f3ff;
+              padding: 10px;
+              border-radius: 5px;
+              margin: 15px 0;
+            }
             @media print {
-              body { margin: 0; }
-              .no-print { display: none; }
+              body { margin: 0; padding: 10px; }
+              .no-print { display: none !important; }
+              .receipt-container { box-shadow: none; }
             }
           </style>
         </head>
         <body>
-          ${printContent.innerHTML}
+          <div class="receipt-container">
+            <div class="receipt-header">
+              <div class="business-name">${fullReceipt.systemSettings?.businessName || 'ElectroBill Electronics'}</div>
+              ${fullReceipt.systemSettings ? `
+                <div class="business-details">
+                  ${fullReceipt.systemSettings.email ? `${fullReceipt.systemSettings.email}<br>` : ''}
+                  ${fullReceipt.systemSettings.phone ? `${fullReceipt.systemSettings.phone}<br>` : ''}
+                  ${[
+                    fullReceipt.systemSettings.addressLine1,
+                    fullReceipt.systemSettings.addressLine2,
+                    fullReceipt.systemSettings.city,
+                    fullReceipt.systemSettings.country
+                  ].filter(Boolean).join(', ')}<br>
+                  ${fullReceipt.systemSettings.taxNumber ? `Tax No: ${fullReceipt.systemSettings.taxNumber}` : ''}
+                </div>
+              ` : ''}
+              <div class="receipt-title">PAYMENT RECEIPT</div>
+              <div class="receipt-number">#${fullReceipt.receiptNumber}</div>
+              <div class="receipt-date">
+                <strong>Date & Time:</strong> ${formatDateTime(paymentDateTime.toString())}
+              </div>
+            </div>
+
+            <div class="section">
+              <div class="section-title">Customer & Payment Information</div>
+              <div class="details-grid">
+                <div>
+                  <div class="detail-item">
+                    <span class="detail-label">Customer:</span>
+                    <span class="detail-value">${fullReceipt.customer.businessName || fullReceipt.customer.contactPerson || 'N/A'}</span>
+                  </div>
+                  ${fullReceipt.customer.businessName && fullReceipt.customer.contactPerson ? `
+                    <div class="detail-item">
+                      <span class="detail-label">Contact:</span>
+                      <span class="detail-value">${fullReceipt.customer.contactPerson}</span>
+                    </div>
+                  ` : ''}
+                  <div class="detail-item">
+                    <span class="detail-label">Customer Code:</span>
+                    <span class="detail-value">${fullReceipt.customer.customerCode}</span>
+                  </div>
+                  ${fullReceipt.customer.email ? `
+                    <div class="detail-item">
+                      <span class="detail-label">Email:</span>
+                      <span class="detail-value">${fullReceipt.customer.email}</span>
+                    </div>
+                  ` : ''}
+                  ${fullReceipt.customer.phone ? `
+                    <div class="detail-item">
+                      <span class="detail-label">Phone:</span>
+                      <span class="detail-value">${fullReceipt.customer.phone}</span>
+                    </div>
+                  ` : ''}
+                </div>
+                <div>
+                  <div class="detail-item">
+                    <span class="detail-label">Payment Method:</span>
+                    <span class="detail-value">${fullReceipt.paymentMethod.name} <span class="badge">${fullReceipt.paymentMethod.type}</span></span>
+                  </div>
+                  <div class="detail-item">
+                    <span class="detail-label">Amount Received:</span>
+                    <span class="detail-value" style="font-size: 16px; font-weight: bold; color: #28a745;">${formatCurrency(Number(fullReceipt.totalAmount))}</span>
+                  </div>
+                  ${fullReceipt.referenceNumber ? `
+                    <div class="detail-item">
+                      <span class="detail-label">Reference:</span>
+                      <span class="detail-value">${fullReceipt.referenceNumber}</span>
+                    </div>
+                  ` : ''}
+                  <div class="detail-item">
+                    <span class="detail-label">Processed By:</span>
+                    <span class="detail-value">${fullReceipt.createdByUser.firstName} ${fullReceipt.createdByUser.lastName}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="section">
+              <div class="section-title">Invoice Payments</div>
+              <table>
+                <thead>
+                  <tr>
+                    <th>Invoice Number</th>
+                    <th>Invoice Date</th>
+                    <th class="text-right">Invoice Total</th>
+                    <th class="text-right">Previous Paid</th>
+                    <th class="text-right">Amount Paid</th>
+                    <th class="text-right">Remaining</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${fullReceipt.items?.map((item) => {
+                    const remaining = Number(item.invoiceTotal) - Number(item.previousBalance) - Number(item.amountPaid);
+                    const invoiceDate = item.invoice?.invoiceDate 
+                      ? formatDate(typeof item.invoice.invoiceDate === 'string' ? item.invoice.invoiceDate : item.invoice.invoiceDate.toString())
+                      : 'N/A';
+                    
+                    return `
+                      <tr>
+                        <td style="font-weight: bold;">${item.invoiceNumber}</td>
+                        <td>${invoiceDate}</td>
+                        <td class="text-right">${formatCurrency(Number(item.invoiceTotal))}</td>
+                        <td class="text-right">${formatCurrency(Number(item.previousBalance))}</td>
+                        <td class="text-right" style="font-weight: bold; color: #28a745;">${formatCurrency(Number(item.amountPaid))}</td>
+                        <td class="text-right" style="color: ${remaining <= 0.01 ? '#28a745' : '#dc3545'}; font-weight: ${remaining <= 0.01 ? 'bold' : 'normal'};">
+                          ${formatCurrency(Math.max(0, remaining))}
+                          ${remaining <= 0.01 ? ' <span class="badge badge-success">PAID</span>' : ''}
+                        </td>
+                      </tr>
+                    `;
+                  }).join('') || '<tr><td colspan="6" class="text-center">No invoice items found</td></tr>'}
+                </tbody>
+              </table>
+
+              ${fullReceipt.items?.some(item => item.invoice?.items && item.invoice.items.length > 0) ? `
+                <div style="margin-top: 20px;">
+                  <div class="section-title">Invoice Items Details</div>
+                  ${fullReceipt.items.map(receiptItem => {
+                    if (!receiptItem.invoice?.items || receiptItem.invoice.items.length === 0) return '';
+                    
+                    return `
+                      <div style="margin-bottom: 15px;">
+                        <strong style="color: #333;">Invoice: ${receiptItem.invoiceNumber}</strong>
+                        <table class="invoice-items-table" style="margin-top: 5px;">
+                          <thead>
+                            <tr>
+                              <th>Product</th>
+                              <th>SKU</th>
+                              <th class="text-center">Qty</th>
+                              <th class="text-right">Unit Price</th>
+                              <th class="text-center">Discount %</th>
+                              <th class="text-right">Total</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            ${receiptItem.invoice.items.map(invItem => {
+                              const itemTotal = Number(invItem.quantity) * Number(invItem.unitPrice) * (1 - Number(invItem.discountPercentage) / 100);
+                              return `
+                                <tr>
+                                  <td>
+                                    <strong>${invItem.product.name}</strong>
+                                    ${invItem.batch ? `<br><small>Batch: ${invItem.batch.batchNumber}</small>` : ''}
+                                  </td>
+                                  <td>${invItem.product.sku}</td>
+                                  <td class="text-center">${Number(invItem.quantity)}</td>
+                                  <td class="text-right">${formatCurrency(Number(invItem.unitPrice))}</td>
+                                  <td class="text-center">${Number(invItem.discountPercentage)}%</td>
+                                  <td class="text-right">${formatCurrency(itemTotal)}</td>
+                                </tr>
+                              `;
+                            }).join('')}
+                          </tbody>
+                        </table>
+                      </div>
+                    `;
+                  }).join('')}
+                </div>
+              ` : ''}
+            </div>
+
+            <div class="summary-section">
+              <div class="section-title">Payment Summary</div>
+              <div class="summary-row">
+                <span>Total Amount Received:</span>
+                <strong>${formatCurrency(Number(fullReceipt.totalAmount))}</strong>
+              </div>
+              ${fullReceipt.taxInformation ? `
+                <div class="summary-row">
+                  <span>Applied to Invoices:</span>
+                  <span>${formatCurrency(fullReceipt.taxInformation.totalAmountPaidToInvoices)}</span>
+                </div>
+                ${fullReceipt.taxInformation.balanceCredited > 0 ? `
+                  <div class="summary-row" style="color: #28a745;">
+                    <span>Customer Credit:</span>
+                    <strong>${formatCurrency(fullReceipt.taxInformation.balanceCredited)}</strong>
+                  </div>
+                ` : ''}
+                ${fullReceipt.taxInformation.balanceIssued > 0 ? `
+                  <div class="summary-row" style="color: #007bff;">
+                    <span>Change Issued:</span>
+                    <strong>${formatCurrency(fullReceipt.taxInformation.balanceIssued)}</strong>
+                  </div>
+                ` : ''}
+                <div class="summary-row" style="font-size: 11px; color: #666; margin-top: 10px;">
+                  <span>Amount Before Tax (${fullReceipt.taxInformation.taxRate}%):</span>
+                  <span>${formatCurrency(fullReceipt.taxInformation.totalBeforeTax)}</span>
+                </div>
+                <div class="summary-row" style="font-size: 11px; color: #666;">
+                  <span>Tax Amount:</span>
+                  <span>${formatCurrency(fullReceipt.taxInformation.taxAmount)}</span>
+                </div>
+              ` : ''}
+            </div>
+
+            ${fullReceipt.balanceExplanation ? `
+              <div class="balance-info">
+                <div class="section-title">Customer Balance Update</div>
+                <div class="summary-row">
+                  <span>Previous Balance:</span>
+                  <span style="color: ${fullReceipt.balanceExplanation.previousBalance > 0 ? '#dc3545' : '#28a745'};">
+                    ${formatCurrency(Math.abs(fullReceipt.balanceExplanation.previousBalance))}
+                    ${fullReceipt.balanceExplanation.previousBalance > 0 ? ' (Debt)' : fullReceipt.balanceExplanation.previousBalance < 0 ? ' (Credit)' : ''}
+                  </span>
+                </div>
+                <div class="summary-row">
+                  <span>Payment Received:</span>
+                  <span style="color: #28a745;">-${formatCurrency(fullReceipt.balanceExplanation.paymentReceived)}</span>
+                </div>
+                <div class="summary-row total">
+                  <span>New Balance:</span>
+                  <span style="color: ${
+                    fullReceipt.balanceExplanation.balanceType === 'DEBT' ? '#dc3545' :
+                    fullReceipt.balanceExplanation.balanceType === 'CREDIT' ? '#28a745' : '#6c757d'
+                  };">
+                    ${formatCurrency(Math.abs(fullReceipt.balanceExplanation.newBalance))}
+                    ${fullReceipt.balanceExplanation.balanceType === 'DEBT' ? ' (Debt)' : ''}
+                    ${fullReceipt.balanceExplanation.balanceType === 'CREDIT' ? ' (Credit)' : ''}
+                    ${fullReceipt.balanceExplanation.balanceType === 'ZERO' ? ' (Paid in Full)' : ''}
+                  </span>
+                </div>
+              </div>
+            ` : ''}
+
+            ${fullReceipt.notes ? `
+              <div class="section">
+                <div class="section-title">Notes</div>
+                <div style="background-color: #f8f9fa; padding: 10px; border-radius: 5px;">
+                  ${fullReceipt.notes}
+                </div>
+              </div>
+            ` : ''}
+
+            <div class="footer">
+              <p><strong>Thank you for your payment!</strong></p>
+              <p>Generated on ${formatDateTime(new Date().toString())} | System: ElectroBill</p>
+              <p style="margin-top: 10px; font-size: 10px;">This is a computer-generated receipt and does not require a signature.</p>
+            </div>
+          </div>
         </body>
       </html>
     `);
 
     printWindow.document.close();
-    printWindow.print();
+    printWindow.focus();
+    
+    setTimeout(() => {
+      printWindow.print();
+    }, 250);
+  };
+
+  const handleDownload = () => {
+    handlePrint();
   };
 
   if (!receipt) return null;
@@ -136,9 +518,9 @@ const ReceiptViewDialog: React.FC<ReceiptViewDialogProps> = ({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-[95vw] w-full sm:max-w-5xl max-h-[95vh] overflow-y-auto">
         <DialogHeader className="no-print">
-          <DialogTitle className="flex items-center gap-2">
+          <DialogTitle className="flex items-center gap-2 text-lg sm:text-xl">
             <Receipt className="h-5 w-5" />
             Receipt Details - {receiptData.receiptNumber}
           </DialogTitle>
@@ -153,36 +535,33 @@ const ReceiptViewDialog: React.FC<ReceiptViewDialogProps> = ({
           </div>
         ) : (
           <>
-            {/* Action Buttons */}
-            <div className="flex gap-2 mb-4 no-print">
-              <Button onClick={handlePrint} variant="outline" className="flex-1">
+            <div className="flex flex-wrap gap-2 mb-4 no-print">
+              <Button onClick={handlePrint} variant="outline" className="flex-1 sm:flex-initial">
                 <Printer className="mr-2 h-4 w-4" />
                 Print
               </Button>
-              <Button onClick={handleDownload} variant="outline" className="flex-1">
+              <Button onClick={handleDownload} variant="outline" className="flex-1 sm:flex-initial">
                 <Download className="mr-2 h-4 w-4" />
-                Download
+                Download PDF
               </Button>
               {onEdit && (
-                <Button onClick={() => onEdit(receiptData)} variant="outline" className="flex-1">
+                <Button onClick={() => onEdit(receiptData)} variant="outline" className="flex-1 sm:flex-initial">
                   Edit
                 </Button>
               )}
             </div>
 
-            {/* Receipt Content */}
-            <div id="receipt-content" className="space-y-6">
-              {/* Business Header */}
+            <div id="receipt-content" className="space-y-4 sm:space-y-6">
               <Card>
                 <CardContent className="text-center pt-6">
                   <div className="flex items-center justify-center gap-2 mb-2">
                     <Building className="h-6 w-6" />
-                    <h1 className="text-2xl font-bold">
+                    <h1 className="text-xl sm:text-2xl font-bold">
                       {fullReceipt?.systemSettings?.businessName || 'ElectroBill Electronics'}
                     </h1>
                   </div>
                   {fullReceipt?.systemSettings && (
-                    <div className="text-sm text-muted-foreground space-y-1">
+                    <div className="text-xs sm:text-sm text-muted-foreground space-y-1">
                       {fullReceipt.systemSettings.email && (
                         <p>{fullReceipt.systemSettings.email}</p>
                       )}
@@ -206,25 +585,25 @@ const ReceiptViewDialog: React.FC<ReceiptViewDialogProps> = ({
                   )}
                   <Separator className="my-4" />
                   <div className="space-y-2">
-                    <h2 className="text-xl font-bold">PAYMENT RECEIPT</h2>
-                    <p className="text-lg text-muted-foreground">#{receiptData.receiptNumber}</p>
-                    <p className="text-sm text-muted-foreground">
-                      Date: {formatDateTime(paymentDate)}
-                    </p>
+                    <h2 className="text-lg sm:text-xl font-bold">PAYMENT RECEIPT</h2>
+                    <p className="text-base sm:text-lg text-muted-foreground">#{receiptData.receiptNumber}</p>
+                    <div className="flex items-center justify-center gap-2 text-xs sm:text-sm text-muted-foreground">
+                      <Clock className="h-4 w-4" />
+                      <span><strong>Date & Time:</strong> {formatDateTime(paymentDate)}</span>
+                    </div>
                   </div>
                 </CardContent>
               </Card>
 
-              {/* Customer & Payment Details */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                 <Card>
                   <CardHeader>
-                    <CardTitle>Customer Information</CardTitle>
+                    <CardTitle className="text-base sm:text-lg">Customer Information</CardTitle>
                   </CardHeader>
-                  <CardContent className="space-y-2">
+                  <CardContent className="space-y-3">
                     <div>
-                      <span className="font-medium">Name:</span>
-                      <p>
+                      <span className="font-medium text-sm">Name:</span>
+                      <p className="text-sm">
                         {receiptData.customer.businessName || 
                          receiptData.customer.contactPerson || 
                          'N/A'}
@@ -232,24 +611,24 @@ const ReceiptViewDialog: React.FC<ReceiptViewDialogProps> = ({
                     </div>
                     {receiptData.customer.businessName && receiptData.customer.contactPerson && (
                       <div>
-                        <span className="font-medium">Contact:</span>
-                        <p>{receiptData.customer.contactPerson}</p>
+                        <span className="font-medium text-sm">Contact:</span>
+                        <p className="text-sm">{receiptData.customer.contactPerson}</p>
                       </div>
                     )}
                     <div>
-                      <span className="font-medium">Customer Code:</span>
-                      <p>{receiptData.customer.customerCode}</p>
+                      <span className="font-medium text-sm">Customer Code:</span>
+                      <p className="text-sm font-mono">{receiptData.customer.customerCode}</p>
                     </div>
                     {receiptData.customer.email && (
                       <div>
-                        <span className="font-medium">Email:</span>
-                        <p>{receiptData.customer.email}</p>
+                        <span className="font-medium text-sm">Email:</span>
+                        <p className="text-sm break-all">{receiptData.customer.email}</p>
                       </div>
                     )}
                     {receiptData.customer.phone && (
                       <div>
-                        <span className="font-medium">Phone:</span>
-                        <p>{receiptData.customer.phone}</p>
+                        <span className="font-medium text-sm">Phone:</span>
+                        <p className="text-sm">{receiptData.customer.phone}</p>
                       </div>
                     )}
                   </CardContent>
@@ -257,33 +636,33 @@ const ReceiptViewDialog: React.FC<ReceiptViewDialogProps> = ({
 
                 <Card>
                   <CardHeader>
-                    <CardTitle>Payment Information</CardTitle>
+                    <CardTitle className="text-base sm:text-lg">Payment Information</CardTitle>
                   </CardHeader>
-                  <CardContent className="space-y-2">
+                  <CardContent className="space-y-3">
                     <div>
-                      <span className="font-medium">Payment Method:</span>
-                      <p>
-                        {receiptData.paymentMethod.name}
-                        <Badge variant="outline" className="ml-2">
+                      <span className="font-medium text-sm">Payment Method:</span>
+                      <div className="flex flex-wrap items-center gap-2 mt-1">
+                        <span className="text-sm">{receiptData.paymentMethod.name}</span>
+                        <Badge variant="outline" className="text-xs">
                           {receiptData.paymentMethod.type}
                         </Badge>
-                      </p>
+                      </div>
                     </div>
                     <div>
-                      <span className="font-medium">Amount Received:</span>
-                      <p className="text-lg font-bold text-green-600">
+                      <span className="font-medium text-sm">Amount Received:</span>
+                      <p className="text-lg sm:text-xl font-bold text-green-600">
                         {formatCurrency(Number(receiptData.totalAmount))}
                       </p>
                     </div>
                     {receiptData.referenceNumber && (
                       <div>
-                        <span className="font-medium">Reference:</span>
-                        <p>{receiptData.referenceNumber}</p>
+                        <span className="font-medium text-sm">Reference:</span>
+                        <p className="text-sm font-mono">{receiptData.referenceNumber}</p>
                       </div>
                     )}
                     <div>
-                      <span className="font-medium">Processed By:</span>
-                      <p>
+                      <span className="font-medium text-sm">Processed By:</span>
+                      <p className="text-sm">
                         {receiptData.createdByUser.firstName} {receiptData.createdByUser.lastName}
                       </p>
                     </div>
@@ -291,73 +670,136 @@ const ReceiptViewDialog: React.FC<ReceiptViewDialogProps> = ({
                 </Card>
               </div>
 
-              {/* Invoice Payments */}
               <Card>
                 <CardHeader>
-                  <CardTitle>Invoice Payments</CardTitle>
+                  <CardTitle className="text-base sm:text-lg">Invoice Payments</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Invoice Number</TableHead>
-                        <TableHead className="hidden md:table-cell">Date</TableHead>
-                        <TableHead className="text-right">Invoice Total</TableHead>
-                        <TableHead className="text-right">Previous Balance</TableHead>
-                        <TableHead className="text-right">Amount Paid</TableHead>
-                        <TableHead className="text-right">Remaining</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {receiptData.items?.map((item) => {
-                        const remaining = Number(item.invoiceTotal) - 
-                                        Number(item.previousBalance) - 
-                                        Number(item.amountPaid);
-                        
-                        const invoiceDate = item.invoice?.invoiceDate 
-                          ? (typeof item.invoice.invoiceDate === 'string' 
-                              ? item.invoice.invoiceDate 
-                              : item.invoice.invoiceDate.toString())
-                          : null;
+                  <div className="overflow-x-auto">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead className="min-w-[120px]">Invoice Number</TableHead>
+                          <TableHead className="hidden md:table-cell">Date</TableHead>
+                          <TableHead className="text-right">Invoice Total</TableHead>
+                          <TableHead className="text-right">Previous Paid</TableHead>
+                          <TableHead className="text-right">Amount Paid</TableHead>
+                          <TableHead className="text-right">Remaining</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {receiptData.items?.map((item) => {
+                          const remaining = Number(item.invoiceTotal) - 
+                                          Number(item.previousBalance) - 
+                                          Number(item.amountPaid);
+                          
+                          const invoiceDate = item.invoice?.invoiceDate 
+                            ? (typeof item.invoice.invoiceDate === 'string' 
+                                ? item.invoice.invoiceDate 
+                                : item.invoice.invoiceDate.toString())
+                            : null;
+                          
+                          return (
+                            <TableRow key={item.id}>
+                              <TableCell className="font-medium text-sm">
+                                {item.invoiceNumber}
+                              </TableCell>
+                              <TableCell className="hidden md:table-cell text-sm">
+                                {invoiceDate && formatDate(invoiceDate)}
+                              </TableCell>
+                              <TableCell className="text-right text-sm">
+                                {formatCurrency(Number(item.invoiceTotal))}
+                              </TableCell>
+                              <TableCell className="text-right text-sm">
+                                {formatCurrency(Number(item.previousBalance))}
+                              </TableCell>
+                              <TableCell className="text-right font-medium text-green-600 text-sm">
+                                {formatCurrency(Number(item.amountPaid))}
+                              </TableCell>
+                              <TableCell className="text-right text-sm">
+                                <span className={remaining <= 0.01 ? 'text-green-600 font-medium' : ''}>
+                                  {formatCurrency(Math.max(0, remaining))}
+                                  {remaining <= 0.01 && (
+                                    <Badge variant="outline" className="ml-2 text-xs bg-green-50 text-green-700">
+                                      PAID
+                                    </Badge>
+                                  )}
+                                </span>
+                              </TableCell>
+                            </TableRow>
+                          );
+                        })}
+                      </TableBody>
+                    </Table>
+                  </div>
+
+                  {/* Invoice Items Details */}
+                  {receiptData.items?.some(item => item.invoice?.items && item.invoice.items.length > 0) && (
+                    <div className="mt-6">
+                      <h4 className="font-medium mb-4 text-sm">Invoice Items Details</h4>
+                      {receiptData.items.map(receiptItem => {
+                        if (!receiptItem.invoice?.items || receiptItem.invoice.items.length === 0) return null;
                         
                         return (
-                          <TableRow key={item.id}>
-                            <TableCell className="font-medium">
-                              {item.invoiceNumber}
-                            </TableCell>
-                            <TableCell className="hidden md:table-cell">
-                              {invoiceDate && formatDate(invoiceDate)}
-                            </TableCell>
-                            <TableCell className="text-right">
-                              {formatCurrency(Number(item.invoiceTotal))}
-                            </TableCell>
-                            <TableCell className="text-right">
-                              {formatCurrency(Number(item.previousBalance))}
-                            </TableCell>
-                            <TableCell className="text-right font-medium text-green-600">
-                              {formatCurrency(Number(item.amountPaid))}
-                            </TableCell>
-                            <TableCell className="text-right">
-                              <span className={remaining <= 0.01 ? 'text-green-600 font-medium' : ''}>
-                                {formatCurrency(Math.max(0, remaining))}
-                              </span>
-                            </TableCell>
-                          </TableRow>
+                          <div key={receiptItem.id} className="mb-6">
+                            <h5 className="font-medium text-sm text-blue-600 mb-2">
+                              Invoice: {receiptItem.invoiceNumber}
+                            </h5>
+                            <div className="overflow-x-auto">
+                              <Table>
+                                <TableHeader>
+                                  <TableRow>
+                                    <TableHead className="min-w-[150px]">Product</TableHead>
+                                    <TableHead>SKU</TableHead>
+                                    <TableHead className="text-center">Qty</TableHead>
+                                    <TableHead className="text-right">Unit Price</TableHead>
+                                    <TableHead className="text-center">Discount</TableHead>
+                                    <TableHead className="text-right">Total</TableHead>
+                                  </TableRow>
+                                </TableHeader>
+                                <TableBody>
+                                  {receiptItem.invoice.items.map(invItem => {
+                                    const itemTotal = Number(invItem.quantity) * 
+                                                    Number(invItem.unitPrice) * 
+                                                    (1 - Number(invItem.discountPercentage) / 100);
+                                    return (
+                                      <TableRow key={invItem.id}>
+                                        <TableCell>
+                                          <div>
+                                            <p className="font-medium text-sm">{invItem.product.name}</p>
+                                            {invItem.batch && (
+                                              <p className="text-xs text-muted-foreground">
+                                                Batch: {invItem.batch.batchNumber}
+                                              </p>
+                                            )}
+                                          </div>
+                                        </TableCell>
+                                        <TableCell className="text-sm font-mono">{invItem.product.sku}</TableCell>
+                                        <TableCell className="text-center text-sm">{Number(invItem.quantity)}</TableCell>
+                                        <TableCell className="text-right text-sm">{formatCurrency(Number(invItem.unitPrice))}</TableCell>
+                                        <TableCell className="text-center text-sm">{Number(invItem.discountPercentage)}%</TableCell>
+                                        <TableCell className="text-right font-medium text-sm">{formatCurrency(itemTotal)}</TableCell>
+                                      </TableRow>
+                                    );
+                                  })}
+                                </TableBody>
+                              </Table>
+                            </div>
+                          </div>
                         );
                       })}
-                    </TableBody>
-                  </Table>
+                    </div>
+                  )}
                 </CardContent>
               </Card>
 
-              {/* Payment Summary */}
               <Card>
                 <CardHeader>
-                  <CardTitle>Payment Summary</CardTitle>
+                  <CardTitle className="text-base sm:text-lg">Payment Summary</CardTitle>
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-2">
-                    <div className="flex justify-between">
+                    <div className="flex justify-between text-sm">
                       <span>Total Amount Received:</span>
                       <span className="font-medium">
                         {formatCurrency(Number(receiptData.totalAmount))}
@@ -366,7 +808,7 @@ const ReceiptViewDialog: React.FC<ReceiptViewDialogProps> = ({
                     
                     {fullReceipt?.taxInformation && (
                       <>
-                        <div className="flex justify-between">
+                        <div className="flex justify-between text-sm">
                           <span>Applied to Invoices:</span>
                           <span>
                             {formatCurrency(fullReceipt.taxInformation.totalAmountPaidToInvoices)}
@@ -374,7 +816,7 @@ const ReceiptViewDialog: React.FC<ReceiptViewDialogProps> = ({
                         </div>
                         
                         {fullReceipt.taxInformation.balanceCredited > 0 && (
-                          <div className="flex justify-between text-green-600">
+                          <div className="flex justify-between text-sm text-green-600 bg-green-50 p-2 rounded">
                             <span>Customer Credit:</span>
                             <span className="font-medium">
                               {formatCurrency(fullReceipt.taxInformation.balanceCredited)}
@@ -383,7 +825,7 @@ const ReceiptViewDialog: React.FC<ReceiptViewDialogProps> = ({
                         )}
                         
                         {fullReceipt.taxInformation.balanceIssued > 0 && (
-                          <div className="flex justify-between text-blue-600">
+                          <div className="flex justify-between text-sm text-blue-600 bg-blue-50 p-2 rounded">
                             <span>Change Issued:</span>
                             <span className="font-medium">
                               {formatCurrency(fullReceipt.taxInformation.balanceIssued)}
@@ -393,7 +835,7 @@ const ReceiptViewDialog: React.FC<ReceiptViewDialogProps> = ({
 
                         <Separator />
                         
-                        <div className="text-sm text-muted-foreground space-y-1">
+                        <div className="text-xs text-muted-foreground space-y-1">
                           <div className="flex justify-between">
                             <span>Amount Before Tax ({fullReceipt.taxInformation.taxRate}%):</span>
                             <span>{formatCurrency(fullReceipt.taxInformation.totalBeforeTax)}</span>
@@ -409,29 +851,28 @@ const ReceiptViewDialog: React.FC<ReceiptViewDialogProps> = ({
                 </CardContent>
               </Card>
 
-              {/* Balance Information */}
               {fullReceipt?.balanceExplanation && (
-                <Card>
+                <Card className="bg-blue-50 border-blue-200">
                   <CardHeader>
-                    <CardTitle>Customer Balance</CardTitle>
+                    <CardTitle className="text-base sm:text-lg">Customer Balance Update</CardTitle>
                   </CardHeader>
                   <CardContent>
                     <div className="space-y-2 text-sm">
                       <div className="flex justify-between">
                         <span>Previous Balance:</span>
-                        <span className={fullReceipt.balanceExplanation.previousBalance > 0 ? 'text-red-600' : 'text-green-600'}>
+                        <span className={`font-medium ${fullReceipt.balanceExplanation.previousBalance > 0 ? 'text-red-600' : 'text-green-600'}`}>
                           {formatCurrency(Math.abs(fullReceipt.balanceExplanation.previousBalance))}
                           {fullReceipt.balanceExplanation.previousBalance > 0 ? ' (Debt)' : fullReceipt.balanceExplanation.previousBalance < 0 ? ' (Credit)' : ''}
                         </span>
                       </div>
                       <div className="flex justify-between">
                         <span>Payment Received:</span>
-                        <span className="text-green-600">
+                        <span className="text-green-600 font-medium">
                           -{formatCurrency(fullReceipt.balanceExplanation.paymentReceived)}
                         </span>
                       </div>
                       <Separator />
-                      <div className="flex justify-between font-medium">
+                      <div className="flex justify-between font-bold text-base">
                         <span>New Balance:</span>
                         <span className={
                           fullReceipt.balanceExplanation.balanceType === 'DEBT' ? 'text-red-600' :
@@ -449,28 +890,26 @@ const ReceiptViewDialog: React.FC<ReceiptViewDialogProps> = ({
                 </Card>
               )}
 
-              {/* Notes */}
               {receiptData.notes && (
                 <Card>
                   <CardHeader>
-                    <CardTitle>Notes</CardTitle>
+                    <CardTitle className="text-base sm:text-lg">Notes</CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <p className="text-sm">{receiptData.notes}</p>
+                    <p className="text-sm bg-gray-50 p-3 rounded">{receiptData.notes}</p>
                   </CardContent>
                 </Card>
               )}
 
-              {/* Footer */}
-              <div className="text-center text-sm text-muted-foreground border-t pt-4">
-                <p>Thank you for your payment!</p>
+              <div className="text-center text-xs sm:text-sm text-muted-foreground border-t pt-4">
+                <p className="font-medium">Thank you for your payment!</p>
                 <p className="mt-1">
                   Generated on {formatDateTime(new Date().toString())} | System: ElectroBill
                 </p>
+                <p className="mt-2 text-xs">This is a computer-generated receipt and does not require a signature.</p>
               </div>
             </div>
 
-            {/* Close Button */}
             <div className="flex justify-end pt-4 no-print">
               <Button variant="outline" onClick={() => onOpenChange(false)}>
                 Close

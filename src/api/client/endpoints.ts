@@ -53,7 +53,7 @@ export const API_ENDPOINTS = {
     BASE: "/inventory",
     BY_ID: (id: string) => `/inventory/${id}`,
     BY_PRODUCT: (productId: string) => `/inventory/product/${productId}`,
-    ADJUST_STOCK: (id: string) => `/inventory/${id}/adjust-stock`, // Fixed: separate endpoint
+    ADJUST_STOCK: (id: string) => `/inventory/${id}/adjust-stock`,
     SUMMARY: "/inventory/summary",
     LOCATIONS: "/inventory/locations",
     LOW_STOCK: "/inventory/low-stock",
@@ -67,21 +67,22 @@ export const API_ENDPOINTS = {
     ADJUST_STOCK: (id: string) => `/product-batches/${id}/adjust-stock`,
   },
 
-PAYMENTS: {
-  BASE: "/payments",
-  PAYMENT_METHODS: "/payments/payment-methods",
-  PROCESS: "/payments/process",
-  RECEIPTS: "/payments/receipts",
-  RECEIPT_BY_ID: (id: string) => `/payments/receipts/${id}`,
-  CUSTOMER_OUTSTANDING: (customerId: string) => `/payments/customers/${customerId}/outstanding-invoices`,
-},
+  PAYMENTS: {
+    BASE: "/payments",
+    PAYMENT_METHODS: "/payments/payment-methods",
+    PROCESS: "/payments/process",
+    RECEIPTS: "/payments/receipts",
+    RECEIPT_BY_ID: (id: string) => `/payments/receipts/${id}`,
+    CUSTOMER_OUTSTANDING: (customerId: string) =>
+      `/payments/customers/${customerId}/outstanding-invoices`,
+  },
 
   TRANSACTIONS: {
     BASE: "/transactions",
     BY_ID: (id: string) => `/transactions/${id}`,
-    BY_CUSTOMER: (customerId: string) => `/transactions/customer/${customerId}`,
-    BY_SUPPLIER: (supplierId: string) => `/transactions/supplier/${supplierId}`,
     SUMMARY: "/transactions/summary",
+    CUSTOMER_STATEMENT: (customerId: string) =>
+      `/transactions/customers/${customerId}/statement`,
   },
 
   // Payment Methods
@@ -124,7 +125,7 @@ PAYMENTS: {
     OVERVIEW: "/dashboard/overview",
   },
 
-    SETTINGS: {
+  SETTINGS: {
     BASE: "/settings",
     BY_ID: (id: string) => `/settings/${id}`,
     ALL: "/settings/all",
