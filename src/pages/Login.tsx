@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Loader2, Building2, AlertCircle } from 'lucide-react';
+import { Loader2, Building2, AlertCircle, Eye, EyeOff } from 'lucide-react';
 import { ThemeToggle } from '@/components/ui/theme-toggle';
 import { validateEmail } from '@/utils';
 
@@ -14,6 +14,7 @@ const Login = () => {
   const { user, login, isLoading } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [validationErrors, setValidationErrors] = useState<{email?: string; password?: string}>({});
@@ -121,21 +122,36 @@ const Login = () => {
             
             <div className="space-y-2">
               <Label htmlFor="password">Password</Label>
-              <Input
-                id="password"
-                type="password"
-                placeholder="Enter your password"
-                value={password}
-                onChange={(e) => {
-                  setPassword(e.target.value);
-                  if (validationErrors.password) {
-                    setValidationErrors(prev => ({...prev, password: undefined}));
-                  }
-                }}
-                required
-                disabled={isSubmitting}
-                className={validationErrors.password ? 'border-destructive' : ''}
-              />
+              <div className="relative">
+                <Input
+                  id="password"
+                  type={showPassword ? "text" : "password"}
+                  placeholder="Enter your password"
+                  value={password}
+                  onChange={(e) => {
+                    setPassword(e.target.value);
+                    if (validationErrors.password) {
+                      setValidationErrors(prev => ({...prev, password: undefined}));
+                    }
+                  }}
+                  required
+                  disabled={isSubmitting}
+                  className={`pr-10 ${validationErrors.password ? 'border-destructive' : ''}`}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  disabled={isSubmitting}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  tabIndex={-1}
+                >
+                  {showPassword ? (
+                    <EyeOff className="h-4 w-4" />
+                  ) : (
+                    <Eye className="h-4 w-4" />
+                  )}
+                </button>
+              </div>
               {validationErrors.password && (
                 <p className="text-sm text-destructive">{validationErrors.password}</p>
               )}

@@ -10,11 +10,13 @@ import {
   Building2,
   Warehouse,
   CreditCard,
-  Shield
+  Shield,
+  LogOut
 } from 'lucide-react';
 import {
   Sidebar,
   SidebarContent,
+  SidebarFooter,
   SidebarGroup,
   SidebarGroupContent,
   SidebarGroupLabel,
@@ -45,7 +47,7 @@ const navigation = [
 export function AppSidebar() {
   const { state } = useSidebar();
   const location = useLocation();
-  const { hasPermission } = useAuth();
+  const { hasPermission, logout } = useAuth();
   const currentPath = location.pathname;
   const collapsed = state === 'collapsed';
   const isMobile = useIsMobile();
@@ -109,6 +111,20 @@ export function AppSidebar() {
           </SidebarGroupContent>
         </SidebarGroup>
       </SidebarContent>
+      
+      <SidebarFooter className="border-t border-sidebar-border">
+        <SidebarMenu>
+          <SidebarMenuItem>
+            <SidebarMenuButton 
+              onClick={logout}
+              className="w-full text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+            >
+              <LogOut className="h-4 w-4 sm:h-5 sm:w-5 flex-shrink-0" />
+              {!collapsed && <span className="truncate text-responsive-sm">Sign Out</span>}
+            </SidebarMenuButton>
+          </SidebarMenuItem>
+        </SidebarMenu>
+      </SidebarFooter>
     </Sidebar>
   );
 }
