@@ -96,7 +96,6 @@ export const RecentActivities = ({ activities }: RecentActivitiesProps) => {
               {allActivities.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={6} className="text-center py-8">
-                  <TableCell colSpan={6} className="text-center py-8">
                     <div className="text-muted-foreground">
                       No recent activities found.
                     </div>
