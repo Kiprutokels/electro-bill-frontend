@@ -11,7 +11,7 @@ import {
 } from "@/components/ui/table";
 import { RecentActivity } from "@/api/types/dashboard.types";
 import { formatCurrency, formatDate } from "@/utils/format.utils";
-import { FileText, CreditCard, FileBarChart, Eye } from "lucide-react";
+import { FileText, CreditCard, FileBarChart } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
 interface RecentActivitiesProps {
@@ -95,6 +95,7 @@ export const RecentActivities = ({ activities }: RecentActivitiesProps) => {
             <TableBody>
               {allActivities.length === 0 ? (
                 <TableRow>
+                  <TableCell colSpan={6} className="text-center py-8">
                   <TableCell colSpan={6} className="text-center py-8">
                     <div className="text-muted-foreground">
                       No recent activities found.
