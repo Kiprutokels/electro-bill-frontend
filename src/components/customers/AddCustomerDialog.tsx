@@ -8,7 +8,6 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Loader2 } from 'lucide-react';
 import { customersService, Customer, CreateCustomerRequest } from '@/api/services/customers.service';
@@ -82,13 +81,14 @@ const AddCustomerDialog: React.FC<AddCustomerDialogProps> = ({
 
     setLoading(true);
     try {
-      // Clean up empty strings
-      const cleanData: CreateCustomerRequest = Object.entries(formData).reduce((acc, [key, value]) => {
+      const cleanData: CreateCustomerRequest = {} as CreateCustomerRequest;
+      
+      (Object.keys(formData) as (keyof CreateCustomerRequest)[]).forEach(key => {
+        const value = formData[key];
         if (value !== '' && value !== null && value !== undefined) {
-          acc[key as keyof CreateCustomerRequest] = value as any;
+          (cleanData as any)[key] = value;
         }
-        return acc;
-      }, {} as CreateCustomerRequest);
+      });
 
       const newCustomer = await customersService.createCustomer(cleanData);
       onCustomerAdded(newCustomer);
