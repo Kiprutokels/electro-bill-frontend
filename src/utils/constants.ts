@@ -76,6 +76,7 @@ export const ROUTES = {
   INVOICES: "/invoices",
   PAYMENTS: "/payments",
   TRANSACTIONS: "/transactions",
+  REPORTS: "/reports",
   SETTINGS: "/settings",
 } as const;
 
