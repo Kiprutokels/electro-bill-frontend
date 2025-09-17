@@ -11,7 +11,7 @@ import {
 } from "@/components/ui/table";
 import { RecentActivity } from "@/api/types/dashboard.types";
 import { formatCurrency, formatDate } from "@/utils/format.utils";
-import { FileText, CreditCard, FileBarChart, Eye } from "lucide-react";
+import { FileText, CreditCard, FileBarChart } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
 interface RecentActivitiesProps {
@@ -91,13 +91,12 @@ export const RecentActivities = ({ activities }: RecentActivitiesProps) => {
                 <TableHead className="text-right min-w-[100px]">Amount</TableHead>
                 <TableHead className="hidden md:table-cell min-w-[100px]">Status</TableHead>
                 <TableHead className="hidden lg:table-cell min-w-[100px]">Date</TableHead>
-                <TableHead className="text-right min-w-[60px]">Action</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {allActivities.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={7} className="text-center py-8">
+                  <TableCell colSpan={6} className="text-center py-8">
                     <div className="text-muted-foreground">
                       No recent activities found.
                     </div>
@@ -135,16 +134,6 @@ export const RecentActivities = ({ activities }: RecentActivitiesProps) => {
                     </TableCell>
                     <TableCell className="hidden lg:table-cell text-sm text-muted-foreground">
                       {formatDate(activity.date.toString())}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8"
-                        onClick={() => navigate(`/${activity.type}s/${activity.id}`)}
-                      >
-                        <Eye className="h-4 w-4" />
-                      </Button>
                     </TableCell>
                   </TableRow>
                 ))
