@@ -23,7 +23,10 @@ interface DateRangePickerProps {
   onDateRangeChange: (dateRange: DashboardQueryDto) => void;
 }
 
-export const DateRangePicker = ({ dateRange, onDateRangeChange }: DateRangePickerProps) => {
+export const DateRangePicker = ({
+  dateRange,
+  onDateRangeChange,
+}: DateRangePickerProps) => {
   const [date, setDate] = useState<DateRange | undefined>({
     from: dateRange.startDate ? new Date(dateRange.startDate) : undefined,
     to: dateRange.endDate ? new Date(dateRange.endDate) : undefined,
@@ -32,10 +35,19 @@ export const DateRangePicker = ({ dateRange, onDateRangeChange }: DateRangePicke
   const handleDateSelect = (selectedDate: DateRange | undefined) => {
     setDate(selectedDate);
     if (selectedDate) {
-      onDateRangeChange({
-        startDate: selectedDate.from ? format(selectedDate.from, 'yyyy-MM-dd') : undefined,
-        endDate: selectedDate.to ? format(selectedDate.to, 'yyyy-MM-dd') : undefined,
-      });
+      const payload = {
+        startDate: selectedDate.from
+          ? format(selectedDate.from, "yyyy-MM-dd")
+          : undefined,
+        endDate: selectedDate.to
+          ? format(selectedDate.to, "yyyy-MM-dd")
+          : undefined,
+      };
+
+      console.log("📅 Raw selectedDate:", selectedDate);
+      console.log("📦 Payload sent:", payload);
+
+      onDateRangeChange(payload);
     }
   };
 
@@ -45,27 +57,40 @@ export const DateRangePicker = ({ dateRange, onDateRangeChange }: DateRangePicke
     let endDate = today;
 
     switch (preset) {
-      case 'today':
-        startDate = today;
+      case "today":
+        startDate = new Date(
+          today.getFullYear(),
+          today.getMonth(),
+          today.getDate()
+        ); // midnight
+        endDate = new Date(
+          today.getFullYear(),
+          today.getMonth(),
+          today.getDate(),
+          23,
+          59,
+          59,
+          999
+        ); // end of day
         break;
-      case 'yesterday':
+      case "yesterday":
         startDate = new Date(today.getTime() - 24 * 60 * 60 * 1000);
         endDate = startDate;
         break;
-      case 'last7days':
+      case "last7days":
         startDate = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000);
         break;
-      case 'last30days':
+      case "last30days":
         startDate = new Date(today.getTime() - 30 * 24 * 60 * 60 * 1000);
         break;
-      case 'thisMonth':
+      case "thisMonth":
         startDate = new Date(today.getFullYear(), today.getMonth(), 1);
         break;
-      case 'lastMonth':
+      case "lastMonth":
         startDate = new Date(today.getFullYear(), today.getMonth() - 1, 1);
         endDate = new Date(today.getFullYear(), today.getMonth(), 0);
         break;
-      case 'thisYear':
+      case "thisYear":
         startDate = new Date(today.getFullYear(), 0, 1);
         break;
       default:
@@ -74,10 +99,12 @@ export const DateRangePicker = ({ dateRange, onDateRangeChange }: DateRangePicke
 
     const newDateRange = { from: startDate, to: endDate };
     setDate(newDateRange);
-    onDateRangeChange({
-      startDate: format(startDate, 'yyyy-MM-dd'),
-      endDate: format(endDate, 'yyyy-MM-dd'),
-    });
+
+    const payload = {
+      startDate: format(startDate, "yyyy-MM-dd"),
+      endDate: format(endDate, "yyyy-MM-dd"),
+    };
+    onDateRangeChange(payload);
   };
 
   return (

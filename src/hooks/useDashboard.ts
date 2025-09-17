@@ -6,6 +6,28 @@ interface UseDashboardOptions {
   autoRefresh?: boolean;
   refreshInterval?: number;
 }
+// Normalize date range to ensure startDate is at start of day and endDate is at end of day
+const normalizeDateRange = (params: DashboardQueryDto): DashboardQueryDto => {
+  if (!params.startDate) return params;
+
+  const start = new Date(params.startDate);
+  start.setHours(0, 0, 0, 0);
+
+  let end: Date;
+  if (params.endDate) {
+    end = new Date(params.endDate);
+  } else {
+    // if no endDate → assume single day
+    end = new Date(params.startDate);
+  }
+  end.setHours(23, 59, 59, 999);
+
+  return {
+    ...params,
+    startDate: start.toISOString(),
+    endDate: end.toISOString(),
+  };
+};
 
 export const useDashboard = (options: UseDashboardOptions = {}) => {
   const { autoRefresh = false, refreshInterval = 60000 } = options;
@@ -28,8 +50,12 @@ export const useDashboard = (options: UseDashboardOptions = {}) => {
       }
       setError(null);
 
-      const data = await dashboardService.getDashboardOverview(params);
+      const normalizedParams = normalizeDateRange(params);
+      console.log("📦 Payload sent:", normalizedParams);
+
+      const data = await dashboardService.getDashboardOverview(normalizedParams);
       setDashboardData(data);
+      console.log("📊 fetched dashboard data", data);
     } catch (err: any) {
       const errorMessage = err.response?.data?.message || 'Failed to fetch dashboard data';
       setError(errorMessage);
@@ -48,7 +74,7 @@ export const useDashboard = (options: UseDashboardOptions = {}) => {
     setDateRange(newDateRange);
   }, []);
 
-  // Initial fetch
+  // Initial + dateRange-triggered fetch
   useEffect(() => {
     fetchDashboard();
   }, [dateRange]);
@@ -71,7 +97,7 @@ export const useDashboard = (options: UseDashboardOptions = {}) => {
     error,
     refreshing,
     dateRange,
-    
+
     // Actions
     fetchDashboard,
     refresh,
