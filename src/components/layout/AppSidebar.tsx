@@ -11,7 +11,8 @@ import {
   Warehouse,
   CreditCard,
   Shield,
-  LogOut
+  LogOut,
+  BarChart3
 } from 'lucide-react';
 import {
   Sidebar,
@@ -40,6 +41,7 @@ const navigation = [
   { name: 'Orders', href: ROUTES.INVOICES, icon: FileText, permission: PERMISSIONS.SALES_READ },
   { name: 'Payments', href: ROUTES.PAYMENTS, icon: CreditCard, permission: PERMISSIONS.PAYMENTS_READ },
   { name: 'Transactions', href: ROUTES.TRANSACTIONS, icon: Receipt, permission: PERMISSIONS.SALES_READ },
+  { name: 'Reports', href: ROUTES.REPORTS, icon: BarChart3, permission: PERMISSIONS.REPORTS_VIEW },
   { name: 'Users', href: '/users', icon: Users, permission: PERMISSIONS.USERS_READ },
   { name: 'Settings', href: ROUTES.SETTINGS, icon: Settings, permission: null },
 ];

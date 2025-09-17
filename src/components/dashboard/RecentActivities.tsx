@@ -11,7 +11,7 @@ import {
 } from "@/components/ui/table";
 import { RecentActivity } from "@/api/types/dashboard.types";
 import { formatCurrency, formatDate } from "@/utils/format.utils";
-import { FileText, CreditCard, FileBarChart } from "lucide-react";
+import { FileText, CreditCard, FileBarChart, Eye } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
 interface RecentActivitiesProps {
@@ -23,7 +23,6 @@ interface RecentActivitiesProps {
 }
 
 export const RecentActivities = ({ activities }: RecentActivitiesProps) => {
-  const navigate = useNavigate();
 
   const getActivityIcon = (type: string) => {
     switch (type) {

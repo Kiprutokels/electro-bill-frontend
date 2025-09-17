@@ -24,6 +24,7 @@ import Payments from "./pages/Payments";
 import NewPayment from "./pages/NewPayment";
 import Settings from "./pages/Settings";
 import Transactions from "./pages/Transactions";
+import Reports from "./pages/Reports";
 
 const queryClient = new QueryClient();
 
@@ -82,6 +83,7 @@ const App = () => (
                 <Route path="payments/new" element={<NewPayment />} />
                 <Route path="settings/*" element={<Settings />} />
                 <Route path="transactions" element={<Transactions />} />
+                <Route path="reports" element={<Reports />} />
                 <Route path="*" element={<NotFound />} />
               </Route>
             </Routes>
