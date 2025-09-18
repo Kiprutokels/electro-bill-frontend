@@ -49,10 +49,11 @@ import { formatCurrency, formatDate } from "@/utils/format.utils";
 import { useTransactions } from "@/hooks/useTransactions";
 import { useTransactionSummary } from "@/hooks/useTransactionSummary";
 import TransactionViewDialog from "@/components/transactions/TransactionViewDialog";
+import { DateRange } from "react-day-picker";
 
 const Transactions = () => {
   const { hasPermission } = useAuth();
-  const [dateRange, setDateRange] = useState<{from?: Date; to?: Date}>({});
+  const [dateRange, setDateRange] = useState<DateRange | undefined>(undefined);
   const [selectedTransaction, setSelectedTransaction] = useState<Transaction | null>(null);
   const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
 
@@ -74,8 +75,8 @@ const Transactions = () => {
   } = useTransactions();
 
   const { summary } = useTransactionSummary(
-    dateRange.from?.toISOString().split('T')[0],
-    dateRange.to?.toISOString().split('T')[0]
+    dateRange?.from?.toISOString().split('T')[0],
+    dateRange?.to?.toISOString().split('T')[0]
   );
 
   const handleView = (transaction: Transaction) => {
@@ -92,8 +93,8 @@ const Transactions = () => {
     }
   };
 
-  const handleDateRangeChange = (range: {from?: Date; to?: Date} | undefined) => {
-    setDateRange(range || {});
+  const handleDateRangeChange = (range: DateRange | undefined) => {
+    setDateRange(range);
     updateFilters({
       ...filters,
       startDate: range?.from?.toISOString().split('T')[0],
