@@ -26,6 +26,7 @@ export interface UpdateCategoryData {
   isActive?: boolean;
 }
 export interface ProductCategory {
+  products: boolean;
   id: string;
   name: string;
   description?: string;
