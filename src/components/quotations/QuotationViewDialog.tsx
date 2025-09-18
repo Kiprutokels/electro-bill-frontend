@@ -32,6 +32,8 @@ import {
   ArrowRight,
   Clock,
   Loader2,
+  Download,
+  Printer,
 } from "lucide-react";
 import {
   Quotation,
@@ -41,6 +43,7 @@ import {
 import { formatCurrency, formatDate } from "@/utils/format.utils";
 import { useAuth } from "@/contexts/AuthContext";
 import { PERMISSIONS } from "@/utils/constants";
+import { useQuotationPdf } from "@/hooks/useQuotationPdf";
 import { toast } from "sonner";
 
 interface QuotationViewDialogProps {
@@ -61,6 +64,7 @@ const QuotationViewDialog: React.FC<QuotationViewDialogProps> = ({
   onConvertToInvoice,
 }) => {
   const { hasPermission } = useAuth();
+  const { downloadPdf, downloading } = useQuotationPdf();
   const [fetchingQuotation, setFetchingQuotation] = useState(false);
   const [fullQuotation, setFullQuotation] = useState<Quotation | null>(null);
 
@@ -88,6 +92,15 @@ const QuotationViewDialog: React.FC<QuotationViewDialogProps> = ({
       setFullQuotation(null);
     }
   }, [quotation, open]);
+
+  const handleDownloadPdf = async () => {
+    if (!displayQuotation.id) return;
+    await downloadPdf(displayQuotation.id, displayQuotation.quotationNumber);
+  };
+
+  const handlePrint = () => {
+    handleDownloadPdf();
+  };
 
   if (!quotation) return null;
 
@@ -464,6 +477,32 @@ const QuotationViewDialog: React.FC<QuotationViewDialogProps> = ({
 
             {/* Actions */}
             <div className="flex flex-wrap gap-2 pt-4 border-t">
+              {/* Download and Print Actions */}
+              <Button
+                variant="outline"
+                onClick={handleDownloadPdf}
+                disabled={downloading}
+                className="bg-blue-50 border-blue-200 text-blue-700 hover:bg-blue-100"
+              >
+                {downloading ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : (
+                  <Download className="mr-2 h-4 w-4" />
+                )}
+                Download PDF
+              </Button>
+
+              <Button
+                variant="outline"
+                onClick={handlePrint}
+                disabled={downloading}
+                className="bg-gray-50 border-gray-200 text-gray-700 hover:bg-gray-100"
+              >
+                <Printer className="mr-2 h-4 w-4" />
+                Print
+              </Button>
+
+              {/* Existing actions */}
               {hasPermission(PERMISSIONS.SALES_UPDATE) && canEdit && (
                 <Button onClick={onEdit}>
                   <Edit className="mr-2 h-4 w-4" />

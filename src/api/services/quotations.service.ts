@@ -100,7 +100,27 @@ export const quotationsService = {
     );
     return response.data;
   },
+
+  // Download quotation PDF
+  downloadPdf: async (id: string): Promise<Blob> => {
+    const response = await apiClient.get(
+      `${API_ENDPOINTS.QUOTATIONS.BY_ID(id)}/pdf`,
+      { responseType: 'blob' }
+    );
+    return response.data;
+  },
+
+  // Send quotation via email
+  sendEmail: async (
+    id: string, 
+    emailData: { to: string; subject?: string; message?: string }
+  ): Promise<any> => {
+    const response = await apiClient.post(
+      `${API_ENDPOINTS.QUOTATIONS.BY_ID(id)}/send-email`,
+      emailData
+    );
+    return response.data;
+  },
 };
 
-// Export types for easier imports
 export * from "../types/quotation.types";

@@ -1,5 +1,4 @@
 import { useState, useMemo } from "react";
-
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -50,6 +49,8 @@ import {
   ArrowRight,
   MoreHorizontal,
   Send,
+  Download,
+  Printer,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { PERMISSIONS } from "@/utils/constants";
@@ -57,6 +58,7 @@ import { Quotation, QuotationStatus } from "@/api/services/quotations.service";
 import { formatCurrency, formatDate } from "@/utils/format.utils";
 import { useQuotations } from "@/hooks/useQuotations";
 import { useQuotationActions } from "@/hooks/useQuotationActions";
+import { useQuotationPdf } from "@/hooks/useQuotationPdf";
 import AddQuotationDialog from "@/components/quotations/AddQuotationDialog";
 import EditQuotationDialog from "@/components/quotations/EditQuotationDialog";
 import QuotationViewDialog from "@/components/quotations/QuotationViewDialog";
@@ -88,6 +90,8 @@ const Quotations = () => {
     convertToInvoice,
     deleteQuotation,
   } = useQuotationActions();
+
+  const { downloadPdf, downloading } = useQuotationPdf();
 
   // Dialog states
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
@@ -146,6 +150,14 @@ const Quotations = () => {
     } catch (err) {
       // Error handled in hook
     }
+  };
+
+  const handleDownloadPdf = async (quotation: Quotation) => {
+    await downloadPdf(quotation.id, quotation.quotationNumber);
+  };
+
+  const handlePrint = (quotation: Quotation) => {
+    handleDownloadPdf(quotation);
   };
 
   const handleQuotationAdded = (newQuotation: Quotation) => {
@@ -473,6 +485,25 @@ const Quotations = () => {
                               >
                                 <Eye className="mr-2 h-4 w-4" />
                                 View
+                              </DropdownMenuItem>
+
+                              <DropdownMenuItem
+                                onClick={() => handleDownloadPdf(quotation)}
+                                disabled={downloading}
+                              >
+                                {downloading ? (
+                                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                ) : (
+                                  <Download className="mr-2 h-4 w-4" />
+                                )}
+                                Download PDF
+                              </DropdownMenuItem>
+
+                              <DropdownMenuItem
+                                onClick={() => handlePrint(quotation)}
+                              >
+                                <Printer className="mr-2 h-4 w-4" />
+                                Print
                               </DropdownMenuItem>
 
                               {hasPermission(PERMISSIONS.SALES_UPDATE) &&
