@@ -4,7 +4,7 @@ export enum QuotationStatus {
   APPROVED = 'APPROVED',
   REJECTED = 'REJECTED',
   EXPIRED = 'EXPIRED',
-  CONVERTED = 'CONVERTED',
+  INVOICED = 'INVOICED',
 }
 
 export interface QuotationCustomer {

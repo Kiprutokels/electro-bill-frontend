@@ -65,7 +65,7 @@ export const quotationsService = {
     return response.data;
   },
 
-  // Update quotation status - FIXED: status as query parameter
+  // Update quotation status
   updateStatus: async (
     id: string,
     status: QuotationStatus

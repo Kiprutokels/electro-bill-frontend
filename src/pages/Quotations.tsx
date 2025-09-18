@@ -170,7 +170,7 @@ const Quotations = () => {
       [QuotationStatus.DRAFT]: {
         variant: "secondary" as const,
         icon: Clock,
-        className: "bg-gray-100 text-gray-800",
+        className: "bg-gray-100 text-gray-800 hover:bg-gray-200",
       },
       [QuotationStatus.SENT]: {
         variant: "default" as const,
@@ -185,17 +185,17 @@ const Quotations = () => {
       [QuotationStatus.REJECTED]: {
         variant: "destructive" as const,
         icon: XCircle,
-        className: "",
+        className: "bg-red-500 text-white hover:bg-red-600",
       },
       [QuotationStatus.EXPIRED]: {
         variant: "secondary" as const,
         icon: Clock,
-        className: "bg-orange-100 text-orange-800",
+        className: "bg-orange-100 text-orange-800 hover:bg-orange-200",
       },
-      [QuotationStatus.CONVERTED]: {
+      [QuotationStatus.INVOICED]: {
         variant: "default" as const,
         icon: FileText,
-        className: "bg-purple-500 text-white hover:bg-purple-600",
+        className: "bg-emerald-500 text-white hover:bg-emerald-600",
       },
     };
 
