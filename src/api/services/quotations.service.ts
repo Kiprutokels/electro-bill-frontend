@@ -101,13 +101,41 @@ export const quotationsService = {
     return response.data;
   },
 
-  // Download quotation PDF
+  // Download quotation PDF - Enhanced with better error handling
   downloadPdf: async (id: string): Promise<Blob> => {
-    const response = await apiClient.get(
-      `${API_ENDPOINTS.QUOTATIONS.BY_ID(id)}/pdf`,
-      { responseType: 'blob' }
-    );
-    return response.data;
+    try {
+      console.log(`API: Requesting PDF for quotation ${id}`);
+      
+      const response = await apiClient.get(
+        `${API_ENDPOINTS.QUOTATIONS.BY_ID(id)}/pdf`,
+        { 
+          responseType: 'blob',
+          headers: {
+            'Accept': 'application/pdf'
+          },
+          timeout: 120000 // 2 minutes timeout
+        }
+      );
+      
+      console.log(`API: Received blob response, size: ${response.data.size}`);
+      
+      // Validate the response
+      if (!response.data || response.data.size === 0) {
+        throw new Error('Downloaded PDF is empty');
+      }
+      
+      if (response.data.size < 1000) {
+        throw new Error(`PDF file too small (${response.data.size} bytes), likely corrupted`);
+      }
+      
+      return response.data;
+    } catch (error) {
+      console.error('API PDF download error:', error);
+      if (error.code === 'ECONNABORTED') {
+        throw new Error('PDF download timed out. Please try again.');
+      }
+      throw new Error(`Failed to download PDF: ${error.response?.data?.message || error.message}`);
+    }
   },
 
   // Send quotation via email

@@ -157,6 +157,7 @@ const Quotations = () => {
   };
 
   const handlePrint = (quotation: Quotation) => {
+    // For now, just download the PDF
     handleDownloadPdf(quotation);
   };
 
