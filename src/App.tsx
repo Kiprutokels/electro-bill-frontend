@@ -26,6 +26,13 @@ import Settings from "./pages/Settings";
 import Transactions from "./pages/Transactions";
 import Reports from "./pages/Reports";
 
+// Vehicle Tracking Module
+import Vehicles from "./pages/Vehicles";
+import Technicians from "./pages/Technicians";
+import Jobs from "./pages/Jobs";
+import Requisitions from "./pages/Requisitions";
+import InspectionChecklist from "./pages/InspectionChecklist";
+
 const queryClient = new QueryClient();
 
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
@@ -68,6 +75,7 @@ const App = () => (
                   </ProtectedRoute>
                 }
               >
+                {/* Existing Routes */}
                 <Route path="dashboard" element={<Dashboard />} />
                 <Route path="roles" element={<Roles />} />
                 <Route path="products" element={<Products />} />
@@ -84,6 +92,14 @@ const App = () => (
                 <Route path="settings/*" element={<Settings />} />
                 <Route path="transactions" element={<Transactions />} />
                 <Route path="reports" element={<Reports />} />
+
+                {/* Vehicle Tracking Module */}
+                <Route path="vehicles" element={<Vehicles />} />
+                <Route path="technicians" element={<Technicians />} />
+                <Route path="jobs" element={<Jobs />} />
+                <Route path="requisitions" element={<Requisitions />} />
+                <Route path="inspections" element={<InspectionChecklist />} />
+
                 <Route path="*" element={<NotFound />} />
               </Route>
             </Routes>

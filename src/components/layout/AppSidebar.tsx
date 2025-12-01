@@ -12,7 +12,12 @@ import {
   CreditCard,
   Shield,
   LogOut,
-  BarChart3
+  BarChart3,
+  Car,
+  Wrench,
+  ClipboardCheck,
+  Briefcase,
+  PackageSearch
 } from 'lucide-react';
 import {
   Sidebar,
@@ -33,17 +38,124 @@ import { useAuth } from '@/contexts/AuthContext';
 import { PERMISSIONS, ROUTES } from '@/utils/constants';
 
 const navigation = [
-  { name: 'Dashboard', href: ROUTES.DASHBOARD, icon: LayoutDashboard, permission: null },
-  { name: 'Customers', href: ROUTES.CUSTOMERS, icon: Users, permission: PERMISSIONS.CUSTOMERS_READ },
-  { name: 'Products', href: ROUTES.PRODUCTS, icon: Package, permission: PERMISSIONS.PRODUCTS_READ },
-  { name: 'Inventory', href: ROUTES.INVENTORY, icon: Warehouse, permission: PERMISSIONS.INVENTORY_READ },
-  { name: 'Quotations', href: ROUTES.QUOTATIONS, icon: FileText, permission: PERMISSIONS.SALES_READ },
-  { name: 'Orders', href: ROUTES.INVOICES, icon: FileText, permission: PERMISSIONS.SALES_READ },
-  { name: 'Payments', href: ROUTES.PAYMENTS, icon: CreditCard, permission: PERMISSIONS.PAYMENTS_READ },
-  { name: 'Transactions', href: ROUTES.TRANSACTIONS, icon: Receipt, permission: PERMISSIONS.SALES_READ },
-  { name: 'Reports', href: ROUTES.REPORTS, icon: BarChart3, permission: PERMISSIONS.REPORTS_VIEW },
-  { name: 'Users', href: '/users', icon: Users, permission: PERMISSIONS.USERS_READ },
-  { name: 'Settings', href: ROUTES.SETTINGS, icon: Settings, permission: null },
+  { 
+    name: 'Dashboard', 
+    href: ROUTES.DASHBOARD, 
+    icon: LayoutDashboard, 
+    permission: null,
+    section: 'main'
+  },
+  
+  // Sales & Inventory Section
+  { 
+    name: 'Customers', 
+    href: ROUTES.CUSTOMERS, 
+    icon: Users, 
+    permission: PERMISSIONS.CUSTOMERS_READ,
+    section: 'sales'
+  },
+  { 
+    name: 'Products', 
+    href: ROUTES.PRODUCTS, 
+    icon: Package, 
+    permission: PERMISSIONS.PRODUCTS_READ,
+    section: 'sales'
+  },
+  { 
+    name: 'Inventory', 
+    href: ROUTES.INVENTORY, 
+    icon: Warehouse, 
+    permission: PERMISSIONS.INVENTORY_READ,
+    section: 'sales'
+  },
+  { 
+    name: 'Quotations', 
+    href: ROUTES.QUOTATIONS, 
+    icon: FileText, 
+    permission: PERMISSIONS.SALES_READ,
+    section: 'sales'
+  },
+  { 
+    name: 'Orders', 
+    href: ROUTES.INVOICES, 
+    icon: FileText, 
+    permission: PERMISSIONS.SALES_READ,
+    section: 'sales'
+  },
+  { 
+    name: 'Payments', 
+    href: ROUTES.PAYMENTS, 
+    icon: CreditCard, 
+    permission: PERMISSIONS.PAYMENTS_READ,
+    section: 'sales'
+  },
+  { 
+    name: 'Transactions', 
+    href: ROUTES.TRANSACTIONS, 
+    icon: Receipt, 
+    permission: PERMISSIONS.SALES_READ,
+    section: 'sales'
+  },
+  
+  // Vehicle Tracking Section
+  { 
+    name: 'Vehicles', 
+    href: '/vehicles', 
+    icon: Car, 
+    permission: null,
+    section: 'tracking'
+  },
+  { 
+    name: 'Jobs/Tickets', 
+    href: '/jobs', 
+    icon: Briefcase, 
+    permission: null,
+    section: 'tracking'
+  },
+  { 
+    name: 'Technicians', 
+    href: '/technicians', 
+    icon: Wrench, 
+    permission: null,
+    section: 'tracking'
+  },
+  { 
+    name: 'Requisitions', 
+    href: '/requisitions', 
+    icon: PackageSearch, 
+    permission: null,
+    section: 'tracking'
+  },
+  { 
+    name: 'Inspections', 
+    href: '/inspections', 
+    icon: ClipboardCheck, 
+    permission: null,
+    section: 'tracking'
+  },
+  
+  // System Section
+  { 
+    name: 'Reports', 
+    href: ROUTES.REPORTS, 
+    icon: BarChart3, 
+    permission: PERMISSIONS.REPORTS_VIEW,
+    section: 'system'
+  },
+  { 
+    name: 'Users', 
+    href: '/users', 
+    icon: Users, 
+    permission: PERMISSIONS.USERS_READ,
+    section: 'system'
+  },
+  { 
+    name: 'Settings', 
+    href: ROUTES.SETTINGS, 
+    icon: Settings, 
+    permission: null,
+    section: 'system'
+  },
 ];
 
 export function AppSidebar() {
@@ -59,11 +171,35 @@ export function AppSidebar() {
     !item.permission || hasPermission(item.permission)
   );
 
+  // Group navigation by section
+  const mainItems = filteredNavigation.filter(item => item.section === 'main');
+  const salesItems = filteredNavigation.filter(item => item.section === 'sales');
+  const trackingItems = filteredNavigation.filter(item => item.section === 'tracking');
+  const systemItems = filteredNavigation.filter(item => item.section === 'system');
+
   const isActive = (path: string) => currentPath === path;
   const getNavCls = ({ isActive }: { isActive: boolean }) =>
     isActive 
       ? "bg-sidebar-primary text-sidebar-primary-foreground font-medium" 
       : "text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground";
+
+  const renderMenuItems = (items: typeof navigation) => (
+    <SidebarMenu>
+      {items.map((item) => (
+        <SidebarMenuItem key={item.name}>
+          <SidebarMenuButton asChild className="w-full">
+            <NavLink 
+              to={item.href} 
+              className={getNavCls({ isActive: isActive(item.href) })}
+            >
+              <item.icon className="h-4 w-4 sm:h-5 sm:w-5 flex-shrink-0" />
+              {!collapsed && <span className="truncate text-responsive-sm">{item.name}</span>}
+            </NavLink>
+          </SidebarMenuButton>
+        </SidebarMenuItem>
+      ))}
+    </SidebarMenu>
+  );
 
   return (
     <Sidebar 
@@ -79,8 +215,8 @@ export function AppSidebar() {
           </div>
           {!collapsed && (
             <div className="min-w-0">
-              <h1 className="text-responsive-lg font-bold text-sidebar-foreground truncate">ElectroBill</h1>
-              <p className="text-responsive-sm text-sidebar-foreground/70 truncate">Admin Panel</p>
+              <h1 className="text-responsive-lg font-bold text-sidebar-foreground truncate">Automile</h1>
+              <p className="text-responsive-sm text-sidebar-foreground/70 truncate">Tracking System</p>
             </div>
           )}
         </div>
@@ -89,29 +225,54 @@ export function AppSidebar() {
         </div>
       </SidebarHeader>
 
-      <SidebarContent>
-        <SidebarGroup>
-          <SidebarGroupLabel className={collapsed ? "sr-only" : ""}>
-            Navigation
-          </SidebarGroupLabel>
-          <SidebarGroupContent>
-            <SidebarMenu>
-              {filteredNavigation.map((item) => (
-                <SidebarMenuItem key={item.name}>
-                  <SidebarMenuButton asChild className="w-full">
-                    <NavLink 
-                      to={item.href} 
-                      className={getNavCls({ isActive: isActive(item.href) })}
-                    >
-                      <item.icon className="h-4 w-4 sm:h-5 sm:w-5 flex-shrink-0" />
-                      {!collapsed && <span className="truncate text-responsive-sm">{item.name}</span>}
-                    </NavLink>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              ))}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
+      <SidebarContent className="overflow-y-auto">
+        {/* Main Navigation */}
+        {mainItems.length > 0 && (
+          <SidebarGroup>
+            <SidebarGroupLabel className={collapsed ? "sr-only" : ""}>
+              Main
+            </SidebarGroupLabel>
+            <SidebarGroupContent>
+              {renderMenuItems(mainItems)}
+            </SidebarGroupContent>
+          </SidebarGroup>
+        )}
+
+        {/* Sales & Inventory */}
+        {salesItems.length > 0 && (
+          <SidebarGroup>
+            <SidebarGroupLabel className={collapsed ? "sr-only" : ""}>
+              Sales & Inventory
+            </SidebarGroupLabel>
+            <SidebarGroupContent>
+              {renderMenuItems(salesItems)}
+            </SidebarGroupContent>
+          </SidebarGroup>
+        )}
+
+        {/* Vehicle Tracking */}
+        {trackingItems.length > 0 && (
+          <SidebarGroup>
+            <SidebarGroupLabel className={collapsed ? "sr-only" : ""}>
+              Vehicle Tracking
+            </SidebarGroupLabel>
+            <SidebarGroupContent>
+              {renderMenuItems(trackingItems)}
+            </SidebarGroupContent>
+          </SidebarGroup>
+        )}
+
+        {/* System */}
+        {systemItems.length > 0 && (
+          <SidebarGroup>
+            <SidebarGroupLabel className={collapsed ? "sr-only" : ""}>
+              System
+            </SidebarGroupLabel>
+            <SidebarGroupContent>
+              {renderMenuItems(systemItems)}
+            </SidebarGroupContent>
+          </SidebarGroup>
+        )}
       </SidebarContent>
       
       <SidebarFooter className="border-t border-sidebar-border">
