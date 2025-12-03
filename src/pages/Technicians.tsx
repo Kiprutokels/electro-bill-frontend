@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -38,64 +39,9 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { Plus, User, MapPin, Star, Edit, Eye, Trash2, UserCheck } from 'lucide-react';
+import { Plus, User, MapPin, Star, Edit, Eye, Trash2, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
-
-interface Technician {
-  id: string;
-  technicianCode: string;
-  firstName: string;
-  lastName: string;
-  phone: string;
-  email: string;
-  specialization: string[];
-  location: string;
-  isAvailable: boolean;
-  rating: number;
-  completedJobs: number;
-}
-
-const INITIAL_TECHNICIANS: Technician[] = [
-  {
-    id: '1',
-    technicianCode: 'TECH001',
-    firstName: 'James',
-    lastName: 'Mwangi',
-    phone: '+254712345678',
-    email: 'james@automile.com',
-    specialization: ['GPS_TRACKER', 'FUEL_MONITOR', 'SPEED_GOVERNOR'],
-    location: 'NAIROBI',
-    isAvailable: true,
-    rating: 4.8,
-    completedJobs: 124,
-  },
-  {
-    id: '2',
-    technicianCode: 'TECH002',
-    firstName: 'Grace',
-    lastName: 'Achieng',
-    phone: '+254723456789',
-    email: 'grace@automile.com',
-    specialization: ['GPS_TRACKER', 'CAMERA', 'ALARM'],
-    location: 'ELDORET',
-    isAvailable: true,
-    rating: 4.9,
-    completedJobs: 98,
-  },
-  {
-    id: '3',
-    technicianCode: 'TECH003',
-    firstName: 'David',
-    lastName: 'Omondi',
-    phone: '+254734567890',
-    email: 'david@automile.com',
-    specialization: ['GPS_TRACKER', 'FUEL_MONITOR'],
-    location: 'MOMBASA',
-    isAvailable: false,
-    rating: 4.5,
-    completedJobs: 76,
-  },
-];
+import { techniciansService, CreateTechnicianRequest, UpdateTechnicianRequest } from '@/api/services';
 
 const SPECIALIZATIONS = [
   'GPS_TRACKER',
@@ -109,38 +55,102 @@ const SPECIALIZATIONS = [
 const LOCATIONS = ['NAIROBI', 'MOMBASA', 'KISUMU', 'ELDORET', 'NAKURU', 'NYERI', 'THIKA'];
 
 const Technicians = () => {
-  const [technicians, setTechnicians] = useState<Technician[]>(INITIAL_TECHNICIANS);
+  const queryClient = useQueryClient();
+  const [page, setPage] = useState(1);
   const [searchTerm, setSearchTerm] = useState('');
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
-  const [selectedTechnician, setSelectedTechnician] = useState<Technician | null>(null);
-  const [deleteTechnician, setDeleteTechnician] = useState<Technician | null>(null);
+  const [selectedTechnician, setSelectedTechnician] = useState<any>(null);
+  const [deleteTechnician, setDeleteTechnician] = useState<any>(null);
 
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<CreateTechnicianRequest>({
     firstName: '',
     lastName: '',
-    phone: '',
     email: '',
-    specialization: [] as string[],
+    phone: '',
+    username: '',
+    specialization: [],
     location: '',
+    isAvailable: true,
   });
 
-  const filteredTechnicians = technicians.filter(
-    (t) =>
-      t.technicianCode.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      `${t.firstName} ${t.lastName}`.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      t.phone.includes(searchTerm)
-  );
+  // Fetch technicians
+  const { data: techniciansData, isLoading } = useQuery({
+    queryKey: ['technicians', page, searchTerm],
+    queryFn: () =>
+      techniciansService.getTechnicians({
+        page,
+        limit: 10,
+        search: searchTerm,
+      }),
+  });
+
+  // Create technician mutation
+  const createMutation = useMutation({
+    mutationFn: techniciansService.createTechnician,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['technicians'] });
+      toast.success('Technician created successfully');
+      setIsAddDialogOpen(false);
+      resetForm();
+    },
+    onError: (error: any) => {
+      toast.error(error.response?.data?.message || 'Failed to create technician');
+    },
+  });
+
+  // Update technician mutation
+  const updateMutation = useMutation({
+    mutationFn: ({ id, data }: { id: string; data: UpdateTechnicianRequest }) =>
+      techniciansService.updateTechnician(id, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['technicians'] });
+      toast.success('Technician updated successfully');
+      setIsEditDialogOpen(false);
+      setSelectedTechnician(null);
+      resetForm();
+    },
+    onError: (error: any) => {
+      toast.error(error.response?.data?.message || 'Failed to update technician');
+    },
+  });
+
+  // Delete technician mutation
+  const deleteMutation = useMutation({
+    mutationFn: techniciansService.deleteTechnician,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['technicians'] });
+      toast.success('Technician deleted successfully');
+      setDeleteTechnician(null);
+    },
+    onError: (error: any) => {
+      toast.error(error.response?.data?.message || 'Failed to delete technician');
+    },
+  });
+
+  // Toggle availability mutation
+  const toggleAvailabilityMutation = useMutation({
+    mutationFn: techniciansService.toggleAvailability,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['technicians'] });
+      toast.success('Availability status updated');
+    },
+    onError: (error: any) => {
+      toast.error(error.response?.data?.message || 'Failed to update status');
+    },
+  });
 
   const resetForm = () => {
     setFormData({
       firstName: '',
       lastName: '',
-      phone: '',
       email: '',
+      phone: '',
+      username: '',
       specialization: [],
       location: '',
+      isAvailable: true,
     });
   };
 
@@ -159,24 +169,12 @@ const Technicians = () => {
       return;
     }
 
-    const newTechnician: Technician = {
-      id: `t-${Date.now()}`,
-      technicianCode: `TECH${String(technicians.length + 1).padStart(3, '0')}`,
-      firstName: formData.firstName,
-      lastName: formData.lastName,
-      phone: formData.phone,
-      email: formData.email,
-      specialization: formData.specialization,
-      location: formData.location,
-      isAvailable: true,
-      rating: 0,
-      completedJobs: 0,
-    };
+    if (!formData.email || !formData.username) {
+      toast.error('Email and username are required');
+      return;
+    }
 
-    setTechnicians([...technicians, newTechnician]);
-    toast.success('Technician added successfully');
-    setIsAddDialogOpen(false);
-    resetForm();
+    createMutation.mutate(formData);
   };
 
   const handleEdit = () => {
@@ -185,58 +183,47 @@ const Technicians = () => {
       return;
     }
 
-    const updatedTechnicians = technicians.map((t) =>
-      t.id === selectedTechnician.id
-        ? {
-            ...t,
-            firstName: formData.firstName,
-            lastName: formData.lastName,
-            phone: formData.phone,
-            email: formData.email,
-            specialization: formData.specialization,
-            location: formData.location,
-          }
-        : t
-    );
-
-    setTechnicians(updatedTechnicians);
-    toast.success('Technician updated successfully');
-    setIsEditDialogOpen(false);
-    setSelectedTechnician(null);
-    resetForm();
+    updateMutation.mutate({
+      id: selectedTechnician.id,
+      data: {
+        firstName: formData.firstName,
+        lastName: formData.lastName,
+        phone: formData.phone,
+        specialization: formData.specialization,
+        location: formData.location,
+        isAvailable: formData.isAvailable,
+      },
+    });
   };
 
   const handleDelete = () => {
-    if (!deleteTechnician) return;
-    setTechnicians(technicians.filter((t) => t.id !== deleteTechnician.id));
-    toast.success('Technician deleted successfully');
-    setDeleteTechnician(null);
+    if (deleteTechnician) {
+      deleteMutation.mutate(deleteTechnician.id);
+    }
   };
 
-  const handleView = (technician: Technician) => {
+  const handleView = (technician: any) => {
     setSelectedTechnician(technician);
     setIsViewDialogOpen(true);
   };
 
-  const handleEditClick = (technician: Technician) => {
+  const handleEditClick = (technician: any) => {
     setSelectedTechnician(technician);
     setFormData({
-      firstName: technician.firstName,
-      lastName: technician.lastName,
-      phone: technician.phone,
-      email: technician.email,
+      firstName: technician.user.firstName,
+      lastName: technician.user.lastName,
+      email: technician.user.email,
+      phone: technician.user.phone,
+      username: technician.user.username,
       specialization: technician.specialization,
       location: technician.location,
+      isAvailable: technician.isAvailable,
     });
     setIsEditDialogOpen(true);
   };
 
-  const toggleAvailability = (technician: Technician) => {
-    const updatedTechnicians = technicians.map((t) =>
-      t.id === technician.id ? { ...t, isAvailable: !t.isAvailable } : t
-    );
-    setTechnicians(updatedTechnicians);
-    toast.success(`Technician marked as ${technician.isAvailable ? 'unavailable' : 'available'}`);
+  const toggleAvailability = (technician: any) => {
+    toggleAvailabilityMutation.mutate(technician.id);
   };
 
   const getSpecializationBadge = (spec: string) => {
@@ -254,6 +241,14 @@ const Technicians = () => {
       </Badge>
     );
   };
+
+  const technicians = techniciansData?.data || [];
+  const totalTechnicians = techniciansData?.meta.total || 0;
+  const availableCount = technicians.filter((t) => t.isAvailable).length;
+  const onJobCount = technicians.filter((t) => !t.isAvailable).length;
+  const avgRating = technicians.length > 0
+    ? (technicians.reduce((sum, t) => sum + (t.rating || 0), 0) / technicians.length).toFixed(1)
+    : '0.0';
 
   return (
     <div className="space-y-6">
@@ -276,7 +271,7 @@ const Technicians = () => {
             <User className="h-4 w-4 text-primary" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{technicians.length}</div>
+            <div className="text-2xl font-bold">{totalTechnicians}</div>
           </CardContent>
         </Card>
         <Card>
@@ -284,9 +279,7 @@ const Technicians = () => {
             <CardTitle className="text-sm font-medium">Available Now</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-green-600">
-              {technicians.filter((t) => t.isAvailable).length}
-            </div>
+            <div className="text-2xl font-bold text-green-600">{availableCount}</div>
           </CardContent>
         </Card>
         <Card>
@@ -294,9 +287,7 @@ const Technicians = () => {
             <CardTitle className="text-sm font-medium">On Assignment</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-orange-600">
-              {technicians.filter((t) => !t.isAvailable).length}
-            </div>
+            <div className="text-2xl font-bold text-orange-600">{onJobCount}</div>
           </CardContent>
         </Card>
         <Card>
@@ -306,9 +297,7 @@ const Technicians = () => {
           <CardContent>
             <div className="text-2xl font-bold flex items-center">
               <Star className="h-5 w-5 text-yellow-500 mr-1 fill-yellow-500" />
-              {technicians.length > 0
-                ? (technicians.reduce((sum, t) => sum + (t.rating || 0), 0) / technicians.length).toFixed(1)
-                : '0.0'}
+              {avgRating}
             </div>
           </CardContent>
         </Card>
@@ -343,7 +332,13 @@ const Technicians = () => {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredTechnicians.length === 0 ? (
+                {isLoading ? (
+                  <TableRow>
+                    <TableCell colSpan={8} className="text-center py-8">
+                      <Loader2 className="h-6 w-6 animate-spin mx-auto" />
+                    </TableCell>
+                  </TableRow>
+                ) : technicians.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={8} className="text-center py-8">
                       <div className="text-muted-foreground">
@@ -352,15 +347,15 @@ const Technicians = () => {
                     </TableCell>
                   </TableRow>
                 ) : (
-                  filteredTechnicians.map((tech) => (
+                  technicians.map((tech) => (
                     <TableRow key={tech.id}>
                       <TableCell className="font-mono">{tech.technicianCode}</TableCell>
                       <TableCell>
                         <div>
                           <div className="font-medium">
-                            {tech.firstName} {tech.lastName}
+                            {tech.user.firstName} {tech.user.lastName}
                           </div>
-                          <div className="text-sm text-muted-foreground">{tech.phone}</div>
+                          <div className="text-sm text-muted-foreground">{tech.user.phone}</div>
                         </div>
                       </TableCell>
                       <TableCell>
@@ -388,7 +383,7 @@ const Technicians = () => {
                         </div>
                       </TableCell>
                       <TableCell>
-                        <span className="font-medium">{tech.completedJobs}</span>
+                        <span className="font-medium">{tech.completedJobs || 0}</span>
                       </TableCell>
                       <TableCell>
                         {tech.isAvailable ? (
@@ -421,6 +416,33 @@ const Technicians = () => {
               </TableBody>
             </Table>
           </div>
+
+          {/* Pagination */}
+          {techniciansData && techniciansData.meta.totalPages > 1 && (
+            <div className="flex items-center justify-between mt-4">
+              <div className="text-sm text-muted-foreground">
+                Showing {technicians.length} of {techniciansData.meta.total} technicians
+              </div>
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setPage((p) => Math.max(1, p - 1))}
+                  disabled={page === 1}
+                >
+                  Previous
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setPage((p) => p + 1)}
+                  disabled={page >= techniciansData.meta.totalPages}
+                >
+                  Next
+                </Button>
+              </div>
+            </div>
+          )}
         </CardContent>
       </Card>
 
@@ -453,6 +475,28 @@ const Technicians = () => {
               />
             </div>
             <div className="space-y-2">
+              <Label htmlFor="username">
+                Username <span className="text-destructive">*</span>
+              </Label>
+              <Input
+                id="username"
+                value={formData.username}
+                onChange={(e) => setFormData({ ...formData, username: e.target.value })}
+                placeholder="e.g., jamesmwangi"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="email">
+                Email <span className="text-destructive">*</span>
+              </Label>
+              <Input
+                id="email"
+                type="email"
+                value={formData.email}
+                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+              />
+            </div>
+            <div className="space-y-2">
               <Label htmlFor="phone">
                 Phone <span className="text-destructive">*</span>
               </Label>
@@ -460,15 +504,7 @@ const Technicians = () => {
                 id="phone"
                 value={formData.phone}
                 onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
-              <Input
-                id="email"
-                type="email"
-                value={formData.email}
-                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                placeholder="+254712345678"
               />
             </div>
             <div className="space-y-2">
@@ -518,7 +554,10 @@ const Technicians = () => {
             >
               Cancel
             </Button>
-            <Button onClick={handleAdd}>Add Technician</Button>
+            <Button onClick={handleAdd} disabled={createMutation.isPending}>
+              {createMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Add Technician
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -553,15 +592,6 @@ const Technicians = () => {
                 id="edit-phone"
                 value={formData.phone}
                 onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="edit-email">Email</Label>
-              <Input
-                id="edit-email"
-                type="email"
-                value={formData.email}
-                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
               />
             </div>
             <div className="space-y-2">
@@ -608,7 +638,10 @@ const Technicians = () => {
             >
               Cancel
             </Button>
-            <Button onClick={handleEdit}>Update Technician</Button>
+            <Button onClick={handleEdit} disabled={updateMutation.isPending}>
+              {updateMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Update Technician
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -628,16 +661,16 @@ const Technicians = () => {
               <div>
                 <Label className="text-muted-foreground">Name</Label>
                 <p className="font-medium">
-                  {selectedTechnician.firstName} {selectedTechnician.lastName}
+                  {selectedTechnician.user.firstName} {selectedTechnician.user.lastName}
                 </p>
               </div>
               <div>
                 <Label className="text-muted-foreground">Phone</Label>
-                <p className="font-medium">{selectedTechnician.phone}</p>
+                <p className="font-medium">{selectedTechnician.user.phone}</p>
               </div>
               <div>
                 <Label className="text-muted-foreground">Email</Label>
-                <p className="font-medium">{selectedTechnician.email}</p>
+                <p className="font-medium">{selectedTechnician.user.email}</p>
               </div>
               <div>
                 <Label className="text-muted-foreground">Location</Label>
@@ -652,7 +685,7 @@ const Technicians = () => {
               </div>
               <div>
                 <Label className="text-muted-foreground">Completed Jobs</Label>
-                <p className="font-medium text-lg">{selectedTechnician.completedJobs}</p>
+                <p className="font-medium text-lg">{selectedTechnician.completedJobs || 0}</p>
               </div>
               <div>
                 <Label className="text-muted-foreground">Status</Label>
@@ -675,13 +708,17 @@ const Technicians = () => {
             </div>
           )}
           <DialogFooter>
-            <Button variant="outline" onClick={() => toggleAvailability(selectedTechnician!)}>
+            <Button
+              variant="outline"
+              onClick={() => toggleAvailability(selectedTechnician)}
+              disabled={toggleAvailabilityMutation.isPending}
+            >
               {selectedTechnician?.isAvailable ? 'Mark Unavailable' : 'Mark Available'}
             </Button>
             <Button
               onClick={() => {
                 setIsViewDialogOpen(false);
-                handleEditClick(selectedTechnician!);
+                handleEditClick(selectedTechnician);
               }}
             >
               Edit Technician
@@ -696,13 +733,18 @@ const Technicians = () => {
           <AlertDialogHeader>
             <AlertDialogTitle>Delete Technician</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to delete technician "{deleteTechnician?.firstName} {deleteTechnician?.lastName}"?
+              Are you sure you want to delete technician "{deleteTechnician?.user?.firstName} {deleteTechnician?.user?.lastName}"?
               This action cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground">
+            <AlertDialogAction
+              onClick={handleDelete}
+              className="bg-destructive text-destructive-foreground"
+              disabled={deleteMutation.isPending}
+            >
+              {deleteMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               Delete
             </AlertDialogAction>
           </AlertDialogFooter>
