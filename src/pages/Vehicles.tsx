@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -37,116 +38,124 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { Plus, Search, Car, Edit, Eye, Trash2, X } from 'lucide-react';
+import { Plus, Search, Car, Edit, Eye, Trash2, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
-
-// Vehicle Type
-interface Vehicle {
-  id: string;
-  vehicleReg: string;
-  customerId: string;
-  customerName: string;
-  make: string;
-  model: string;
-  color: string;
-  chassisNo: string;
-  mileage: number;
-  iccidSimcard: string | null;
-  yearOfManufacture: number;
-  vehicleType: string;
-  isActive: boolean;
-}
-
-// Initial Dummy Data
-const INITIAL_VEHICLES: Vehicle[] = [
-  {
-    id: '1',
-    vehicleReg: 'KCA 123A',
-    customerId: 'cust-1',
-    customerName: 'Safaricom Ltd',
-    make: 'Toyota',
-    model: 'Land Cruiser',
-    color: 'White',
-    chassisNo: 'JTMHV05J504012345',
-    mileage: 45000,
-    iccidSimcard: '89254020000000123456',
-    yearOfManufacture: 2020,
-    vehicleType: 'SUV',
-    isActive: true,
-  },
-  {
-    id: '2',
-    vehicleReg: 'KBZ 456B',
-    customerId: 'cust-2',
-    customerName: 'East African Breweries',
-    make: 'Mercedes',
-    model: 'Actros',
-    color: 'Blue',
-    chassisNo: 'WDB9346061L876543',
-    mileage: 120000,
-    iccidSimcard: '89254020000000789012',
-    yearOfManufacture: 2018,
-    vehicleType: 'TRUCK',
-    isActive: true,
-  },
-  {
-    id: '3',
-    vehicleReg: 'KCD 789C',
-    customerId: 'cust-3',
-    customerName: 'Nairobi Water',
-    make: 'Isuzu',
-    model: 'NQR',
-    color: 'Yellow',
-    chassisNo: 'JALC4B16007123456',
-    mileage: 78000,
-    iccidSimcard: null,
-    yearOfManufacture: 2019,
-    vehicleType: 'TRUCK',
-    isActive: false,
-  },
-];
-
-// Dummy Customers
-const DUMMY_CUSTOMERS = [
-  { id: 'cust-1', name: 'Safaricom Ltd' },
-  { id: 'cust-2', name: 'East African Breweries' },
-  { id: 'cust-3', name: 'Nairobi Water' },
-  { id: 'cust-4', name: 'Kenya Airways' },
-];
+import { useNavigate } from 'react-router-dom';
+import {
+  vehiclesService,
+  CreateVehicleRequest,
+  UpdateVehicleRequest,
+} from '@/api/services/vehicles.service';
+import { customersService } from '@/api/services/customers.service';
 
 const VEHICLE_TYPES = ['SEDAN', 'SUV', 'TRUCK', 'VAN', 'PICKUP', 'BUS', 'MOTORCYCLE'];
 
 const Vehicles = () => {
-  const [vehicles, setVehicles] = useState<Vehicle[]>(INITIAL_VEHICLES);
+  const queryClient = useQueryClient();
+  const navigate = useNavigate();
+  const [page, setPage] = useState(1);
   const [searchTerm, setSearchTerm] = useState('');
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
-  const [selectedVehicle, setSelectedVehicle] = useState<Vehicle | null>(null);
-  const [deleteVehicle, setDeleteVehicle] = useState<Vehicle | null>(null);
+  const [selectedVehicle, setSelectedVehicle] = useState<any>(null);
+  const [deleteVehicle, setDeleteVehicle] = useState<any>(null);
 
-  // Form state
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<CreateVehicleRequest>({
     vehicleReg: '',
     customerId: '',
     make: '',
     model: '',
     color: '',
     chassisNo: '',
-    mileage: '',
+    mileage: undefined,
     iccidSimcard: '',
-    yearOfManufacture: '',
+    yearOfManufacture: undefined,
     vehicleType: '',
+    isActive: true,
   });
 
-  const filteredVehicles = vehicles.filter(
-    (v) =>
-      v.vehicleReg.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      v.chassisNo.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      v.customerName.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  // Fetch vehicles
+  const { data: vehiclesData, isLoading } = useQuery({
+    queryKey: ['vehicles', page, searchTerm],
+    queryFn: () =>
+      vehiclesService.getVehicles({
+        page,
+        limit: 10,
+        search: searchTerm,
+      }),
+  });
 
-  // Reset form
+  // Fetch vehicle statistics
+  const { data: statistics } = useQuery({
+    queryKey: ['vehicle-statistics'],
+    queryFn: vehiclesService.getStatistics,
+  });
+
+  // Fetch customers for dropdown
+  const { data: customersData } = useQuery({
+    queryKey: ['customers-all'],
+    queryFn: () => customersService.getCustomers({ limit: 100 }),
+  });
+
+  // Create vehicle mutation
+  const createMutation = useMutation({
+    mutationFn: vehiclesService.createVehicle,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['vehicles'] });
+      queryClient.invalidateQueries({ queryKey: ['vehicle-statistics'] });
+      toast.success('Vehicle registered successfully');
+      setIsAddDialogOpen(false);
+      resetForm();
+    },
+    onError: (error: any) => {
+      toast.error(error.response?.data?.message || 'Failed to register vehicle');
+    },
+  });
+
+  // Update vehicle mutation
+  const updateMutation = useMutation({
+    mutationFn: ({ id, data }: { id: string; data: UpdateVehicleRequest }) =>
+      vehiclesService.updateVehicle(id, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['vehicles'] });
+      toast.success('Vehicle updated successfully');
+      setIsEditDialogOpen(false);
+      setSelectedVehicle(null);
+      resetForm();
+    },
+    onError: (error: any) => {
+      toast.error(error.response?.data?.message || 'Failed to update vehicle');
+    },
+  });
+
+  // Delete vehicle mutation
+  const deleteMutation = useMutation({
+    mutationFn: vehiclesService.deleteVehicle,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['vehicles'] });
+      queryClient.invalidateQueries({ queryKey: ['vehicle-statistics'] });
+      toast.success('Vehicle deleted successfully');
+      setDeleteVehicle(null);
+    },
+    onError: (error: any) => {
+      toast.error(error.response?.data?.message || 'Failed to delete vehicle');
+    },
+  });
+
+  // Toggle status mutation
+  const toggleStatusMutation = useMutation({
+    mutationFn: vehiclesService.toggleStatus,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['vehicles'] });
+      queryClient.invalidateQueries({ queryKey: ['vehicle-statistics'] });
+      toast.success('Vehicle status updated');
+    },
+    onError: (error: any) => {
+      toast.error(error.response?.data?.message || 'Failed to update status');
+    },
+  });
+
   const resetForm = () => {
     setFormData({
       vehicleReg: '',
@@ -155,117 +164,81 @@ const Vehicles = () => {
       model: '',
       color: '',
       chassisNo: '',
-      mileage: '',
+      mileage: undefined,
       iccidSimcard: '',
-      yearOfManufacture: '',
+      yearOfManufacture: undefined,
       vehicleType: '',
+      isActive: true,
     });
   };
 
-  // Handle Add
   const handleAdd = () => {
     if (!formData.vehicleReg || !formData.customerId || !formData.chassisNo) {
-      toast.error('Please fill required fields');
+      toast.error('Please fill required fields: Vehicle Reg, Customer, and Chassis No');
       return;
     }
 
-    const customer = DUMMY_CUSTOMERS.find((c) => c.id === formData.customerId);
-    const newVehicle: Vehicle = {
-      id: `v-${Date.now()}`,
-      vehicleReg: formData.vehicleReg,
-      customerId: formData.customerId,
-      customerName: customer?.name || '',
-      make: formData.make,
-      model: formData.model,
-      color: formData.color,
-      chassisNo: formData.chassisNo,
-      mileage: parseInt(formData.mileage) || 0,
-      iccidSimcard: formData.iccidSimcard || null,
-      yearOfManufacture: parseInt(formData.yearOfManufacture) || new Date().getFullYear(),
-      vehicleType: formData.vehicleType,
-      isActive: true,
-    };
-
-    setVehicles([...vehicles, newVehicle]);
-    toast.success('Vehicle registered successfully');
-    setIsAddDialogOpen(false);
-    resetForm();
+    createMutation.mutate(formData);
   };
 
-  // Handle Edit
   const handleEdit = () => {
-    if (!selectedVehicle || !formData.vehicleReg || !formData.customerId) {
+    if (!selectedVehicle || !formData.vehicleReg || !formData.chassisNo) {
       toast.error('Please fill required fields');
       return;
     }
 
-    const customer = DUMMY_CUSTOMERS.find((c) => c.id === formData.customerId);
-    const updatedVehicles = vehicles.map((v) =>
-      v.id === selectedVehicle.id
-        ? {
-            ...v,
-            vehicleReg: formData.vehicleReg,
-            customerId: formData.customerId,
-            customerName: customer?.name || '',
-            make: formData.make,
-            model: formData.model,
-            color: formData.color,
-            chassisNo: formData.chassisNo,
-            mileage: parseInt(formData.mileage) || 0,
-            iccidSimcard: formData.iccidSimcard || null,
-            yearOfManufacture: parseInt(formData.yearOfManufacture) || new Date().getFullYear(),
-            vehicleType: formData.vehicleType,
-          }
-        : v
-    );
-
-    setVehicles(updatedVehicles);
-    toast.success('Vehicle updated successfully');
-    setIsEditDialogOpen(false);
-    setSelectedVehicle(null);
-    resetForm();
+    updateMutation.mutate({
+      id: selectedVehicle.id,
+      data: {
+        vehicleReg: formData.vehicleReg,
+        make: formData.make,
+        model: formData.model,
+        color: formData.color,
+        chassisNo: formData.chassisNo,
+        mileage: formData.mileage,
+        iccidSimcard: formData.iccidSimcard,
+        yearOfManufacture: formData.yearOfManufacture,
+        vehicleType: formData.vehicleType,
+        isActive: formData.isActive,
+      },
+    });
   };
 
-  // Handle Delete
   const handleDelete = () => {
-    if (!deleteVehicle) return;
-    setVehicles(vehicles.filter((v) => v.id !== deleteVehicle.id));
-    toast.success('Vehicle deleted successfully');
-    setDeleteVehicle(null);
+    if (deleteVehicle) {
+      deleteMutation.mutate(deleteVehicle.id);
+    }
   };
 
-  // Handle View
-  const handleView = (vehicle: Vehicle) => {
+  const handleView = (vehicle: any) => {
     setSelectedVehicle(vehicle);
     setIsViewDialogOpen(true);
   };
 
-  // Handle Edit Click
-  const handleEditClick = (vehicle: Vehicle) => {
+  const handleEditClick = (vehicle: any) => {
     setSelectedVehicle(vehicle);
     setFormData({
       vehicleReg: vehicle.vehicleReg,
       customerId: vehicle.customerId,
       make: vehicle.make,
       model: vehicle.model,
-      color: vehicle.color,
+      color: vehicle.color || '',
       chassisNo: vehicle.chassisNo,
-      mileage: vehicle.mileage.toString(),
+      mileage: vehicle.mileage || undefined,
       iccidSimcard: vehicle.iccidSimcard || '',
-      yearOfManufacture: vehicle.yearOfManufacture.toString(),
-      vehicleType: vehicle.vehicleType,
+      yearOfManufacture: vehicle.yearOfManufacture || undefined,
+      vehicleType: vehicle.vehicleType || '',
+      isActive: vehicle.isActive,
     });
     setIsEditDialogOpen(true);
   };
 
-  // Toggle Status
-  const toggleStatus = (vehicle: Vehicle) => {
-    const updatedVehicles = vehicles.map((v) =>
-      v.id === vehicle.id ? { ...v, isActive: !v.isActive } : v
-    );
-    setVehicles(updatedVehicles);
-    toast.success(`Vehicle ${vehicle.isActive ? 'deactivated' : 'activated'} successfully`);
+  const toggleStatus = (vehicle: any) => {
+    toggleStatusMutation.mutate(vehicle.id);
   };
+
+  const vehicles = vehiclesData?.data || [];
+  const customers = customersData?.data || [];
 
   return (
     <div className="space-y-6">
@@ -289,7 +262,7 @@ const Vehicles = () => {
             <Car className="h-4 w-4 text-primary" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{vehicles.length}</div>
+            <div className="text-2xl font-bold">{statistics?.total || 0}</div>
           </CardContent>
         </Card>
         <Card>
@@ -298,7 +271,7 @@ const Vehicles = () => {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-green-600">
-              {vehicles.filter((v) => v.iccidSimcard && v.isActive).length}
+              {statistics?.withTracker || 0}
             </div>
           </CardContent>
         </Card>
@@ -308,7 +281,7 @@ const Vehicles = () => {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-yellow-600">
-              {vehicles.filter((v) => !v.iccidSimcard).length}
+              {statistics?.pendingSetup || 0}
             </div>
           </CardContent>
         </Card>
@@ -318,7 +291,7 @@ const Vehicles = () => {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-gray-600">
-              {vehicles.filter((v) => !v.isActive).length}
+              {statistics?.inactive || 0}
             </div>
           </CardContent>
         </Card>
@@ -355,7 +328,13 @@ const Vehicles = () => {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredVehicles.length === 0 ? (
+                {isLoading ? (
+                  <TableRow>
+                    <TableCell colSpan={7} className="text-center py-8">
+                      <Loader2 className="h-6 w-6 animate-spin mx-auto" />
+                    </TableCell>
+                  </TableRow>
+                ) : vehicles.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={7} className="text-center py-8">
                       <div className="text-muted-foreground">
@@ -364,16 +343,16 @@ const Vehicles = () => {
                     </TableCell>
                   </TableRow>
                 ) : (
-                  filteredVehicles.map((vehicle) => (
+                  vehicles.map((vehicle) => (
                     <TableRow key={vehicle.id}>
                       <TableCell className="font-medium">{vehicle.vehicleReg}</TableCell>
                       <TableCell>
-                        <div className="font-medium">{vehicle.customerName}</div>
+                        <div className="font-medium">{vehicle.customer.businessName || vehicle.customer.contactPerson}</div>
                       </TableCell>
                       <TableCell>
                         {vehicle.make} {vehicle.model}
                         <div className="text-sm text-muted-foreground">
-                          {vehicle.color} • {vehicle.yearOfManufacture}
+                          {vehicle.color && `${vehicle.color} • `}{vehicle.yearOfManufacture}
                         </div>
                       </TableCell>
                       <TableCell className="font-mono text-sm">{vehicle.chassisNo}</TableCell>
@@ -415,6 +394,33 @@ const Vehicles = () => {
               </TableBody>
             </Table>
           </div>
+
+          {/* Pagination */}
+          {vehiclesData && vehiclesData.meta.totalPages > 1 && (
+            <div className="flex items-center justify-between mt-4">
+              <div className="text-sm text-muted-foreground">
+                Showing {vehicles.length} of {vehiclesData.meta.total} vehicles
+              </div>
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setPage((p) => Math.max(1, p - 1))}
+                  disabled={page === 1}
+                >
+                  Previous
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setPage((p) => p + 1)}
+                  disabled={page >= vehiclesData.meta.totalPages}
+                >
+                  Next
+                </Button>
+              </div>
+            </div>
+          )}
         </CardContent>
       </Card>
 
@@ -446,13 +452,24 @@ const Vehicles = () => {
                   <SelectValue placeholder="Select customer" />
                 </SelectTrigger>
                 <SelectContent>
-                  {DUMMY_CUSTOMERS.map((cust) => (
+                  {customers.map((cust) => (
                     <SelectItem key={cust.id} value={cust.id}>
-                      {cust.name}
+                      {cust.businessName || cust.contactPerson} ({cust.customerCode})
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
+              <div className="flex items-center gap-2 mt-1">
+                <p className="text-xs text-muted-foreground">Customer not found?</p>
+                <Button
+                  variant="link"
+                  size="sm"
+                  className="h-auto p-0 text-xs"
+                  onClick={() => navigate('/customers')}
+                >
+                  Create new customer
+                </Button>
+              </div>
             </div>
             <div className="space-y-2">
               <Label htmlFor="make">Make</Label>
@@ -498,8 +515,8 @@ const Vehicles = () => {
                 id="mileage"
                 type="number"
                 placeholder="45000"
-                value={formData.mileage}
-                onChange={(e) => setFormData({ ...formData, mileage: e.target.value })}
+                value={formData.mileage || ''}
+                onChange={(e) => setFormData({ ...formData, mileage: e.target.value ? parseInt(e.target.value) : undefined })}
               />
             </div>
             <div className="space-y-2">
@@ -517,8 +534,8 @@ const Vehicles = () => {
                 id="yearOfManufacture"
                 type="number"
                 placeholder="2020"
-                value={formData.yearOfManufacture}
-                onChange={(e) => setFormData({ ...formData, yearOfManufacture: e.target.value })}
+                value={formData.yearOfManufacture || ''}
+                onChange={(e) => setFormData({ ...formData, yearOfManufacture: e.target.value ? parseInt(e.target.value) : undefined })}
               />
             </div>
             <div className="space-y-2">
@@ -547,7 +564,10 @@ const Vehicles = () => {
             >
               Cancel
             </Button>
-            <Button onClick={handleAdd}>Register Vehicle</Button>
+            <Button onClick={handleAdd} disabled={createMutation.isPending}>
+              {createMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Register Vehicle
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -560,7 +580,7 @@ const Vehicles = () => {
             <DialogDescription>Update vehicle information</DialogDescription>
           </DialogHeader>
           <div className="grid grid-cols-2 gap-4 py-4">
-            {/* Same form fields as Add Dialog */}
+            {/* Same form fields as Add Dialog, but for editing */}
             <div className="space-y-2">
               <Label htmlFor="edit-vehicleReg">
                 Vehicle Reg <span className="text-destructive">*</span>
@@ -572,21 +592,12 @@ const Vehicles = () => {
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="edit-customer">
-                Customer <span className="text-destructive">*</span>
-              </Label>
-              <Select value={formData.customerId} onValueChange={(val) => setFormData({ ...formData, customerId: val })}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {DUMMY_CUSTOMERS.map((cust) => (
-                    <SelectItem key={cust.id} value={cust.id}>
-                      {cust.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Label>Customer</Label>
+              <Input
+                disabled
+                value={selectedVehicle?.customer.businessName || selectedVehicle?.customer.contactPerson || ''}
+                className="bg-muted"
+              />
             </div>
             <div className="space-y-2">
               <Label htmlFor="edit-make">Make</Label>
@@ -627,8 +638,8 @@ const Vehicles = () => {
               <Input
                 id="edit-mileage"
                 type="number"
-                value={formData.mileage}
-                onChange={(e) => setFormData({ ...formData, mileage: e.target.value })}
+                value={formData.mileage || ''}
+                onChange={(e) => setFormData({ ...formData, mileage: e.target.value ? parseInt(e.target.value) : undefined })}
               />
             </div>
             <div className="space-y-2">
@@ -644,8 +655,8 @@ const Vehicles = () => {
               <Input
                 id="edit-yearOfManufacture"
                 type="number"
-                value={formData.yearOfManufacture}
-                onChange={(e) => setFormData({ ...formData, yearOfManufacture: e.target.value })}
+                value={formData.yearOfManufacture || ''}
+                onChange={(e) => setFormData({ ...formData, yearOfManufacture: e.target.value ? parseInt(e.target.value) : undefined })}
               />
             </div>
             <div className="space-y-2">
@@ -675,7 +686,10 @@ const Vehicles = () => {
             >
               Cancel
             </Button>
-            <Button onClick={handleEdit}>Update Vehicle</Button>
+            <Button onClick={handleEdit} disabled={updateMutation.isPending}>
+              {updateMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Update Vehicle
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -694,7 +708,7 @@ const Vehicles = () => {
               </div>
               <div>
                 <Label className="text-muted-foreground">Customer</Label>
-                <p className="font-medium">{selectedVehicle.customerName}</p>
+                <p className="font-medium">{selectedVehicle.customer.businessName || selectedVehicle.customer.contactPerson}</p>
               </div>
               <div>
                 <Label className="text-muted-foreground">Make/Model</Label>
@@ -704,7 +718,7 @@ const Vehicles = () => {
               </div>
               <div>
                 <Label className="text-muted-foreground">Color</Label>
-                <p className="font-medium">{selectedVehicle.color}</p>
+                <p className="font-medium">{selectedVehicle.color || 'Not specified'}</p>
               </div>
               <div>
                 <Label className="text-muted-foreground">Chassis No</Label>
@@ -712,7 +726,7 @@ const Vehicles = () => {
               </div>
               <div>
                 <Label className="text-muted-foreground">Mileage</Label>
-                <p className="font-medium">{selectedVehicle.mileage.toLocaleString()} km</p>
+                <p className="font-medium">{selectedVehicle.mileage ? `${selectedVehicle.mileage.toLocaleString()} km` : 'Not recorded'}</p>
               </div>
               <div>
                 <Label className="text-muted-foreground">ICCID/Simcard</Label>
@@ -720,11 +734,11 @@ const Vehicles = () => {
               </div>
               <div>
                 <Label className="text-muted-foreground">Year of Manufacture</Label>
-                <p className="font-medium">{selectedVehicle.yearOfManufacture}</p>
+                <p className="font-medium">{selectedVehicle.yearOfManufacture || 'Not specified'}</p>
               </div>
               <div>
                 <Label className="text-muted-foreground">Vehicle Type</Label>
-                <p className="font-medium">{selectedVehicle.vehicleType}</p>
+                <p className="font-medium">{selectedVehicle.vehicleType || 'Not specified'}</p>
               </div>
               <div>
                 <Label className="text-muted-foreground">Status</Label>
@@ -739,13 +753,13 @@ const Vehicles = () => {
             </div>
           )}
           <DialogFooter>
-            <Button variant="outline" onClick={() => toggleStatus(selectedVehicle!)}>
+            <Button variant="outline" onClick={() => toggleStatus(selectedVehicle)} disabled={toggleStatusMutation.isPending}>
               {selectedVehicle?.isActive ? 'Deactivate' : 'Activate'}
             </Button>
             <Button
               onClick={() => {
                 setIsViewDialogOpen(false);
-                handleEditClick(selectedVehicle!);
+                handleEditClick(selectedVehicle);
               }}
             >
               Edit Vehicle
@@ -765,7 +779,12 @@ const Vehicles = () => {
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground">
+            <AlertDialogAction
+              onClick={handleDelete}
+              className="bg-destructive text-destructive-foreground"
+              disabled={deleteMutation.isPending}
+            >
+              {deleteMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               Delete
             </AlertDialogAction>
           </AlertDialogFooter>
