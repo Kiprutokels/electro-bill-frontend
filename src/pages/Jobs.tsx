@@ -1,11 +1,9 @@
 import { useState } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
-import { Textarea } from '@/components/ui/textarea';
 import {
   Table,
   TableBody,
@@ -15,14 +13,6 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
-import {
   Select,
   SelectContent,
   SelectItem,
@@ -30,57 +20,39 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from '@/components/ui/alert-dialog';
-import { Plus, Briefcase, Clock, CheckCircle, XCircle, Eye, Calendar, UserPlus, Loader2 } from 'lucide-react';
-import { toast } from 'sonner';
-import { useNavigate } from 'react-router-dom';
-import {
-  jobsService,
-  JobType,
-  JobStatus,
-  CreateJobRequest,
-  AssignTechnicianRequest,
-} from '@/api/services/jobs.service';
-import { customersService } from '@/api/services/customers.service';
-import { techniciansService } from '@/api/services/technicians.service';
+  Plus,
+  Briefcase,
+  Clock,
+  CheckCircle,
+  XCircle,
+  Eye,
+  Calendar,
+  UserPlus,
+  Loader2,
+  Users,
+  Settings,
+} from 'lucide-react';
+import { jobsService, JobStatus, Job } from '@/api/services/jobs.service';
 
-const JOB_TYPES = Object.values(JobType);
+// Import modals
+import CreateJobDialog from '@/components/jobs/CreateJobDialog';
+import ViewJobDialog from '@/components/jobs/ViewJobDialog';
+import AssignTechnicianDialog from '@/components/jobs/AssignTechnicianDialog';
+import ManageTechniciansDialog from '@/components/jobs/ManageTechniciansDialog';
+import CancelJobDialog from '@/components/jobs/CancelJobDialog';
 
 const Jobs = () => {
-  const queryClient = useQueryClient();
-  const navigate = useNavigate();
   const [page, setPage] = useState(1);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<JobStatus | undefined>();
-  const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
+
+  // Dialog states
+  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
   const [isAssignDialogOpen, setIsAssignDialogOpen] = useState(false);
-  const [selectedJob, setSelectedJob] = useState<any>(null);
-  const [cancelJob, setCancelJob] = useState<any>(null);
-  const [cancelReason, setCancelReason] = useState('');
-
-  const [formData, setFormData] = useState<CreateJobRequest>({
-    customerId: '',
-    vehicleId: undefined,
-    jobType: JobType.NEW_INSTALLATION,
-    productIds: [],
-    serviceDescription: '',
-    scheduledDate: '',
-    installationNotes: '',
-  });
-
-  const [assignData, setAssignData] = useState<AssignTechnicianRequest>({
-    technicianIds: [],
-    notes: '',
-  });
+  const [isManageDialogOpen, setIsManageDialogOpen] = useState(false);
+  const [isCancelDialogOpen, setIsCancelDialogOpen] = useState(false);
+  const [selectedJob, setSelectedJob] = useState<Job | null>(null);
 
   // Fetch jobs
   const { data: jobsData, isLoading } = useQuery({
@@ -94,123 +66,30 @@ const Jobs = () => {
       }),
   });
 
-  // Fetch job statistics
+  // Fetch statistics
   const { data: statistics } = useQuery({
     queryKey: ['job-statistics'],
     queryFn: jobsService.getStatistics,
   });
 
-  // Fetch customers for dropdown
-  const { data: customersData } = useQuery({
-    queryKey: ['customers-all'],
-    queryFn: () => customersService.getCustomers({ limit: 100 }),
-  });
-
-  // Fetch technicians for assignment
-  const { data: techniciansData } = useQuery({
-    queryKey: ['technicians-all'],
-    queryFn: () => techniciansService.getTechnicians({ limit: 100, isAvailable: true }),
-    enabled: isAssignDialogOpen,
-  });
-
-  // Create job mutation
-  const createMutation = useMutation({
-    mutationFn: jobsService.createJob,
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['jobs'] });
-      queryClient.invalidateQueries({ queryKey: ['job-statistics'] });
-      toast.success('Job created successfully');
-      setIsAddDialogOpen(false);
-      resetForm();
-    },
-    onError: (error: any) => {
-      toast.error(error.response?.data?.message || 'Failed to create job');
-    },
-  });
-
-  // Assign technician mutation
-  const assignMutation = useMutation({
-    mutationFn: ({ id, data }: { id: string; data: AssignTechnicianRequest }) =>
-      jobsService.assignTechnicians(id, data),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['jobs'] });
-      queryClient.invalidateQueries({ queryKey: ['job-statistics'] });
-      toast.success('Technician assigned successfully');
-      setIsAssignDialogOpen(false);
-      setSelectedJob(null);
-      setAssignData({ technicianIds: [], notes: '' });
-    },
-    onError: (error: any) => {
-      toast.error(error.response?.data?.message || 'Failed to assign technician');
-    },
-  });
-
-  // Cancel job mutation
-  const cancelMutation = useMutation({
-    mutationFn: ({ id, reason }: { id: string; reason?: string }) =>
-      jobsService.cancelJob(id, reason),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['jobs'] });
-      queryClient.invalidateQueries({ queryKey: ['job-statistics'] });
-      toast.success('Job cancelled successfully');
-      setCancelJob(null);
-      setCancelReason('');
-    },
-    onError: (error: any) => {
-      toast.error(error.response?.data?.message || 'Failed to cancel job');
-    },
-  });
-
-  const resetForm = () => {
-    setFormData({
-      customerId: '',
-      vehicleId: undefined,
-      jobType: JobType.NEW_INSTALLATION,
-      productIds: [],
-      serviceDescription: '',
-      scheduledDate: '',
-      installationNotes: '',
-    });
-  };
-
-  const handleAdd = () => {
-    if (!formData.customerId || !formData.jobType || !formData.scheduledDate) {
-      toast.error('Please fill all required fields');
-      return;
-    }
-
-    createMutation.mutate(formData);
-  };
-
-  const handleAssign = () => {
-    if (!selectedJob || assignData.technicianIds.length === 0) {
-      toast.error('Please select a technician');
-      return;
-    }
-
-    assignMutation.mutate({
-      id: selectedJob.id,
-      data: assignData,
-    });
-  };
-
-  const handleCancel = () => {
-    if (!cancelJob) return;
-
-    cancelMutation.mutate({
-      id: cancelJob.id,
-      reason: cancelReason,
-    });
-  };
-
-  const handleView = (job: any) => {
+  const handleView = (job: Job) => {
     setSelectedJob(job);
     setIsViewDialogOpen(true);
   };
 
-  const handleAssignClick = (job: any) => {
+  const handleAssignClick = (job: Job) => {
     setSelectedJob(job);
     setIsAssignDialogOpen(true);
+  };
+
+  const handleManageClick = (job: Job) => {
+    setSelectedJob(job);
+    setIsManageDialogOpen(true);
+  };
+
+  const handleCancelClick = (job: Job) => {
+    setSelectedJob(job);
+    setIsCancelDialogOpen(true);
   };
 
   const getStatusBadge = (status: string) => {
@@ -256,8 +135,6 @@ const Jobs = () => {
   };
 
   const jobs = jobsData?.data || [];
-  const customers = customersData?.data || [];
-  const technicians = techniciansData?.data || [];
 
   return (
     <div className="space-y-6">
@@ -266,13 +143,13 @@ const Jobs = () => {
           <h1 className="text-3xl font-bold">Job Management</h1>
           <p className="text-muted-foreground">Track installation and maintenance jobs</p>
         </div>
-        <Button onClick={() => setIsAddDialogOpen(true)}>
+        <Button onClick={() => setIsCreateDialogOpen(true)}>
           <Plus className="mr-2 h-4 w-4" />
           Create Job
         </Button>
       </div>
 
-      {/* Stats */}
+      {/* Statistics */}
       <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
         <Card>
           <CardHeader className="pb-2">
@@ -311,18 +188,23 @@ const Jobs = () => {
             <CardTitle className="text-sm font-medium">Awaiting Inspection</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-orange-600">{statistics?.awaitingInspection || 0}</div>
+            <div className="text-2xl font-bold text-orange-600">
+              {statistics?.awaitingInspection || 0}
+            </div>
           </CardContent>
         </Card>
       </div>
 
-      {/* Filters and Table */}
+      {/* Jobs Table */}
       <Card>
         <CardHeader>
           <div className="flex items-center justify-between gap-4">
             <CardTitle>Active Jobs</CardTitle>
             <div className="flex gap-2">
-              <Select value={statusFilter} onValueChange={(val) => setStatusFilter(val as JobStatus)}>
+              <Select
+                value={statusFilter}
+                onValueChange={(val) => setStatusFilter(val === 'all' ? undefined : (val as JobStatus))}
+              >
                 <SelectTrigger className="w-[180px]">
                   <SelectValue placeholder="Filter by status" />
                 </SelectTrigger>
@@ -352,7 +234,7 @@ const Jobs = () => {
                   <TableHead>Job Number</TableHead>
                   <TableHead>Customer/Vehicle</TableHead>
                   <TableHead>Type</TableHead>
-                  <TableHead>Technician</TableHead>
+                  <TableHead>Technicians</TableHead>
                   <TableHead>Scheduled</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead className="text-right">Actions</TableHead>
@@ -379,17 +261,25 @@ const Jobs = () => {
                       <TableCell className="font-mono font-medium">{job.jobNumber}</TableCell>
                       <TableCell>
                         <div>
-                          <div className="font-medium">{job.customer.businessName || job.customer.contactPerson}</div>
+                          <div className="font-medium">
+                            {job.customer.businessName || job.customer.contactPerson}
+                          </div>
                           <div className="text-sm text-muted-foreground">
-                            {job.vehicle ? `${job.vehicle.vehicleReg} - ${job.vehicle.make} ${job.vehicle.model}` : 'No vehicle assigned'}
+                            {job.vehicle
+                              ? `${job.vehicle.vehicleReg} - ${job.vehicle.make} ${job.vehicle.model}`
+                              : 'No vehicle assigned'}
                           </div>
                         </div>
                       </TableCell>
                       <TableCell>{getJobTypeBadge(job.jobType)}</TableCell>
                       <TableCell>
-                        {job.technician ? (
-                          <div className="text-sm">
-                            {job.technician.user.firstName} {job.technician.user.lastName}
+                        {job.technicians && job.technicians.length > 0 ? (
+                          <div className="flex items-center gap-1">
+                            <Users className="h-4 w-4 text-muted-foreground" />
+                            <span className="text-sm font-medium">{job.technicians.length}</span>
+                            <span className="text-xs text-muted-foreground">
+                              ({job.technicians.find((t) => t.isPrimary)?.firstName || 'N/A'})
+                            </span>
                           </div>
                         ) : (
                           <Badge variant="outline">Unassigned</Badge>
@@ -408,10 +298,20 @@ const Jobs = () => {
                             <Eye className="h-4 w-4 mr-1" />
                             View
                           </Button>
-                          {job.status === JobStatus.PENDING && (
+                          {job.status === JobStatus.PENDING && !job.technicians?.length && (
                             <Button size="sm" onClick={() => handleAssignClick(job)}>
                               <UserPlus className="h-4 w-4 mr-1" />
                               Assign
+                            </Button>
+                          )}
+                          {job.technicians && job.technicians.length > 0 && (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => handleManageClick(job)}
+                            >
+                              <Settings className="h-4 w-4 mr-1" />
+                              Manage
                             </Button>
                           )}
                         </div>
@@ -452,325 +352,44 @@ const Jobs = () => {
         </CardContent>
       </Card>
 
-      {/* Add Job Dialog */}
-      <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
-        <DialogContent className="max-w-2xl">
-          <DialogHeader>
-            <DialogTitle>Create New Job</DialogTitle>
-            <DialogDescription>Schedule a new installation or maintenance job</DialogDescription>
-          </DialogHeader>
-          <div className="grid gap-4 py-4">
-            <div className="space-y-2">
-              <Label htmlFor="customer">
-                Customer <span className="text-destructive">*</span>
-              </Label>
-              <Select
-                value={formData.customerId}
-                onValueChange={(val) => setFormData({ ...formData, customerId: val })}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select customer" />
-                </SelectTrigger>
-                <SelectContent>
-                  {customers.map((cust) => (
-                    <SelectItem key={cust.id} value={cust.id}>
-                      {cust.businessName || cust.contactPerson} ({cust.customerCode})
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <div className="flex items-center gap-2 mt-1">
-                <p className="text-xs text-muted-foreground">Customer not found?</p>
-                <Button
-                  variant="link"
-                  size="sm"
-                  className="h-auto p-0 text-xs"
-                  onClick={() => navigate('/customers')}
-                >
-                  Create new customer
-                </Button>
-              </div>
-            </div>
+      {/* Dialogs */}
+      <CreateJobDialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen} />
 
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="jobType">
-                  Job Type <span className="text-destructive">*</span>
-                </Label>
-                <Select
-                  value={formData.jobType}
-                  onValueChange={(val) => setFormData({ ...formData, jobType: val as JobType })}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {JOB_TYPES.map((type) => (
-                      <SelectItem key={type} value={type}>
-                        {type.replace('_', ' ')}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+      <ViewJobDialog
+        open={isViewDialogOpen}
+        onOpenChange={setIsViewDialogOpen}
+        job={selectedJob}
+        onManageTechnicians={() => {
+          setIsViewDialogOpen(false);
+          if (selectedJob?.technicians?.length) {
+            setIsManageDialogOpen(true);
+          } else {
+            setIsAssignDialogOpen(true);
+          }
+        }}
+        onCancel={() => {
+          setIsViewDialogOpen(false);
+          handleCancelClick(selectedJob!);
+        }}
+      />
 
-              <div className="space-y-2">
-                <Label htmlFor="scheduledDate">
-                  Scheduled Date <span className="text-destructive">*</span>
-                </Label>
-                <Input
-                  id="scheduledDate"
-                  type="date"
-                  value={formData.scheduledDate}
-                  onChange={(e) => setFormData({ ...formData, scheduledDate: e.target.value })}
-                />
-              </div>
-            </div>
+      <AssignTechnicianDialog
+        open={isAssignDialogOpen}
+        onOpenChange={setIsAssignDialogOpen}
+        job={selectedJob}
+      />
 
-            <div className="space-y-2">
-              <Label htmlFor="serviceDescription">
-                Service Description <span className="text-destructive">*</span>
-              </Label>
-              <Textarea
-                id="serviceDescription"
-                placeholder="Describe the work to be done..."
-                value={formData.serviceDescription}
-                onChange={(e) => setFormData({ ...formData, serviceDescription: e.target.value })}
-                rows={3}
-              />
-            </div>
+      <ManageTechniciansDialog
+        open={isManageDialogOpen}
+        onOpenChange={setIsManageDialogOpen}
+        job={selectedJob}
+      />
 
-            <div className="space-y-2">
-              <Label htmlFor="installationNotes">Installation Notes</Label>
-              <Textarea
-                id="installationNotes"
-                placeholder="Additional notes..."
-                value={formData.installationNotes}
-                onChange={(e) => setFormData({ ...formData, installationNotes: e.target.value })}
-                rows={2}
-              />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => {
-                setIsAddDialogOpen(false);
-                resetForm();
-              }}
-            >
-              Cancel
-            </Button>
-            <Button onClick={handleAdd} disabled={createMutation.isPending}>
-              {createMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              Create Job
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* View Job Dialog */}
-      <Dialog open={isViewDialogOpen} onOpenChange={setIsViewDialogOpen}>
-        <DialogContent className="max-w-3xl">
-          <DialogHeader>
-            <DialogTitle>Job Details</DialogTitle>
-          </DialogHeader>
-          {selectedJob && (
-            <div className="space-y-6 py-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label className="text-muted-foreground">Job Number</Label>
-                  <p className="font-mono font-medium text-lg">{selectedJob.jobNumber}</p>
-                </div>
-                <div>
-                  <Label className="text-muted-foreground">Status</Label>
-                  <div className="mt-1">{getStatusBadge(selectedJob.status)}</div>
-                </div>
-                <div>
-                  <Label className="text-muted-foreground">Customer</Label>
-                  <p className="font-medium">{selectedJob.customer.businessName || selectedJob.customer.contactPerson}</p>
-                </div>
-                <div>
-                  <Label className="text-muted-foreground">Vehicle</Label>
-                  <p className="font-medium">
-                    {selectedJob.vehicle
-                      ? `${selectedJob.vehicle.vehicleReg} - ${selectedJob.vehicle.make} ${selectedJob.vehicle.model}`
-                      : 'Not assigned'}
-                  </p>
-                </div>
-                <div>
-                  <Label className="text-muted-foreground">Job Type</Label>
-                  <div className="mt-1">{getJobTypeBadge(selectedJob.jobType)}</div>
-                </div>
-                <div>
-                  <Label className="text-muted-foreground">Technician</Label>
-                  <p className="font-medium">
-                    {selectedJob.technician
-                      ? `${selectedJob.technician.user.firstName} ${selectedJob.technician.user.lastName}`
-                      : 'Not assigned'}
-                  </p>
-                </div>
-                <div>
-                  <Label className="text-muted-foreground">Scheduled Date</Label>
-                  <p className="font-medium">{new Date(selectedJob.scheduledDate).toLocaleDateString()}</p>
-                </div>
-                <div>
-                  <Label className="text-muted-foreground">Created Date</Label>
-                  <p className="font-medium">{new Date(selectedJob.createdAt).toLocaleDateString()}</p>
-                </div>
-              </div>
-              <div>
-                <Label className="text-muted-foreground">Service Description</Label>
-                <p className="text-sm mt-1">{selectedJob.serviceDescription}</p>
-              </div>
-              {selectedJob.installationNotes && (
-                <div>
-                  <Label className="text-muted-foreground">Installation Notes</Label>
-                  <p className="text-sm mt-1">{selectedJob.installationNotes}</p>
-                </div>
-              )}
-              {selectedJob.startTime && (
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <Label className="text-muted-foreground">Start Time</Label>
-                    <p className="font-medium">{new Date(selectedJob.startTime).toLocaleString()}</p>
-                  </div>
-                  {selectedJob.endTime && (
-                    <div>
-                      <Label className="text-muted-foreground">End Time</Label>
-                      <p className="font-medium">{new Date(selectedJob.endTime).toLocaleString()}</p>
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
-          )}
-          <DialogFooter className="flex justify-between">
-            <Button
-              variant="destructive"
-              onClick={() => {
-                setIsViewDialogOpen(false);
-                setCancelJob(selectedJob);
-              }}
-              disabled={
-                selectedJob?.status === JobStatus.COMPLETED ||
-                selectedJob?.status === JobStatus.VERIFIED ||
-                selectedJob?.status === JobStatus.CANCELLED
-              }
-            >
-              Cancel Job
-            </Button>
-            <div className="flex gap-2">
-              <Button variant="outline" onClick={() => setIsViewDialogOpen(false)}>
-                Close
-              </Button>
-              {selectedJob?.status === JobStatus.PENDING && (
-                <Button
-                  onClick={() => {
-                    setIsViewDialogOpen(false);
-                    handleAssignClick(selectedJob);
-                  }}
-                >
-                  Assign Technician
-                </Button>
-              )}
-            </div>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Assign Technician Dialog */}
-      <Dialog open={isAssignDialogOpen} onOpenChange={setIsAssignDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Assign Technician</DialogTitle>
-            <DialogDescription>
-              Select a technician for job {selectedJob?.jobNumber}
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <Label htmlFor="technician">
-                Technician <span className="text-destructive">*</span>
-              </Label>
-              <Select
-                value={assignData.technicianIds[0]}
-                onValueChange={(val) => setAssignData({ ...assignData, technicianIds: [val] })}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select technician" />
-                </SelectTrigger>
-                <SelectContent>
-                  {technicians.map((tech) => (
-                    <SelectItem key={tech.id} value={tech.id}>
-                      {tech.user.firstName} {tech.user.lastName} ({tech.technicianCode}) - {tech.location}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="assignNotes">Notes</Label>
-              <Textarea
-                id="assignNotes"
-                placeholder="Assignment notes..."
-                value={assignData.notes}
-                onChange={(e) => setAssignData({ ...assignData, notes: e.target.value })}
-                rows={2}
-              />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => {
-                setIsAssignDialogOpen(false);
-                setAssignData({ technicianIds: [], notes: '' });
-              }}
-            >
-              Cancel
-            </Button>
-            <Button onClick={handleAssign} disabled={assignMutation.isPending}>
-              {assignMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              Assign Technician
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Cancel Job Dialog */}
-      <AlertDialog open={!!cancelJob} onOpenChange={() => setCancelJob(null)}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Cancel Job</AlertDialogTitle>
-            <AlertDialogDescription>
-              Are you sure you want to cancel job "{cancelJob?.jobNumber}"?
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <div className="py-4">
-            <Label htmlFor="cancelReason">Cancellation Reason (Optional)</Label>
-            <Textarea
-              id="cancelReason"
-              placeholder="Enter reason for cancellation..."
-              value={cancelReason}
-              onChange={(e) => setCancelReason(e.target.value)}
-              rows={3}
-              className="mt-2"
-            />
-          </div>
-          <AlertDialogFooter>
-            <AlertDialogCancel onClick={() => setCancelReason('')}>No, Keep Job</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={handleCancel}
-              className="bg-destructive text-destructive-foreground"
-              disabled={cancelMutation.isPending}
-            >
-              {cancelMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              Yes, Cancel Job
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      <CancelJobDialog
+        open={isCancelDialogOpen}
+        onOpenChange={setIsCancelDialogOpen}
+        job={selectedJob}
+      />
     </div>
   );
 };
