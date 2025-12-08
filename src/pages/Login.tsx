@@ -1,50 +1,62 @@
-import React, { useState } from 'react';
-import { Navigate } from 'react-router-dom';
-import { useAuth } from '@/contexts/AuthContext';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Loader2, Building2, AlertCircle, Eye, EyeOff } from 'lucide-react';
-import { ThemeToggle } from '@/components/ui/theme-toggle';
-import { validateEmail } from '@/utils';
+import React, { useState } from "react";
+import { Navigate } from "react-router-dom";
+import { useAuth } from "@/contexts/AuthContext";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Loader2, Building2, AlertCircle, Eye, EyeOff } from "lucide-react";
+import { ThemeToggle } from "@/components/ui/theme-toggle";
+import { validateEmail } from "@/utils";
 
 const Login = () => {
   const { user, login, isLoading } = useAuth();
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
-  const [error, setError] = useState('');
+  const [error, setError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [validationErrors, setValidationErrors] = useState<{email?: string; password?: string}>({});
+  const [validationErrors, setValidationErrors] = useState<{
+    email?: string;
+    password?: string;
+  }>({});
 
   if (user) {
-    return <Navigate to="/dashboard" replace />;
-  }
+    const isTechnician = user?.role === "TECHNICIAN";
 
+    return (
+      <Navigate to={isTechnician ? "/technician/jobs" : "/dashboard"} replace />
+    );
+  }
   const validateForm = () => {
-    const errors: {email?: string; password?: string} = {};
-    
+    const errors: { email?: string; password?: string } = {};
+
     if (!email) {
-      errors.email = 'Email is required';
+      errors.email = "Email is required";
     } else if (!validateEmail(email)) {
-      errors.email = 'Please enter a valid email address';
+      errors.email = "Please enter a valid email address";
     }
-    
+
     if (!password) {
-      errors.password = 'Password is required';
+      errors.password = "Password is required";
     } else if (password.length < 6) {
-      errors.password = 'Password must be at least 6 characters';
+      errors.password = "Password must be at least 6 characters";
     }
-    
+
     setValidationErrors(errors);
     return Object.keys(errors).length === 0;
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError('');
+    setError("");
     setValidationErrors({});
 
     if (!validateForm()) {
@@ -56,10 +68,10 @@ const Login = () => {
     try {
       const result = await login(email, password);
       if (!result.success) {
-        setError(result.error || 'Login failed. Please try again.');
+        setError(result.error || "Login failed. Please try again.");
       }
     } catch (err) {
-      setError('Network error. Please check your connection and try again.');
+      setError("Network error. Please check your connection and try again.");
     } finally {
       setIsSubmitting(false);
     }
@@ -108,18 +120,23 @@ const Login = () => {
                 onChange={(e) => {
                   setEmail(e.target.value);
                   if (validationErrors.email) {
-                    setValidationErrors(prev => ({...prev, email: undefined}));
+                    setValidationErrors((prev) => ({
+                      ...prev,
+                      email: undefined,
+                    }));
                   }
                 }}
                 required
                 disabled={isSubmitting}
-                className={validationErrors.email ? 'border-destructive' : ''}
+                className={validationErrors.email ? "border-destructive" : ""}
               />
               {validationErrors.email && (
-                <p className="text-sm text-destructive">{validationErrors.email}</p>
+                <p className="text-sm text-destructive">
+                  {validationErrors.email}
+                </p>
               )}
             </div>
-            
+
             <div className="space-y-2">
               <Label htmlFor="password">Password</Label>
               <div className="relative">
@@ -131,12 +148,17 @@ const Login = () => {
                   onChange={(e) => {
                     setPassword(e.target.value);
                     if (validationErrors.password) {
-                      setValidationErrors(prev => ({...prev, password: undefined}));
+                      setValidationErrors((prev) => ({
+                        ...prev,
+                        password: undefined,
+                      }));
                     }
                   }}
                   required
                   disabled={isSubmitting}
-                  className={`pr-10 ${validationErrors.password ? 'border-destructive' : ''}`}
+                  className={`pr-10 ${
+                    validationErrors.password ? "border-destructive" : ""
+                  }`}
                 />
                 <button
                   type="button"
@@ -153,10 +175,12 @@ const Login = () => {
                 </button>
               </div>
               {validationErrors.password && (
-                <p className="text-sm text-destructive">{validationErrors.password}</p>
+                <p className="text-sm text-destructive">
+                  {validationErrors.password}
+                </p>
               )}
             </div>
-            
+
             {error && (
               <Alert variant="destructive">
                 <AlertCircle className="h-4 w-4" />
@@ -164,14 +188,16 @@ const Login = () => {
               </Alert>
             )}
 
-            <Button 
-              type="submit" 
-              className="w-full" 
+            <Button
+              type="submit"
+              className="w-full"
               disabled={isSubmitting}
               size="lg"
             >
-              {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              {isSubmitting ? 'Signing In...' : 'Sign In'}
+              {isSubmitting && (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              )}
+              {isSubmitting ? "Signing In..." : "Sign In"}
             </Button>
 
             <div className="text-center text-sm text-muted-foreground mt-4 p-3 bg-muted/50 rounded">
