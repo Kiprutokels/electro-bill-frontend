@@ -1,19 +1,23 @@
-import React from 'react';
-import { NavLink, useLocation } from 'react-router-dom';
-import { 
-  LayoutDashboard, 
-  Package, 
-  Users, 
-  FileText, 
-  Receipt, 
+import { NavLink, useLocation } from "react-router-dom";
+import {
+  LayoutDashboard,
+  Package,
+  Users,
+  FileText,
+  Receipt,
   Settings,
   Building2,
   Warehouse,
   CreditCard,
-  Shield,
   LogOut,
-  BarChart3
-} from 'lucide-react';
+  BarChart3,
+  Car,
+  Wrench,
+  ClipboardCheck,
+  Briefcase,
+  PackageSearch,
+  MapPin,
+} from "lucide-react";
 import {
   Sidebar,
   SidebarContent,
@@ -27,102 +31,379 @@ import {
   SidebarMenuItem,
   SidebarTrigger,
   useSidebar,
-} from '@/components/ui/sidebar';
-import { useIsMobile } from '@/hooks/use-mobile';
-import { useAuth } from '@/contexts/AuthContext';
-import { PERMISSIONS, ROUTES } from '@/utils/constants';
+} from "@/components/ui/sidebar";
+import { useIsMobile } from "@/hooks/use-mobile";
+import { useAuth } from "@/contexts/AuthContext";
+import { PERMISSIONS, ROUTES } from "@/utils/constants";
 
-const navigation = [
-  { name: 'Dashboard', href: ROUTES.DASHBOARD, icon: LayoutDashboard, permission: null },
-  { name: 'Customers', href: ROUTES.CUSTOMERS, icon: Users, permission: PERMISSIONS.CUSTOMERS_READ },
-  { name: 'Products', href: ROUTES.PRODUCTS, icon: Package, permission: PERMISSIONS.PRODUCTS_READ },
-  { name: 'Inventory', href: ROUTES.INVENTORY, icon: Warehouse, permission: PERMISSIONS.INVENTORY_READ },
-  { name: 'Quotations', href: ROUTES.QUOTATIONS, icon: FileText, permission: PERMISSIONS.SALES_READ },
-  { name: 'Orders', href: ROUTES.INVOICES, icon: FileText, permission: PERMISSIONS.SALES_READ },
-  { name: 'Payments', href: ROUTES.PAYMENTS, icon: CreditCard, permission: PERMISSIONS.PAYMENTS_READ },
-  { name: 'Transactions', href: ROUTES.TRANSACTIONS, icon: Receipt, permission: PERMISSIONS.SALES_READ },
-  { name: 'Reports', href: ROUTES.REPORTS, icon: BarChart3, permission: PERMISSIONS.REPORTS_VIEW },
-  { name: 'Users', href: '/users', icon: Users, permission: PERMISSIONS.USERS_READ },
-  { name: 'Settings', href: ROUTES.SETTINGS, icon: Settings, permission: null },
+const adminNavigation = [
+  {
+    name: "Dashboard",
+    href: ROUTES.DASHBOARD,
+    icon: LayoutDashboard,
+    permission: null,
+    section: "main",
+  },
+
+  // Sales & Inventory Section
+  {
+    name: "Customers",
+    href: ROUTES.CUSTOMERS,
+    icon: Users,
+    permission: PERMISSIONS.CUSTOMERS_READ,
+    section: "sales",
+  },
+  {
+    name: "Products",
+    href: ROUTES.PRODUCTS,
+    icon: Package,
+    permission: PERMISSIONS.PRODUCTS_READ,
+    section: "sales",
+  },
+  {
+    name: "Inventory",
+    href: ROUTES.INVENTORY,
+    icon: Warehouse,
+    permission: PERMISSIONS.INVENTORY_READ,
+    section: "sales",
+  },
+  {
+    name: "Quotations",
+    href: ROUTES.QUOTATIONS,
+    icon: FileText,
+    permission: PERMISSIONS.SALES_READ,
+    section: "sales",
+  },
+  {
+    name: "Orders",
+    href: ROUTES.INVOICES,
+    icon: FileText,
+    permission: PERMISSIONS.SALES_READ,
+    section: "sales",
+  },
+  {
+    name: "Payments",
+    href: ROUTES.PAYMENTS,
+    icon: CreditCard,
+    permission: PERMISSIONS.PAYMENTS_READ,
+    section: "sales",
+  },
+  {
+    name: "Transactions",
+    href: ROUTES.TRANSACTIONS,
+    icon: Receipt,
+    permission: PERMISSIONS.SALES_READ,
+    section: "sales",
+  },
+
+  // Vehicle Tracking Section
+  {
+    name: "Vehicles",
+    href: "/vehicles",
+    icon: Car,
+    permission: PERMISSIONS.VEHICLES_READ,
+    section: "tracking",
+  },
+  {
+    name: "Jobs/Tickets",
+    href: "/jobs",
+    icon: Briefcase,
+    permission: PERMISSIONS.JOBS_READ,
+    section: "tracking",
+  },
+  {
+    name: "Technicians",
+    href: "/technicians",
+    icon: Wrench,
+    permission: PERMISSIONS.TECHNICIANS_READ,
+    section: "tracking",
+  },
+  {
+    name: "Requisitions",
+    href: "/requisitions",
+    icon: PackageSearch,
+    permission: null,
+    section: "tracking",
+  },
+  {
+    name: "Inspections",
+    href: "/inspections",
+    icon: ClipboardCheck,
+    permission: null,
+    section: "tracking",
+  },
+
+  // System Section
+  {
+    name: "Reports",
+    href: ROUTES.REPORTS,
+    icon: BarChart3,
+    permission: PERMISSIONS.REPORTS_VIEW,
+    section: "system",
+  },
+  {
+    name: "Users",
+    href: "/users",
+    icon: Users,
+    permission: PERMISSIONS.USERS_READ,
+    section: "system",
+  },
+  {
+    name: "Settings",
+    href: ROUTES.SETTINGS,
+    icon: Settings,
+    permission: null,
+    section: "system",
+  },
+];
+
+// Technician-specific navigation
+const technicianNavigation = [
+  {
+    name: "My Jobs",
+    href: "/technician/jobs",
+    icon: Briefcase,
+    permission: PERMISSIONS.JOBS_READ,
+    section: "main",
+  },
+  {
+    name: "Active Job",
+    href: "/technician/active-job",
+    icon: Wrench,
+    permission: PERMISSIONS.JOBS_UPDATE,
+    section: "main",
+  },
+  {
+    name: "Requisitions",
+    href: "/technician/requisitions",
+    icon: PackageSearch,
+    permission: null,
+    section: "field",
+  },
+  {
+    name: "Inspections",
+    href: "/technician/inspections",
+    icon: ClipboardCheck,
+    permission: null,
+    section: "field",
+  },
+  {
+    name: "Vehicles",
+    href: "/technician/vehicles",
+    icon: Car,
+    permission: PERMISSIONS.VEHICLES_CREATE,
+    section: "field",
+  },
+  {
+    name: "Location Check-In",
+    href: "/technician/location",
+    icon: MapPin,
+    permission: null,
+    section: "field",
+  },
+  {
+    name: "Profile",
+    href: "/technician/profile",
+    icon: Users,
+    permission: null,
+    section: "account",
+  },
 ];
 
 export function AppSidebar() {
   const { state } = useSidebar();
   const location = useLocation();
-  const { hasPermission, logout } = useAuth();
+  const { hasPermission, logout, user } = useAuth();
   const currentPath = location.pathname;
-  const collapsed = state === 'collapsed';
+  const collapsed = state === "collapsed";
   const isMobile = useIsMobile();
 
+  // Determine if user is technician
+  const isTechnician = user?.role === "TECHNICIAN";
+
+  // Select navigation based on role
+  const navigation = isTechnician ? technicianNavigation : adminNavigation;
+
   // Filter navigation based on user permissions
-  const filteredNavigation = navigation.filter(item => 
-    !item.permission || hasPermission(item.permission)
+  const filteredNavigation = navigation.filter(
+    (item) => !item.permission || hasPermission(item.permission)
+  );
+
+  // Group navigation by section
+  const mainItems = filteredNavigation.filter(
+    (item) => item.section === "main"
+  );
+  const salesItems = filteredNavigation.filter(
+    (item) => item.section === "sales"
+  );
+  const trackingItems = filteredNavigation.filter(
+    (item) => item.section === "tracking"
+  );
+  const fieldItems = filteredNavigation.filter(
+    (item) => item.section === "field"
+  );
+  const systemItems = filteredNavigation.filter(
+    (item) => item.section === "system"
+  );
+  const accountItems = filteredNavigation.filter(
+    (item) => item.section === "account"
   );
 
   const isActive = (path: string) => currentPath === path;
   const getNavCls = ({ isActive }: { isActive: boolean }) =>
-    isActive 
-      ? "bg-sidebar-primary text-sidebar-primary-foreground font-medium" 
+    isActive
+      ? "bg-sidebar-primary text-sidebar-primary-foreground font-medium"
       : "text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground";
 
+  const renderMenuItems = (items: typeof navigation) => (
+    <SidebarMenu>
+      {items.map((item) => (
+        <SidebarMenuItem key={item.name}>
+          <SidebarMenuButton asChild className="w-full">
+            <NavLink
+              to={item.href}
+              className={getNavCls({ isActive: isActive(item.href) })}
+            >
+              <item.icon className="h-4 w-4 sm:h-5 sm:w-5 flex-shrink-0" />
+              {!collapsed && (
+                <span className="truncate text-responsive-sm">{item.name}</span>
+              )}
+            </NavLink>
+          </SidebarMenuButton>
+        </SidebarMenuItem>
+      ))}
+    </SidebarMenu>
+  );
+
   return (
-    <Sidebar 
-      className={`${collapsed ? "w-12" : "w-64"}`} 
-      collapsible="icon" 
+    <Sidebar
+      className={`${collapsed ? "w-12" : "w-64"}`}
+      collapsible="icon"
       variant="sidebar"
       side={isMobile ? "left" : "left"}
     >
       <SidebarHeader className="border-b border-sidebar-border">
-        <div className={`flex items-center ${collapsed ? 'justify-center p-3' : 'space-x-3 p-4'}`}>
-          <div className={`${collapsed ? 'p-1' : 'p-2'} bg-sidebar-primary rounded-lg flex-shrink-0`}>
-            <Building2 className={`${collapsed ? 'h-4 w-4' : 'h-5 w-5 sm:h-6 sm:w-6'} text-sidebar-primary-foreground`} />
+        <div
+          className={`flex items-center ${
+            collapsed ? "justify-center p-3" : "space-x-3 p-4"
+          }`}
+        >
+          <div
+            className={`${
+              collapsed ? "p-1" : "p-2"
+            } bg-sidebar-primary rounded-lg flex-shrink-0`}
+          >
+            <Building2
+              className={`${
+                collapsed ? "h-4 w-4" : "h-5 w-5 sm:h-6 sm:w-6"
+              } text-sidebar-primary-foreground`}
+            />
           </div>
           {!collapsed && (
             <div className="min-w-0">
-              <h1 className="text-responsive-lg font-bold text-sidebar-foreground truncate">ElectroBill</h1>
-              <p className="text-responsive-sm text-sidebar-foreground/70 truncate">Admin Panel</p>
+              <h1 className="text-responsive-lg font-bold text-sidebar-foreground truncate">
+                Automile
+              </h1>
+              <p className="text-responsive-sm text-sidebar-foreground/70 truncate">
+                {isTechnician ? "Field Portal" : "Tracking System"}
+              </p>
             </div>
           )}
         </div>
-        <div className={`flex pb-2 ${collapsed ? 'justify-center px-2' : 'justify-end px-4'}`}>
+        <div
+          className={`flex pb-2 ${
+            collapsed ? "justify-center px-2" : "justify-end px-4"
+          }`}
+        >
           <SidebarTrigger className="text-sidebar-foreground hover:text-sidebar-accent-foreground hover:bg-sidebar-accent" />
         </div>
       </SidebarHeader>
 
-      <SidebarContent>
-        <SidebarGroup>
-          <SidebarGroupLabel className={collapsed ? "sr-only" : ""}>
-            Navigation
-          </SidebarGroupLabel>
-          <SidebarGroupContent>
-            <SidebarMenu>
-              {filteredNavigation.map((item) => (
-                <SidebarMenuItem key={item.name}>
-                  <SidebarMenuButton asChild className="w-full">
-                    <NavLink 
-                      to={item.href} 
-                      className={getNavCls({ isActive: isActive(item.href) })}
-                    >
-                      <item.icon className="h-4 w-4 sm:h-5 sm:w-5 flex-shrink-0" />
-                      {!collapsed && <span className="truncate text-responsive-sm">{item.name}</span>}
-                    </NavLink>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              ))}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
+      <SidebarContent className="overflow-y-auto">
+        {/* Main Navigation */}
+        {mainItems.length > 0 && (
+          <SidebarGroup>
+            <SidebarGroupLabel className={collapsed ? "sr-only" : ""}>
+              {isTechnician ? "Jobs" : "Main"}
+            </SidebarGroupLabel>
+            <SidebarGroupContent>
+              {renderMenuItems(mainItems)}
+            </SidebarGroupContent>
+          </SidebarGroup>
+        )}
+
+        {/* Sales & Inventory (Admin only) */}
+        {salesItems.length > 0 && (
+          <SidebarGroup>
+            <SidebarGroupLabel className={collapsed ? "sr-only" : ""}>
+              Sales & Inventory
+            </SidebarGroupLabel>
+            <SidebarGroupContent>
+              {renderMenuItems(salesItems)}
+            </SidebarGroupContent>
+          </SidebarGroup>
+        )}
+
+        {/* Vehicle Tracking (Admin only) */}
+        {trackingItems.length > 0 && (
+          <SidebarGroup>
+            <SidebarGroupLabel className={collapsed ? "sr-only" : ""}>
+              Vehicle Tracking
+            </SidebarGroupLabel>
+            <SidebarGroupContent>
+              {renderMenuItems(trackingItems)}
+            </SidebarGroupContent>
+          </SidebarGroup>
+        )}
+
+        {/* Field Operations (Technician only) */}
+        {fieldItems.length > 0 && (
+          <SidebarGroup>
+            <SidebarGroupLabel className={collapsed ? "sr-only" : ""}>
+              Field Operations
+            </SidebarGroupLabel>
+            <SidebarGroupContent>
+              {renderMenuItems(fieldItems)}
+            </SidebarGroupContent>
+          </SidebarGroup>
+        )}
+
+        {/* System (Admin only) */}
+        {systemItems.length > 0 && (
+          <SidebarGroup>
+            <SidebarGroupLabel className={collapsed ? "sr-only" : ""}>
+              System
+            </SidebarGroupLabel>
+            <SidebarGroupContent>
+              {renderMenuItems(systemItems)}
+            </SidebarGroupContent>
+          </SidebarGroup>
+        )}
+
+        {/* Account (Technician only) */}
+        {accountItems.length > 0 && (
+          <SidebarGroup>
+            <SidebarGroupLabel className={collapsed ? "sr-only" : ""}>
+              Account
+            </SidebarGroupLabel>
+            <SidebarGroupContent>
+              {renderMenuItems(accountItems)}
+            </SidebarGroupContent>
+          </SidebarGroup>
+        )}
       </SidebarContent>
-      
+
       <SidebarFooter className="border-t border-sidebar-border">
         <SidebarMenu>
           <SidebarMenuItem>
-            <SidebarMenuButton 
+            <SidebarMenuButton
               onClick={logout}
               className="w-full text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
             >
               <LogOut className="h-4 w-4 sm:h-5 sm:w-5 flex-shrink-0" />
-              {!collapsed && <span className="truncate text-responsive-sm">Sign Out</span>}
+              {!collapsed && (
+                <span className="truncate text-responsive-sm">Sign Out</span>
+              )}
             </SidebarMenuButton>
           </SidebarMenuItem>
         </SidebarMenu>

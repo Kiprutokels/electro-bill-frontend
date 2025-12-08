@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider, useAuth } from "./contexts/AuthContext";
 import { ThemeProvider } from "./contexts/ThemeContext";
+
 import Login from "./pages/Login";
 import Dashboard from "./pages/Dashboard";
 import Products from "./pages/Products";
@@ -25,6 +26,17 @@ import NewPayment from "./pages/NewPayment";
 import Settings from "./pages/Settings";
 import Transactions from "./pages/Transactions";
 import Reports from "./pages/Reports";
+
+// Vehicle Tracking
+import Vehicles from "./pages/Vehicles";
+import Technicians from "./pages/Technicians";
+import Jobs from "./pages/Jobs";
+import Requisitions from "./pages/Requisitions";
+import InspectionChecklist from "./pages/InspectionChecklist";
+
+// Technician Views
+import TechnicianJobs from "./pages/Technician/MyJobs";
+import TechnicianActiveJob from "./pages/Technician/ActiveJob";
 
 const queryClient = new QueryClient();
 
@@ -49,6 +61,84 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   return <>{children}</>;
 };
 
+const AppRoutes = () => {
+  const { user } = useAuth();
+
+  const isTechnician = user?.role === "TECHNICIAN";
+  return (
+    <Routes>
+      <Route path="/login" element={<Login />} />
+
+      {/* Redirect root based on role */}
+      <Route
+        path="/"
+        element={
+          isTechnician ? (
+            <Navigate to="/technician/jobs" replace />
+          ) : (
+            <Navigate to="/dashboard" replace />
+          )
+        }
+      />
+
+      <Route
+        path="/*"
+        element={
+          <ProtectedRoute>
+            <AdminLayout />
+          </ProtectedRoute>
+        }
+      >
+        {/* Admin Routes */}
+        {!isTechnician && (
+          <>
+            <Route path="dashboard" element={<Dashboard />} />
+            <Route path="roles" element={<Roles />} />
+            <Route path="products" element={<Products />} />
+            <Route path="customers" element={<Customers />} />
+            <Route path="users" element={<Users />} />
+            <Route path="categories" element={<Categories />} />
+            <Route path="brands" element={<Brands />} />
+            <Route path="inventory" element={<Inventory />} />
+            <Route path="inventory/batches" element={<ProductBatches />} />
+            <Route path="quotations" element={<Quotations />} />
+            <Route path="invoices" element={<Invoices />} />
+            <Route path="payments" element={<Payments />} />
+            <Route path="payments/new" element={<NewPayment />} />
+            <Route path="settings/*" element={<Settings />} />
+            <Route path="transactions" element={<Transactions />} />
+            <Route path="reports" element={<Reports />} />
+
+            {/* Vehicle Tracking */}
+            <Route path="vehicles" element={<Vehicles />} />
+            <Route path="technicians" element={<Technicians />} />
+            <Route path="jobs" element={<Jobs />} />
+            <Route path="requisitions" element={<Requisitions />} />
+            <Route path="inspections" element={<InspectionChecklist />} />
+          </>
+        )}
+
+        {/* Technician Routes */}
+        {isTechnician && (
+          <>
+            <Route path="technician/jobs" element={<TechnicianJobs />} />
+            <Route
+              path="technician/active-job"
+              element={<TechnicianActiveJob />}
+            />
+            <Route
+              path="technician/jobs/:id"
+              element={<TechnicianActiveJob />}
+            />
+          </>
+        )}
+
+        <Route path="*" element={<NotFound />} />
+      </Route>
+    </Routes>
+  );
+};
+
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <ThemeProvider defaultTheme="system" storageKey="electrobill-theme">
@@ -57,36 +147,7 @@ const App = () => (
           <Toaster />
           <Sonner />
           <BrowserRouter>
-            <Routes>
-              <Route path="/login" element={<Login />} />
-              <Route path="/" element={<Navigate to="/dashboard" replace />} />
-              <Route
-                path="/*"
-                element={
-                  <ProtectedRoute>
-                    <AdminLayout />
-                  </ProtectedRoute>
-                }
-              >
-                <Route path="dashboard" element={<Dashboard />} />
-                <Route path="roles" element={<Roles />} />
-                <Route path="products" element={<Products />} />
-                <Route path="customers" element={<Customers />} />
-                <Route path="users" element={<Users />} />
-                <Route path="categories" element={<Categories />} />
-                <Route path="brands" element={<Brands />} />
-                <Route path="inventory" element={<Inventory />} />
-                <Route path="inventory/batches" element={<ProductBatches />} />
-                <Route path="quotations" element={<Quotations />} />
-                <Route path="invoices" element={<Invoices />} />
-                <Route path="payments" element={<Payments />} />
-                <Route path="payments/new" element={<NewPayment />} />
-                <Route path="settings/*" element={<Settings />} />
-                <Route path="transactions" element={<Transactions />} />
-                <Route path="reports" element={<Reports />} />
-                <Route path="*" element={<NotFound />} />
-              </Route>
-            </Routes>
+            <AppRoutes />
           </BrowserRouter>
         </AuthProvider>
       </TooltipProvider>
