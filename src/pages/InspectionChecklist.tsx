@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -29,7 +30,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -40,248 +40,164 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { CheckCircle, XCircle, AlertTriangle, Camera, Eye, Plus, Edit, Trash2 } from 'lucide-react';
+import { CheckCircle, XCircle, Camera, Plus, Edit, Trash2, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
+import {
+  inspectionsService,
+  ChecklistCategory,
+  CreateChecklistItemRequest,
+} from '@/api/services';
 
-interface ChecklistItem {
-  id: string;
-  name: string;
-  category: string;
-  requiresPhoto: boolean;
-  isPreInstallation: boolean;
-  isPostInstallation: boolean;
-  displayOrder: number;
-  isActive: boolean;
-}
-
-interface InspectionTransaction {
-  id: string;
-  jobId: string;
-  jobNumber: string;
-  vehicleReg: string;
-  technicianName: string;
-  inspectionStage: string;
-  completedItems: number;
-  totalItems: number;
-  status: string;
-  date: string;
-  items: {
-    checklistItemId: string;
-    checklistItemName: string;
-    status: string;
-    notes: string;
-    photoUrls: string[];
-  }[];
-}
-
-const INITIAL_CHECKLIST_ITEMS: ChecklistItem[] = [
-  // Device Components (from your list)
-  { id: '1', name: 'Ignition Starter Cut', category: 'DEVICE_COMPONENT', requiresPhoto: true, isPreInstallation: true, isPostInstallation: true, displayOrder: 1, isActive: true },
-  { id: '2', name: 'Fuel Pump Cut', category: 'DEVICE_COMPONENT', requiresPhoto: true, isPreInstallation: true, isPostInstallation: true, displayOrder: 2, isActive: true },
-  { id: '3', name: 'Bonnet Lock', category: 'DEVICE_COMPONENT', requiresPhoto: false, isPreInstallation: true, isPostInstallation: true, displayOrder: 3, isActive: true },
-  { id: '4', name: 'Dashboard Lights', category: 'DEVICE_COMPONENT', requiresPhoto: false, isPreInstallation: true, isPostInstallation: true, displayOrder: 4, isActive: true },
-  { id: '5', name: 'Brakes Lights', category: 'DEVICE_COMPONENT', requiresPhoto: false, isPreInstallation: true, isPostInstallation: true, displayOrder: 5, isActive: true },
-  { id: '6', name: 'Reverse Lights', category: 'DEVICE_COMPONENT', requiresPhoto: false, isPreInstallation: true, isPostInstallation: true, displayOrder: 6, isActive: true },
-  { id: '7', name: 'Horn', category: 'DEVICE_COMPONENT', requiresPhoto: false, isPreInstallation: true, isPostInstallation: true, displayOrder: 7, isActive: true },
-  { id: '8', name: 'Immobilizer', category: 'DEVICE_COMPONENT', requiresPhoto: true, isPreInstallation: true, isPostInstallation: true, displayOrder: 8, isActive: true },
-  { id: '9', name: 'Power Locking', category: 'DEVICE_COMPONENT', requiresPhoto: false, isPreInstallation: true, isPostInstallation: true, displayOrder: 9, isActive: true },
-  { id: '10', name: 'Power Windows', category: 'DEVICE_COMPONENT', requiresPhoto: false, isPreInstallation: true, isPostInstallation: true, displayOrder: 10, isActive: true },
-  { id: '11', name: 'Power Output', category: 'DEVICE_COMPONENT', requiresPhoto: true, isPreInstallation: true, isPostInstallation: true, displayOrder: 11, isActive: true },
-  { id: '12', name: 'Glove Compartment', category: 'DEVICE_COMPONENT', requiresPhoto: false, isPreInstallation: true, isPostInstallation: true, displayOrder: 12, isActive: true },
-  { id: '13', name: 'Wiring', category: 'DEVICE_COMPONENT', requiresPhoto: true, isPreInstallation: true, isPostInstallation: true, displayOrder: 13, isActive: true },
-  { id: '14', name: 'Speed Governor', category: 'DEVICE_COMPONENT', requiresPhoto: true, isPreInstallation: true, isPostInstallation: true, displayOrder: 14, isActive: true },
-  { id: '15', name: 'SIM Card', category: 'DEVICE_COMPONENT', requiresPhoto: true, isPreInstallation: true, isPostInstallation: true, displayOrder: 15, isActive: true },
-  { id: '16', name: 'Device Status', category: 'DEVICE_COMPONENT', requiresPhoto: true, isPreInstallation: false, isPostInstallation: true, displayOrder: 16, isActive: true },
-  // Vehicle Inspection Items
-  { id: '17', name: 'Exterior Body Condition', category: 'VEHICLE_EXTERIOR', requiresPhoto: true, isPreInstallation: true, isPostInstallation: false, displayOrder: 17, isActive: true },
-  { id: '18', name: 'Battery Condition', category: 'VEHICLE_ENGINE', requiresPhoto: false, isPreInstallation: true, isPostInstallation: false, displayOrder: 18, isActive: true },
-];
-
-const INITIAL_INSPECTIONS: InspectionTransaction[] = [
-  {
-    id: '1',
-    jobId: 'job-1',
-    jobNumber: 'JOB-2025-045',
-    vehicleReg: 'KCA 123A',
-    technicianName: 'James Mwangi',
-    inspectionStage: 'PRE_INSTALLATION',
-    completedItems: 8,
-    totalItems: 18,
-    status: 'IN_PROGRESS',
-    date: '2025-01-20',
-    items: [],
-  },
-  {
-    id: '2',
-    jobId: 'job-2',
-    jobNumber: 'JOB-2025-044',
-    vehicleReg: 'KBZ 456B',
-    technicianName: 'Grace Achieng',
-    inspectionStage: 'POST_INSTALLATION',
-    completedItems: 16,
-    totalItems: 16,
-    status: 'AWAITING_APPROVAL',
-    date: '2025-01-18',
-    items: [],
-  },
-];
-
-const CATEGORIES = ['VEHICLE_EXTERIOR', 'VEHICLE_INTERIOR', 'VEHICLE_ENGINE', 'DEVICE_COMPONENT', 'SAFETY_CHECK'];
+const CATEGORIES = Object.values(ChecklistCategory);
 
 const InspectionChecklist = () => {
-  const [checklistItems, setChecklistItems] = useState<ChecklistItem[]>(INITIAL_CHECKLIST_ITEMS);
-  const [inspections, setInspections] = useState<InspectionTransaction[]>(INITIAL_INSPECTIONS);
+  const queryClient = useQueryClient();
+  const [page, setPage] = useState(1);
   const [searchTerm, setSearchTerm] = useState('');
-  const [isAddItemDialogOpen, setIsAddItemDialogOpen] = useState(false);
-  const [isEditItemDialogOpen, setIsEditItemDialogOpen] = useState(false);
-  const [isViewInspectionDialogOpen, setIsViewInspectionDialogOpen] = useState(false);
-  const [isPerformInspectionDialogOpen, setIsPerformInspectionDialogOpen] = useState(false);
-  const [selectedItem, setSelectedItem] = useState<ChecklistItem | null>(null);
-  const [selectedInspection, setSelectedInspection] = useState<InspectionTransaction | null>(null);
-  const [deleteItem, setDeleteItem] = useState<ChecklistItem | null>(null);
+  const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [selectedItem, setSelectedItem] = useState<any>(null);
+  const [deleteItem, setDeleteItem] = useState<any>(null);
 
-  const [itemFormData, setItemFormData] = useState({
+  const [formData, setFormData] = useState<CreateChecklistItemRequest>({
     name: '',
-    category: '',
-    requiresPhoto: false,
+    description: '',
+    category: ChecklistCategory.DEVICE_COMPONENT,
+    componentType: '',
+    vehicleType: '',
     isPreInstallation: true,
     isPostInstallation: true,
+    requiresPhoto: false,
+    displayOrder: 0,
   });
 
-  const [inspectionFormData, setInspectionFormData] = useState<Record<string, {
-    status: string;
-    notes: string;
-  }>>({});
+  // Fetch checklist items
+  const { data: itemsData, isLoading } = useQuery({
+    queryKey: ['checklist-items', page, searchTerm],
+    queryFn: () =>
+      inspectionsService.getChecklistItems({
+        page,
+        limit: 20,
+        search: searchTerm,
+      }),
+  });
 
-  const filteredChecklistItems = checklistItems.filter((item) =>
-    item.name.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  // Fetch statistics
+  const { data: statistics } = useQuery({
+    queryKey: ['inspection-statistics'],
+    queryFn: inspectionsService.getStatistics,
+  });
 
-  const resetItemForm = () => {
-    setItemFormData({
+  // Create mutation
+  const createMutation = useMutation({
+    mutationFn: inspectionsService.createChecklistItem,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['checklist-items'] });
+      toast.success('Checklist item created successfully');
+      setIsAddDialogOpen(false);
+      resetForm();
+    },
+    onError: (error: any) => {
+      toast.error(error.response?.data?.message || 'Failed to create item');
+    },
+  });
+
+  // Update mutation
+  const updateMutation = useMutation({
+    mutationFn: ({ id, data }: { id: string; data: Partial<CreateChecklistItemRequest> }) =>
+      inspectionsService.updateChecklistItem(id, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['checklist-items'] });
+      toast.success('Checklist item updated successfully');
+      setIsEditDialogOpen(false);
+      setSelectedItem(null);
+      resetForm();
+    },
+    onError: (error: any) => {
+      toast.error(error.response?.data?.message || 'Failed to update item');
+    },
+  });
+
+  // Delete mutation
+  const deleteMutation = useMutation({
+    mutationFn: inspectionsService.deleteChecklistItem,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['checklist-items'] });
+      toast.success('Checklist item deleted successfully');
+      setDeleteItem(null);
+    },
+    onError: (error: any) => {
+      toast.error(error.response?.data?.message || 'Failed to delete item');
+    },
+  });
+
+  // Toggle status mutation
+  const toggleStatusMutation = useMutation({
+    mutationFn: inspectionsService.toggleChecklistItemStatus,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['checklist-items'] });
+      toast.success('Item status updated');
+    },
+    onError: (error: any) => {
+      toast.error(error.response?.data?.message || 'Failed to update status');
+    },
+  });
+
+  const resetForm = () => {
+    setFormData({
       name: '',
-      category: '',
-      requiresPhoto: false,
+      description: '',
+      category: ChecklistCategory.DEVICE_COMPONENT,
+      componentType: '',
+      vehicleType: '',
       isPreInstallation: true,
       isPostInstallation: true,
+      requiresPhoto: false,
+      displayOrder: 0,
     });
   };
 
-  const handleAddItem = () => {
-    if (!itemFormData.name || !itemFormData.category) {
+  const handleAdd = () => {
+    if (!formData.name || !formData.category) {
       toast.error('Please fill all required fields');
       return;
     }
 
-    const newItem: ChecklistItem = {
-      id: `item-${Date.now()}`,
-      name: itemFormData.name,
-      category: itemFormData.category,
-      requiresPhoto: itemFormData.requiresPhoto,
-      isPreInstallation: itemFormData.isPreInstallation,
-      isPostInstallation: itemFormData.isPostInstallation,
-      displayOrder: checklistItems.length + 1,
-      isActive: true,
-    };
-
-    setChecklistItems([...checklistItems, newItem]);
-    toast.success('Checklist item added successfully');
-    setIsAddItemDialogOpen(false);
-    resetItemForm();
+    createMutation.mutate(formData);
   };
 
-  const handleEditItem = () => {
-    if (!selectedItem || !itemFormData.name) {
+  const handleEdit = () => {
+    if (!selectedItem || !formData.name) {
       toast.error('Please fill all required fields');
       return;
     }
 
-    const updatedItems = checklistItems.map((item) =>
-      item.id === selectedItem.id
-        ? {
-            ...item,
-            name: itemFormData.name,
-            category: itemFormData.category,
-            requiresPhoto: itemFormData.requiresPhoto,
-            isPreInstallation: itemFormData.isPreInstallation,
-            isPostInstallation: itemFormData.isPostInstallation,
-          }
-        : item
-    );
-
-    setChecklistItems(updatedItems);
-    toast.success('Checklist item updated successfully');
-    setIsEditItemDialogOpen(false);
-    setSelectedItem(null);
-    resetItemForm();
+    updateMutation.mutate({
+      id: selectedItem.id,
+      data: formData,
+    });
   };
 
-  const handleDeleteItem = () => {
-    if (!deleteItem) return;
-    setChecklistItems(checklistItems.filter((item) => item.id !== deleteItem.id));
-    toast.success('Checklist item deleted successfully');
-    setDeleteItem(null);
+  const handleDelete = () => {
+    if (deleteItem) {
+      deleteMutation.mutate(deleteItem.id);
+    }
   };
 
-  const handleEditClick = (item: ChecklistItem) => {
+  const handleEditClick = (item: any) => {
     setSelectedItem(item);
-    setItemFormData({
+    setFormData({
       name: item.name,
+      description: item.description || '',
       category: item.category,
-      requiresPhoto: item.requiresPhoto,
+      componentType: item.componentType || '',
+      vehicleType: item.vehicleType || '',
       isPreInstallation: item.isPreInstallation,
       isPostInstallation: item.isPostInstallation,
+      requiresPhoto: item.requiresPhoto,
+      displayOrder: item.displayOrder,
     });
-    setIsEditItemDialogOpen(true);
-  };
-
-  const toggleItemStatus = (item: ChecklistItem) => {
-    const updatedItems = checklistItems.map((i) =>
-      i.id === item.id ? { ...i, isActive: !i.isActive } : i
-    );
-    setChecklistItems(updatedItems);
-    toast.success(`Checklist item ${item.isActive ? 'deactivated' : 'activated'}`);
-  };
-
-  const handleApproveInspection = (inspection: InspectionTransaction) => {
-    const updatedInspections = inspections.map((i) =>
-      i.id === inspection.id ? { ...i, status: 'APPROVED' } : i
-    );
-    setInspections(updatedInspections);
-    toast.success('Inspection approved successfully');
-  };
-
-  const handleRejectInspection = (inspection: InspectionTransaction) => {
-    const updatedInspections = inspections.map((i) =>
-      i.id === inspection.id ? { ...i, status: 'REJECTED' } : i
-    );
-    setInspections(updatedInspections);
-    toast.success('Inspection rejected');
-  };
-
-  const handleViewInspection = (inspection: InspectionTransaction) => {
-    setSelectedInspection(inspection);
-    setIsViewInspectionDialogOpen(true);
-  };
-
-  const getStatusBadge = (status: string) => {
-    const variants: Record<string, { color: string; icon: any; label: string }> = {
-      IN_PROGRESS: { color: 'bg-blue-500', icon: AlertTriangle, label: 'In Progress' },
-      COMPLETED: { color: 'bg-green-500', icon: CheckCircle, label: 'Completed' },
-      AWAITING_APPROVAL: { color: 'bg-yellow-500', icon: AlertTriangle, label: 'Awaiting Approval' },
-      APPROVED: { color: 'bg-green-600', icon: CheckCircle, label: 'Approved' },
-      REJECTED: { color: 'bg-red-500', icon: XCircle, label: 'Rejected' },
-    };
-
-    const variant = variants[status];
-    const Icon = variant.icon;
-
-    return (
-      <Badge className={`${variant.color} text-white`}>
-        <Icon className="h-3 w-3 mr-1" />
-        {variant.label}
-      </Badge>
-    );
+    setIsEditDialogOpen(true);
   };
 
   const getCategoryBadge = (category: string) => {
@@ -300,11 +216,13 @@ const InspectionChecklist = () => {
     );
   };
 
+  const items = itemsData?.data || [];
+
   return (
     <div className="space-y-6">
       <div>
         <h1 className="text-3xl font-bold">Inspection Checklists</h1>
-        <p className="text-muted-foreground">Manage pre and post-installation inspections</p>
+        <p className="text-muted-foreground">Manage pre and post-installation inspection items</p>
       </div>
 
       {/* Stats */}
@@ -314,37 +232,31 @@ const InspectionChecklist = () => {
             <CardTitle className="text-sm font-medium">Total Inspections</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{inspections.length}</div>
+            <div className="text-2xl font-bold">{statistics?.totalInspections || 0}</div>
           </CardContent>
         </Card>
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">In Progress</CardTitle>
+            <CardTitle className="text-sm font-medium">Pending Pre-Install</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-blue-600">
-              {inspections.filter((i) => i.status === 'IN_PROGRESS').length}
-            </div>
+            <div className="text-2xl font-bold text-blue-600">{statistics?.pendingPreInstallation || 0}</div>
           </CardContent>
         </Card>
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Awaiting Approval</CardTitle>
+            <CardTitle className="text-sm font-medium">Pending Post-Install</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-yellow-600">
-              {inspections.filter((i) => i.status === 'AWAITING_APPROVAL').length}
-            </div>
+            <div className="text-2xl font-bold text-orange-600">{statistics?.pendingPostInstallation || 0}</div>
           </CardContent>
         </Card>
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Approved</CardTitle>
+            <CardTitle className="text-sm font-medium">Completed</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-green-600">
-              {inspections.filter((i) => i.status === 'APPROVED').length}
-            </div>
+            <div className="text-2xl font-bold text-green-600">{statistics?.completed || 0}</div>
           </CardContent>
         </Card>
       </div>
@@ -355,9 +267,9 @@ const InspectionChecklist = () => {
           <div className="flex items-center justify-between">
             <div>
               <CardTitle>Master Checklist Items</CardTitle>
-              <p className="text-sm text-muted-foreground">Configure checklist items used in inspections</p>
+              <p className="text-sm text-muted-foreground">Configure items used in inspections</p>
             </div>
-            <Button onClick={() => setIsAddItemDialogOpen(true)}>
+            <Button onClick={() => setIsAddDialogOpen(true)}>
               <Plus className="mr-2 h-4 w-4" />
               Add Item
             </Button>
@@ -372,7 +284,7 @@ const InspectionChecklist = () => {
               className="max-w-sm"
             />
           </div>
-          <div className="rounded-md border max-h-96 overflow-auto">
+          <div className="rounded-md border">
             <Table>
               <TableHeader>
                 <TableRow>
@@ -386,16 +298,22 @@ const InspectionChecklist = () => {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredChecklistItems.length === 0 ? (
+                {isLoading ? (
+                  <TableRow>
+                    <TableCell colSpan={7} className="text-center py-8">
+                      <Loader2 className="h-6 w-6 animate-spin mx-auto" />
+                    </TableCell>
+                  </TableRow>
+                ) : items.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={7} className="text-center py-8">
                       <div className="text-muted-foreground">
-                        {searchTerm ? 'No checklist items found.' : 'No checklist items created yet.'}
+                        {searchTerm ? 'No items found.' : 'No checklist items created yet.'}
                       </div>
                     </TableCell>
                   </TableRow>
                 ) : (
-                  filteredChecklistItems.map((item) => (
+                  items.map((item) => (
                     <TableRow key={item.id}>
                       <TableCell className="font-medium">{item.name}</TableCell>
                       <TableCell>{getCategoryBadge(item.category)}</TableCell>
@@ -438,7 +356,7 @@ const InspectionChecklist = () => {
                           <Button
                             variant="ghost"
                             size="sm"
-                            onClick={() => toggleItemStatus(item)}
+                            onClick={() => toggleStatusMutation.mutate(item.id)}
                           >
                             {item.isActive ? 'Deactivate' : 'Activate'}
                           </Button>
@@ -458,98 +376,38 @@ const InspectionChecklist = () => {
               </TableBody>
             </Table>
           </div>
+
+          {/* Pagination */}
+          {itemsData && itemsData.meta.totalPages > 1 && (
+            <div className="flex items-center justify-between mt-4">
+              <div className="text-sm text-muted-foreground">
+                Showing {items.length} of {itemsData.meta.total} items
+              </div>
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setPage((p) => Math.max(1, p - 1))}
+                  disabled={page === 1}
+                >
+                  Previous
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setPage((p) => p + 1)}
+                  disabled={page >= itemsData.meta.totalPages}
+                >
+                  Next
+                </Button>
+              </div>
+            </div>
+          )}
         </CardContent>
       </Card>
 
-      {/* Recent Inspections */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Recent Inspections</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="rounded-md border">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Job/Vehicle</TableHead>
-                  <TableHead>Technician</TableHead>
-                  <TableHead>Stage</TableHead>
-                  <TableHead>Progress</TableHead>
-                  <TableHead>Date</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {inspections.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={7} className="text-center py-8">
-                      <div className="text-muted-foreground">No inspections recorded yet.</div>
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  inspections.map((inspection) => (
-                    <TableRow key={inspection.id}>
-                      <TableCell>
-                        <div>
-                          <div className="font-mono font-medium">{inspection.jobNumber}</div>
-                          <div className="text-sm text-muted-foreground">{inspection.vehicleReg}</div>
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <div className="text-sm">{inspection.technicianName}</div>
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant={inspection.inspectionStage === 'PRE_INSTALLATION' ? 'default' : 'secondary'}>
-                          {inspection.inspectionStage.replace('_', '-')}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-2">
-                          <div className="w-24 bg-gray-200 rounded-full h-2">
-                            <div
-                              className="bg-blue-600 h-2 rounded-full transition-all"
-                              style={{
-                                width: `${(inspection.completedItems / inspection.totalItems) * 100}%`,
-                              }}
-                            />
-                          </div>
-                          <span className="text-sm font-medium">
-                            {inspection.completedItems}/{inspection.totalItems}
-                          </span>
-                        </div>
-                      </TableCell>
-                      <TableCell className="text-sm">{inspection.date}</TableCell>
-                      <TableCell>{getStatusBadge(inspection.status)}</TableCell>
-                      <TableCell className="text-right">
-                        <div className="flex justify-end gap-2">
-                          <Button variant="ghost" size="sm" onClick={() => handleViewInspection(inspection)}>
-                            <Eye className="h-4 w-4 mr-1" />
-                            View
-                          </Button>
-                          {inspection.status === 'AWAITING_APPROVAL' && (
-                            <>
-                              <Button size="sm" onClick={() => handleApproveInspection(inspection)}>
-                                Approve
-                              </Button>
-                              <Button size="sm" variant="destructive" onClick={() => handleRejectInspection(inspection)}>
-                                Reject
-                              </Button>
-                            </>
-                          )}
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Add Checklist Item Dialog */}
-      <Dialog open={isAddItemDialogOpen} onOpenChange={setIsAddItemDialogOpen}>
+      {/* Add Dialog */}
+      <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
         <DialogContent className="max-w-2xl">
           <DialogHeader>
             <DialogTitle>Add Checklist Item</DialogTitle>
@@ -563,37 +421,58 @@ const InspectionChecklist = () => {
               <Input
                 id="item-name"
                 placeholder="e.g., GPS Tracker Status"
-                value={itemFormData.name}
-                onChange={(e) => setItemFormData({ ...itemFormData, name: e.target.value })}
+                value={formData.name}
+                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="category">
-                Category <span className="text-destructive">*</span>
-              </Label>
-              <Select
-                value={itemFormData.category}
-                onValueChange={(val) => setItemFormData({ ...itemFormData, category: val })}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select category" />
-                </SelectTrigger>
-                <SelectContent>
-                  {CATEGORIES.map((cat) => (
-                    <SelectItem key={cat} value={cat}>
-                      {cat.replace('_', ' ')}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Label htmlFor="description">Description</Label>
+              <Textarea
+                id="description"
+                placeholder="Item description..."
+                value={formData.description}
+                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                rows={2}
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="category">
+                  Category <span className="text-destructive">*</span>
+                </Label>
+                <Select
+                  value={formData.category}
+                  onValueChange={(val) => setFormData({ ...formData, category: val as ChecklistCategory })}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {CATEGORIES.map((cat) => (
+                      <SelectItem key={cat} value={cat}>
+                        {cat.replace('_', ' ')}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="displayOrder">Display Order</Label>
+                <Input
+                  id="displayOrder"
+                  type="number"
+                  value={formData.displayOrder}
+                  onChange={(e) => setFormData({ ...formData, displayOrder: parseInt(e.target.value) || 0 })}
+                />
+              </div>
             </div>
             <div className="space-y-3 border rounded-lg p-4">
               <div className="flex items-center space-x-2">
                 <Checkbox
                   id="requires-photo"
-                  checked={itemFormData.requiresPhoto}
+                  checked={formData.requiresPhoto}
                   onCheckedChange={(checked) =>
-                    setItemFormData({ ...itemFormData, requiresPhoto: checked as boolean })
+                    setFormData({ ...formData, requiresPhoto: checked as boolean })
                   }
                 />
                 <label htmlFor="requires-photo" className="text-sm cursor-pointer">
@@ -603,9 +482,9 @@ const InspectionChecklist = () => {
               <div className="flex items-center space-x-2">
                 <Checkbox
                   id="pre-installation"
-                  checked={itemFormData.isPreInstallation}
+                  checked={formData.isPreInstallation}
                   onCheckedChange={(checked) =>
-                    setItemFormData({ ...itemFormData, isPreInstallation: checked as boolean })
+                    setFormData({ ...formData, isPreInstallation: checked as boolean })
                   }
                 />
                 <label htmlFor="pre-installation" className="text-sm cursor-pointer">
@@ -615,9 +494,9 @@ const InspectionChecklist = () => {
               <div className="flex items-center space-x-2">
                 <Checkbox
                   id="post-installation"
-                  checked={itemFormData.isPostInstallation}
+                  checked={formData.isPostInstallation}
                   onCheckedChange={(checked) =>
-                    setItemFormData({ ...itemFormData, isPostInstallation: checked as boolean })
+                    setFormData({ ...formData, isPostInstallation: checked as boolean })
                   }
                 />
                 <label htmlFor="post-installation" className="text-sm cursor-pointer">
@@ -630,19 +509,22 @@ const InspectionChecklist = () => {
             <Button
               variant="outline"
               onClick={() => {
-                setIsAddItemDialogOpen(false);
-                resetItemForm();
+                setIsAddDialogOpen(false);
+                resetForm();
               }}
             >
               Cancel
             </Button>
-            <Button onClick={handleAddItem}>Add Item</Button>
+            <Button onClick={handleAdd} disabled={createMutation.isPending}>
+              {createMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Add Item
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      {/* Edit Checklist Item Dialog */}
-      <Dialog open={isEditItemDialogOpen} onOpenChange={setIsEditItemDialogOpen}>
+      {/* Edit Dialog */}
+      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
         <DialogContent className="max-w-2xl">
           <DialogHeader>
             <DialogTitle>Edit Checklist Item</DialogTitle>
@@ -653,35 +535,55 @@ const InspectionChecklist = () => {
               <Label htmlFor="edit-item-name">Item Name</Label>
               <Input
                 id="edit-item-name"
-                value={itemFormData.name}
-                onChange={(e) => setItemFormData({ ...itemFormData, name: e.target.value })}
+                value={formData.name}
+                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="edit-category">Category</Label>
-              <Select
-                value={itemFormData.category}
-                onValueChange={(val) => setItemFormData({ ...itemFormData, category: val })}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {CATEGORIES.map((cat) => (
-                    <SelectItem key={cat} value={cat}>
-                      {cat.replace('_', ' ')}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Label htmlFor="edit-description">Description</Label>
+              <Textarea
+                id="edit-description"
+                value={formData.description}
+                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                rows={2}
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="edit-category">Category</Label>
+                <Select
+                  value={formData.category}
+                  onValueChange={(val) => setFormData({ ...formData, category: val as ChecklistCategory })}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {CATEGORIES.map((cat) => (
+                      <SelectItem key={cat} value={cat}>
+                        {cat.replace('_', ' ')}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit-displayOrder">Display Order</Label>
+                <Input
+                  id="edit-displayOrder"
+                  type="number"
+                  value={formData.displayOrder}
+                  onChange={(e) => setFormData({ ...formData, displayOrder: parseInt(e.target.value) || 0 })}
+                />
+              </div>
             </div>
             <div className="space-y-3 border rounded-lg p-4">
               <div className="flex items-center space-x-2">
                 <Checkbox
                   id="edit-requires-photo"
-                  checked={itemFormData.requiresPhoto}
+                  checked={formData.requiresPhoto}
                   onCheckedChange={(checked) =>
-                    setItemFormData({ ...itemFormData, requiresPhoto: checked as boolean })
+                    setFormData({ ...formData, requiresPhoto: checked as boolean })
                   }
                 />
                 <label htmlFor="edit-requires-photo" className="text-sm cursor-pointer">
@@ -691,9 +593,9 @@ const InspectionChecklist = () => {
               <div className="flex items-center space-x-2">
                 <Checkbox
                   id="edit-pre-installation"
-                  checked={itemFormData.isPreInstallation}
+                  checked={formData.isPreInstallation}
                   onCheckedChange={(checked) =>
-                    setItemFormData({ ...itemFormData, isPreInstallation: checked as boolean })
+                    setFormData({ ...formData, isPreInstallation: checked as boolean })
                   }
                 />
                 <label htmlFor="edit-pre-installation" className="text-sm cursor-pointer">
@@ -703,9 +605,9 @@ const InspectionChecklist = () => {
               <div className="flex items-center space-x-2">
                 <Checkbox
                   id="edit-post-installation"
-                  checked={itemFormData.isPostInstallation}
+                  checked={formData.isPostInstallation}
                   onCheckedChange={(checked) =>
-                    setItemFormData({ ...itemFormData, isPostInstallation: checked as boolean })
+                    setFormData({ ...formData, isPostInstallation: checked as boolean })
                   }
                 />
                 <label htmlFor="edit-post-installation" className="text-sm cursor-pointer">
@@ -718,127 +620,22 @@ const InspectionChecklist = () => {
             <Button
               variant="outline"
               onClick={() => {
-                setIsEditItemDialogOpen(false);
+                setIsEditDialogOpen(false);
                 setSelectedItem(null);
-                resetItemForm();
+                resetForm();
               }}
             >
               Cancel
             </Button>
-            <Button onClick={handleEditItem}>Update Item</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* View Inspection Dialog */}
-      <Dialog open={isViewInspectionDialogOpen} onOpenChange={setIsViewInspectionDialogOpen}>
-        <DialogContent className="max-w-3xl">
-          <DialogHeader>
-            <DialogTitle>Inspection Details</DialogTitle>
-          </DialogHeader>
-          {selectedInspection && (
-            <div className="space-y-6 py-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label className="text-muted-foreground">Job Number</Label>
-                  <p className="font-mono font-medium text-lg">{selectedInspection.jobNumber}</p>
-                </div>
-                <div>
-                  <Label className="text-muted-foreground">Status</Label>
-                  <div className="mt-1">{getStatusBadge(selectedInspection.status)}</div>
-                </div>
-                <div>
-                  <Label className="text-muted-foreground">Vehicle</Label>
-                  <p className="font-medium">{selectedInspection.vehicleReg}</p>
-                </div>
-                <div>
-                  <Label className="text-muted-foreground">Technician</Label>
-                  <p className="font-medium">{selectedInspection.technicianName}</p>
-                </div>
-                <div>
-                  <Label className="text-muted-foreground">Inspection Stage</Label>
-                  <div className="mt-1">
-                    <Badge
-                      variant={selectedInspection.inspectionStage === 'PRE_INSTALLATION' ? 'default' : 'secondary'}
-                    >
-                      {selectedInspection.inspectionStage.replace('_', '-')}
-                    </Badge>
-                  </div>
-                </div>
-                <div>
-                  <Label className="text-muted-foreground">Date</Label>
-                  <p className="font-medium">{selectedInspection.date}</p>
-                </div>
-              </div>
-
-              <div>
-                <Label className="text-muted-foreground mb-2 block">Progress</Label>
-                <div className="flex items-center gap-3">
-                  <div className="flex-1 bg-gray-200 rounded-full h-3">
-                    <div
-                      className="bg-blue-600 h-3 rounded-full transition-all"
-                      style={{
-                        width: `${(selectedInspection.completedItems / selectedInspection.totalItems) * 100}%`,
-                      }}
-                    />
-                  </div>
-                  <span className="font-medium text-lg">
-                    {selectedInspection.completedItems}/{selectedInspection.totalItems} items completed
-                  </span>
-                </div>
-              </div>
-
-              <div>
-                <Label className="text-muted-foreground mb-2 block">Inspection Items</Label>
-                <div className="border rounded-lg p-4 max-h-64 overflow-y-auto">
-                  {selectedInspection.items.length === 0 ? (
-                    <div className="text-center text-sm text-muted-foreground py-4">
-                      No items recorded yet
-                    </div>
-                  ) : (
-                    <div className="space-y-3">
-                      {selectedInspection.items.map((item, idx) => (
-                        <div key={idx} className="flex items-start justify-between border-b pb-2 last:border-0">
-                          <div className="flex-1">
-                            <p className="font-medium">{item.checklistItemName}</p>
-                            {item.notes && <p className="text-sm text-muted-foreground mt-1">{item.notes}</p>}
-                          </div>
-                          <Badge
-                            className={
-                              item.status === 'PASS'
-                                ? 'bg-green-500'
-                                : item.status === 'FAIL'
-                                ? 'bg-red-500'
-                                : 'bg-gray-500'
-                            }
-                          >
-                            {item.status}
-                          </Badge>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
-          )}
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setIsViewInspectionDialogOpen(false)}>
-              Close
+            <Button onClick={handleEdit} disabled={updateMutation.isPending}>
+              {updateMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Update Item
             </Button>
-            {selectedInspection?.status === 'AWAITING_APPROVAL' && (
-              <>
-                <Button onClick={() => handleApproveInspection(selectedInspection)}>Approve</Button>
-                <Button variant="destructive" onClick={() => handleRejectInspection(selectedInspection)}>
-                  Reject
-                </Button>
-              </>
-            )}
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      {/* Delete Item Dialog */}
+      {/* Delete Dialog */}
       <AlertDialog open={!!deleteItem} onOpenChange={() => setDeleteItem(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
@@ -849,7 +646,12 @@ const InspectionChecklist = () => {
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDeleteItem} className="bg-destructive text-destructive-foreground">
+            <AlertDialogAction
+              onClick={handleDelete}
+              className="bg-destructive text-destructive-foreground"
+              disabled={deleteMutation.isPending}
+            >
+              {deleteMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               Delete
             </AlertDialogAction>
           </AlertDialogFooter>
