@@ -54,6 +54,25 @@ export const PERMISSIONS = {
   // Permissions
   PERMISSIONS_READ: "permissions.read",
   PERMISSIONS_ASSIGN: "permissions.assign",
+
+    // Jobs
+  JOBS_CREATE: 'jobs.create',
+  JOBS_READ: 'jobs.read',
+  JOBS_UPDATE: 'jobs.update',
+  JOBS_DELETE: 'jobs.delete',
+  JOBS_ASSIGN: 'jobs.assign',
+
+  // Technicians
+  TECHNICIANS_CREATE: 'technicians.create',
+  TECHNICIANS_READ: 'technicians.read',
+  TECHNICIANS_UPDATE: 'technicians.update',
+  TECHNICIANS_DELETE: 'technicians.delete',
+
+  // Vehicles
+  VEHICLES_CREATE: 'vehicles.create',
+  VEHICLES_READ: 'vehicles.read',
+  VEHICLES_UPDATE: 'vehicles.update',
+  VEHICLES_DELETE: 'vehicles.delete',
   
 } as const;
 
