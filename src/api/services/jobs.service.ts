@@ -23,62 +23,37 @@ export enum JobStatus {
   CANCELLED = 'CANCELLED',
 }
 
+export interface JobTechnician {
+  id: string;
+  technicianCode: string;
+  firstName: string;
+  lastName: string;
+  phone: string;
+  email: string;
+  location: string;
+  isPrimary: boolean;
+  assignedAt: string;
+  notes?: string;
+}
+
 export interface Job {
   id: string;
   jobNumber: string;
   customerId: string;
-  vehicleId: string | null;
-  technicianId: string | null;
+  vehicleId?: string;
   jobType: JobType;
   status: JobStatus;
   productIds: string[];
   serviceDescription: string;
   scheduledDate: string;
-  startTime: string | null;
-  endTime: string | null;
-  devicePosition: string | null;
-  installationNotes: string | null;
-  photoUrls: string[];
-  imeiNumbers: string[];
-  gpsCoordinates: string | null;
-  consentFormUrl: string | null;
-  customerSignatureUrl: string | null;
-  consentDate: string | null;
-  paymentVerified: boolean;
-  certificateUrl: string | null;
-  certificateIssueDate: string | null;
-  assignedBy: string | null;
-  assignedAt: string | null;
-  approvedBy: string | null;
-  approvedAt: string | null;
-  createdBy: string;
+  startTime?: string;
+  endTime?: string;
+  installationNotes?: string;
   createdAt: string;
   updatedAt: string;
-  customer: {
-    id: string;
-    customerCode: string;
-    businessName: string | null;
-    contactPerson: string | null;
-    phone: string;
-    email: string | null;
-  };
-  vehicle?: {
-    id: string;
-    vehicleReg: string;
-    make: string;
-    model: string;
-    color: string | null;
-    chassisNo: string;
-  };
-  technician?: {
-    id: string;
-    technicianCode: string;
-    user: {
-      firstName: string;
-      lastName: string;
-      phone: string;
-    };
-  };
+  customer: any;
+  vehicle?: any;
+  technicians?: JobTechnician[]; // Multi-technician support
 }
 
 export interface CreateJobRequest {
@@ -91,49 +66,32 @@ export interface CreateJobRequest {
   installationNotes?: string;
 }
 
-export interface UpdateJobRequest {
-  vehicleId?: string;
-  jobType?: JobType;
-  status?: JobStatus;
-  productIds?: string[];
-  serviceDescription?: string;
-  scheduledDate?: string;
-  devicePosition?: string;
-  installationNotes?: string;
-  photoUrls?: string[];
-  imeiNumbers?: string[];
-  gpsCoordinates?: string;
-}
-
 export interface AssignTechnicianRequest {
   technicianIds: string[];
   notes?: string;
 }
 
-export interface JobStatistics {
-  total: number;
-  pending: number;
-  assigned: number;
-  inProgress: number;
-  completed: number;
-  cancelled: number;
-  awaitingInspection: number;
+export interface AddTechnicianRequest {
+  technicianId: string;
+  isPrimary?: boolean;
+  notes?: string;
 }
 
+export interface UpdateJobRequest {
+  status?: JobStatus;
+  vehicleId?: string;
+  productIds?: string[];
+  serviceDescription?: string;
+  scheduledDate?: string;
+  installationNotes?: string;
+  devicePosition?: string;
+  photoUrls?: string[];
+  imeiNumbers?: string[];
+  gpsCoordinates?: string;
+}
 export const jobsService = {
-  getJobs: async (params: {
-    page?: number;
-    limit?: number;
-    search?: string;
-    status?: JobStatus;
-    customerId?: string;
-    technicianId?: string;
-    fromDate?: string;
-    toDate?: string;
-  } = {}): Promise<PaginatedResponse<Job>> => {
-    const response = await apiClient.get<PaginatedResponse<Job>>('/jobs', {
-      params,
-    });
+  getJobs: async (params: any = {}): Promise<PaginatedResponse<Job>> => {
+    const response = await apiClient.get<PaginatedResponse<Job>>('/jobs', { params });
     return response.data;
   },
 
@@ -147,38 +105,40 @@ export const jobsService = {
     return response.data;
   },
 
-  updateJob: async (id: string, data: UpdateJobRequest): Promise<Job> => {
+  updateJob: async (id: string, data: Partial<Job>): Promise<Job> => {
     const response = await apiClient.patch<Job>(`/jobs/${id}`, data);
     return response.data;
   },
 
-  assignTechnicians: async (
-    id: string,
-    data: AssignTechnicianRequest
-  ): Promise<Job> => {
-    const response = await apiClient.patch<Job>(`/jobs/${id}/assign`, data);
+  assignTechnicians: async (id: string, data: AssignTechnicianRequest): Promise<Job> => {
+    const response = await apiClient.post<Job>(`/jobs/${id}/assign`, data);
     return response.data;
   },
 
-  reassignTechnician: async (
-    id: string,
-    technicianId: string
-  ): Promise<Job> => {
-    const response = await apiClient.patch<Job>(
-      `/jobs/${id}/reassign/${technicianId}`
-    );
+  addTechnician: async (id: string, data: AddTechnicianRequest): Promise<Job> => {
+    const response = await apiClient.post<Job>(`/jobs/${id}/technicians`, data);
     return response.data;
   },
 
-  cancelJob: async (id: string, reason?: string): Promise<Job> => {
-    const response = await apiClient.patch<Job>(`/jobs/${id}/cancel`, {
-      reason,
+  removeTechnician: async (id: string, technicianId: string, reason?: string): Promise<Job> => {
+    const response = await apiClient.delete<Job>(`/jobs/${id}/technicians/${technicianId}`, {
+      data: { reason },
     });
     return response.data;
   },
 
-  getStatistics: async (): Promise<JobStatistics> => {
-    const response = await apiClient.get<JobStatistics>('/jobs/statistics');
+  setPrimaryTechnician: async (id: string, technicianId: string): Promise<Job> => {
+    const response = await apiClient.patch<Job>(`/jobs/${id}/technicians/${technicianId}/set-primary`);
+    return response.data;
+  },
+
+  cancelJob: async (id: string, reason?: string): Promise<Job> => {
+    const response = await apiClient.patch<Job>(`/jobs/${id}/cancel`, { reason });
+    return response.data;
+  },
+
+  getStatistics: async (): Promise<any> => {
+    const response = await apiClient.get('/jobs/statistics');
     return response.data;
   },
 };
