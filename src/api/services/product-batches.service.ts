@@ -1,6 +1,6 @@
-import apiClient from '../client/axios';
-import { API_ENDPOINTS } from '../client/endpoints';
-import { ApiResponse } from '../types/common.types';
+import apiClient from "../client/axios";
+import { API_ENDPOINTS } from "../client/endpoints";
+import { ApiResponse } from "../types/common.types";
 
 export interface ProductBatch {
   id: string;
@@ -46,6 +46,13 @@ export const productBatchesService = {
     return response.data;
   },
 
+  getAvailableBatches: async (productId: string): Promise<ProductBatch[]> => {
+    const response = await apiClient.get<ProductBatch[]>(
+      API_ENDPOINTS.PRODUCT_BATCHES.AVAILABLE(productId)
+    );
+    return response.data;
+  },
+
   getBatchById: async (id: string): Promise<ProductBatch> => {
     const response = await apiClient.get<ProductBatch>(
       API_ENDPOINTS.PRODUCT_BATCHES.BY_ID(id)
@@ -53,7 +60,9 @@ export const productBatchesService = {
     return response.data;
   },
 
-  createBatch: async (data: CreateProductBatchRequest): Promise<ProductBatch> => {
+  createBatch: async (
+    data: CreateProductBatchRequest
+  ): Promise<ProductBatch> => {
     const response = await apiClient.post<ProductBatch>(
       API_ENDPOINTS.PRODUCT_BATCHES.BASE,
       data
