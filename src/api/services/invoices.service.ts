@@ -52,12 +52,15 @@ export const invoicesService = {
     );
     return response.data;
   },
+  createFromJob: async (jobId: string): Promise<Invoice> => {
+    const response = await apiClient.post<Invoice>(
+      API_ENDPOINTS.INVOICES.CREATE_FROM_JOB(jobId)
+    );
+    return response.data;
+  },
 
   // Update invoice
-  update: async (
-    id: string,
-    data: UpdateInvoiceRequest
-  ): Promise<Invoice> => {
+  update: async (id: string, data: UpdateInvoiceRequest): Promise<Invoice> => {
     const response = await apiClient.patch<Invoice>(
       API_ENDPOINTS.INVOICES.BY_ID(id),
       data
@@ -66,10 +69,7 @@ export const invoicesService = {
   },
 
   // Update invoice status
-  updateStatus: async (
-    id: string,
-    status: InvoiceStatus
-  ): Promise<Invoice> => {
+  updateStatus: async (id: string, status: InvoiceStatus): Promise<Invoice> => {
     const response = await apiClient.patch<Invoice>(
       `${API_ENDPOINTS.INVOICES.BY_ID(id)}/status?status=${status}`
     );
