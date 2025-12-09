@@ -1,3 +1,4 @@
+// src/api/client/axios.ts
 import axios, { AxiosInstance, AxiosResponse } from 'axios';
 import { STORAGE_KEYS } from '@/utils/constants';
 
@@ -42,6 +43,12 @@ apiClient.interceptors.response.use(
       if (window.location.pathname !== '/login') {
         window.location.href = '/login';
       }
+    }
+    
+    // Handle 403 Forbidden
+    if (error.response?.status === 403) {
+      console.error('Access forbidden. Check permissions or token.');
+      // Optionally redirect or show error
     }
     
     return Promise.reject(error);
