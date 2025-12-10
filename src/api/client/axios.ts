@@ -44,6 +44,12 @@ apiClient.interceptors.response.use(
       }
     }
     
+    // Handle 403 Forbidden
+    if (error.response?.status === 403) {
+      console.error('Access forbidden. Check permissions or token.');
+      // Optionally redirect or show error
+    }
+    
     return Promise.reject(error);
   }
 );

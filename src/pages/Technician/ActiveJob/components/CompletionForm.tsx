@@ -26,15 +26,17 @@ const CompletionForm = ({ job }: { job: any }) => {
   const completeMutation = useMutation({
     mutationFn: () =>
       technicianJobsService.completeJob(job.id, {
-        devicePosition: job.devicePosition,
         photoUrls: job.photoUrls || [],
         imeiNumbers: job.imeiNumbers || [],
         gpsCoordinates: job.gpsCoordinates,
         installationNotes: completionNotes,
+        simCardIccid: job.simCardIccid,
+        macAddress: job.macAddress,
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['active-job'] });
       queryClient.invalidateQueries({ queryKey: ['technician-jobs'] });
+      queryClient.invalidateQueries({ queryKey: ['job-by-id', job.id] });
       toast.success('Job completed successfully!');
       navigate('/technician/jobs');
     },
@@ -51,24 +53,47 @@ const CompletionForm = ({ job }: { job: any }) => {
       return;
     }
 
-    if (!customerSignature) {
+    if (!customerSignature.trim()) {
       toast.error('Customer signature is required');
       return;
     }
 
-    if (!completionNotes) {
+    if (!completionNotes.trim()) {
       toast.error('Please add completion notes');
       return;
     }
 
     completeMutation.mutate();
   };
-
-  // Check if all prerequisites are met
+  // Prerequisite checks
   const hasVehicle = !!job.vehicleId;
-  const hasPreInspection = job.status !== 'ASSIGNED';
-  const hasInstallationData = job.devicePosition && job.photoUrls?.length > 0;
-  const hasPostInspection = job.status === 'POST_INSPECTION_PENDING' || job.status === 'COMPLETED';
+  
+  // Pre-inspection: check if any pre-inspection records exist
+  const hasPreInspection = [
+    'REQUISITION_PENDING',
+    'REQUISITION_APPROVED', 
+    'PRE_INSPECTION_PENDING',
+    'PRE_INSPECTION_APPROVED',
+    'IN_PROGRESS',
+    'POST_INSPECTION_PENDING',
+    'COMPLETED',
+    'VERIFIED'
+  ].includes(job.status);
+  
+  // Installation data: must have at least IMEI numbers AND photos
+  const hasInstallationData = (
+    job.imeiNumbers && 
+    job.imeiNumbers.length > 0 && 
+    job.photoUrls && 
+    job.photoUrls.length > 0
+  );
+  
+  // Post-inspection: only allow completion if post-inspection is done
+  const hasPostInspection = [
+    'POST_INSPECTION_PENDING',
+    'COMPLETED',
+    'VERIFIED'
+  ].includes(job.status);
 
   const canComplete = hasVehicle && hasPreInspection && hasInstallationData && hasPostInspection;
 
@@ -108,7 +133,7 @@ const CompletionForm = ({ job }: { job: any }) => {
                 <AlertCircle className="h-5 w-5 text-orange-600" />
               )}
               <span className={hasInstallationData ? 'text-green-800' : 'text-orange-800'}>
-                Installation details and photos added
+                Installation details and photos added (IMEI: {job.imeiNumbers?.length || 0}, Photos: {job.photoUrls?.length || 0})
               </span>
             </div>
             <div className="flex items-center gap-2">
@@ -262,13 +287,21 @@ const CompletionForm = ({ job }: { job: any }) => {
               </p>
             </div>
             <div>
-              <Label className="text-muted-foreground">Device Position</Label>
-              <p className="font-medium">{job.devicePosition || 'N/A'}</p>
-            </div>
-            <div>
               <Label className="text-muted-foreground">IMEI Numbers</Label>
               <p className="font-mono text-xs">
                 {job.imeiNumbers?.join(', ') || 'N/A'}
+              </p>
+            </div>
+            <div>
+              <Label className="text-muted-foreground">SIM Card ICCID</Label>
+              <p className="font-mono text-xs">
+                {job.simCardIccid || 'N/A'}
+              </p>
+            </div>
+            <div>
+              <Label className="text-muted-foreground">MAC Address</Label>
+              <p className="font-mono text-xs">
+                {job.macAddress || 'N/A'}
               </p>
             </div>
             <div>
@@ -277,15 +310,27 @@ const CompletionForm = ({ job }: { job: any }) => {
                 {job.photoUrls?.length || 0} photo(s)
               </p>
             </div>
+            <div>
+              <Label className="text-muted-foreground">GPS Location</Label>
+              <p className="text-xs">
+                {job.gpsCoordinates || 'Not captured'}
+              </p>
+            </div>
           </div>
         </CardContent>
       </Card>
 
       {/* Complete Button */}
-      <div className="flex justify-end">
+      <div className="flex justify-end gap-3">
+        <Button
+          variant="outline"
+          onClick={() => navigate('/technician/jobs')}
+        >
+          Back to Jobs
+        </Button>
         <Button
           onClick={handleComplete}
-          disabled={!canComplete || completeMutation.isPending}
+          disabled={!canComplete || !allChecksCompleted || !completionNotes.trim() || !customerSignature.trim() || completeMutation.isPending}
           size="lg"
           className="bg-green-600 hover:bg-green-700"
         >
@@ -303,7 +348,7 @@ const CompletionForm = ({ job }: { job: any }) => {
         </Button>
       </div>
 
-      {!canComplete && (
+      {(!canComplete || !allChecksCompleted || !completionNotes.trim() || !customerSignature.trim()) && (
         <Card className="border-orange-200 bg-orange-50">
           <CardContent className="pt-6">
             <div className="flex items-start gap-2">
@@ -312,9 +357,15 @@ const CompletionForm = ({ job }: { job: any }) => {
                 <p className="text-sm font-medium text-orange-900">
                   Cannot complete job yet
                 </p>
-                <p className="text-sm text-orange-700">
-                  Please complete all prerequisites before finishing the job.
-                </p>
+                <div className="text-sm text-orange-700 mt-2 space-y-1">
+                  {!hasVehicle && <p>• Vehicle information not added</p>}
+                  {!hasPreInspection && <p>• Pre-installation inspection not completed</p>}
+                  {!hasInstallationData && <p>• Installation details missing (IMEI: {job.imeiNumbers?.length || 0}, Photos: {job.photoUrls?.length || 0})</p>}
+                  {!hasPostInspection && <p>• Post-installation inspection not completed</p>}
+                  {!allChecksCompleted && <p>• All completion checklist items must be confirmed</p>}
+                  {!completionNotes.trim() && <p>• Completion notes are required</p>}
+                  {!customerSignature.trim() && <p>• Customer signature is required</p>}
+                </div>
               </div>
             </div>
           </CardContent>

@@ -37,6 +37,7 @@ import InspectionChecklist from "./pages/InspectionChecklist";
 // Technician Views
 import TechnicianJobs from "./pages/Technician/MyJobs";
 import TechnicianActiveJob from "./pages/Technician/ActiveJob";
+import JobWorkflow from "./pages/JobWorkflow";
 
 const queryClient = new QueryClient();
 
@@ -115,9 +116,10 @@ const AppRoutes = () => {
             <Route path="jobs" element={<Jobs />} />
             <Route path="requisitions" element={<Requisitions />} />
             <Route path="inspections" element={<InspectionChecklist />} />
+            <Route path="jobs/:id/workflow" element={<JobWorkflow />} />
           </>
         )}
-
+        
         {/* Technician Routes */}
         {isTechnician && (
           <>

@@ -7,14 +7,15 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
-import { Camera, MapPin, Save, Loader2, CheckCircle2 } from 'lucide-react';
+import { MapPin, Save, Loader2 } from 'lucide-react';
 import { technicianJobsService } from '@/api/services/technician-jobs.service';
 
 const InstallationProgress = ({ job }: { job: any }) => {
   const queryClient = useQueryClient();
   const [formData, setFormData] = useState({
-    devicePosition: job.devicePosition || '',
     imeiNumbers: job.imeiNumbers?.join(', ') || '',
+    simCardIccid: job.simCardIccid || '',
+    macAddress: job.macAddress || '',
     gpsCoordinates: job.gpsCoordinates || '',
     installationNotes: job.installationNotes || '',
   });
@@ -29,13 +30,14 @@ const InstallationProgress = ({ job }: { job: any }) => {
       const uploadedUrls = photoPreviews;
 
       return technicianJobsService.updateJobProgress(job.id, {
-        devicePosition: formData.devicePosition,
         imeiNumbers: formData.imeiNumbers
           .split(',')
           .map((s) => s.trim())
           .filter((s) => s),
-        gpsCoordinates: formData.gpsCoordinates,
-        installationNotes: formData.installationNotes,
+        simCardIccid: formData.simCardIccid || undefined,
+        macAddress: formData.macAddress || undefined,
+        gpsCoordinates: formData.gpsCoordinates || undefined,
+        installationNotes: formData.installationNotes || undefined,
         photoUrls: uploadedUrls,
       });
     },
@@ -81,13 +83,14 @@ const InstallationProgress = ({ job }: { job: any }) => {
   };
 
   const handleSave = () => {
-    if (!formData.devicePosition) {
-      toast.error('Please enter device position');
+    if (photoPreviews.length === 0) {
+      toast.error('Please upload at least one installation photo');
       return;
     }
 
-    if (photoPreviews.length === 0) {
-      toast.error('Please upload at least one installation photo');
+    const imeiList = formData.imeiNumbers.split(',').map(s => s.trim()).filter(s => s);
+    if (imeiList.length === 0) {
+      toast.error('Please enter at least one IMEI number');
       return;
     }
 
@@ -109,22 +112,9 @@ const InstallationProgress = ({ job }: { job: any }) => {
         <CardContent className="space-y-6">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="devicePosition">
-                Device Config<span className="text-destructive">*</span>
-              </Label>
-              <Input
-                id="devicePosition"
-                placeholder="e.g., Dashboard center console"
-                value={formData.devicePosition}
-                onChange={(e) =>
-                  setFormData({ ...formData, devicePosition: e.target.value })
-                }
-              />
-            </div>
-
-            <div className="space-y-2">
               <Label htmlFor="imeiNumbers">
-                IMEI Numbers <span className="text-muted-foreground">(comma separated)</span>
+                IMEI Numbers <span className="text-destructive">*</span>
+                <span className="text-muted-foreground text-xs ml-2">(comma separated)</span>
               </Label>
               <Input
                 id="imeiNumbers"
@@ -136,28 +126,58 @@ const InstallationProgress = ({ job }: { job: any }) => {
                 className="font-mono"
               />
             </div>
-          </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="gpsCoordinates">GPS Coordinates</Label>
-            <div className="flex gap-2">
+            <div className="space-y-2">
+              <Label htmlFor="simCardIccid">
+                SIM Card ICCID <span className="text-muted-foreground text-xs">(optional)</span>
+              </Label>
               <Input
-                id="gpsCoordinates"
-                placeholder="Latitude, Longitude"
-                value={formData.gpsCoordinates}
+                id="simCardIccid"
+                placeholder="e.g., 89254020001234567890"
+                value={formData.simCardIccid}
                 onChange={(e) =>
-                  setFormData({ ...formData, gpsCoordinates: e.target.value })
+                  setFormData({ ...formData, simCardIccid: e.target.value })
                 }
-                readOnly
+                className="font-mono"
               />
-              <Button
-                type="button"
-                variant="outline"
-                onClick={getCurrentLocation}
-              >
-                <MapPin className="h-4 w-4 mr-2" />
-                Capture
-              </Button>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="macAddress">
+                MAC Address <span className="text-muted-foreground text-xs">(optional)</span>
+              </Label>
+              <Input
+                id="macAddress"
+                placeholder="e.g., 00:1A:2B:3C:4D:5E"
+                value={formData.macAddress}
+                onChange={(e) =>
+                  setFormData({ ...formData, macAddress: e.target.value })
+                }
+                className="font-mono"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="gpsCoordinates">GPS Coordinates</Label>
+              <div className="flex gap-2">
+                <Input
+                  id="gpsCoordinates"
+                  placeholder="Latitude, Longitude"
+                  value={formData.gpsCoordinates}
+                  onChange={(e) =>
+                    setFormData({ ...formData, gpsCoordinates: e.target.value })
+                  }
+                  readOnly
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={getCurrentLocation}
+                >
+                  <MapPin className="h-4 w-4 mr-2" />
+                  Capture
+                </Button>
+              </div>
             </div>
           </div>
 

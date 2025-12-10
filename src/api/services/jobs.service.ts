@@ -49,11 +49,47 @@ export interface Job {
   startTime?: string;
   endTime?: string;
   installationNotes?: string;
+  photoUrls?: string[];
+  imeiNumbers?: string[];
+  gpsCoordinates?: string;
+  simCardIccid?: string;
+  macAddress?: string;
   createdAt: string;
   updatedAt: string;
   customer: any;
   vehicle?: any;
-  technicians?: JobTechnician[]; // Multi-technician support
+  technicians?: JobTechnician[];
+}
+
+export interface JobWorkflow {
+  id: string;
+  jobNumber: string;
+  customerId: string;
+  vehicleId?: string;
+  jobType: JobType;
+  status: JobStatus;
+  productIds: string[];
+  serviceDescription: string;
+  scheduledDate: string;
+  startTime?: string;
+  endTime?: string;
+  installationNotes?: string;
+  photoUrls?: string[];
+  imeiNumbers?: string[];
+  gpsCoordinates?: string;
+  simCardIccid?: string;
+  macAddress?: string;
+  createdAt: string;
+  updatedAt: string;
+  customer: any;
+  vehicle?: any;
+  technicians?: JobTechnician[];
+  workflow: {
+    requisitions: any[];
+    preInspectionChecklist: any[];
+    postInspectionChecklist: any[];
+    timeline: any[];
+  };
 }
 
 export interface CreateJobRequest {
@@ -84,11 +120,13 @@ export interface UpdateJobRequest {
   serviceDescription?: string;
   scheduledDate?: string;
   installationNotes?: string;
-  devicePosition?: string;
   photoUrls?: string[];
   imeiNumbers?: string[];
   gpsCoordinates?: string;
+  simCardIccid?: string;
+  macAddress?: string;
 }
+
 export const jobsService = {
   getJobs: async (params: any = {}): Promise<PaginatedResponse<Job>> => {
     const response = await apiClient.get<PaginatedResponse<Job>>('/jobs', { params });
@@ -97,6 +135,11 @@ export const jobsService = {
 
   getJobById: async (id: string): Promise<Job> => {
     const response = await apiClient.get<Job>(`/jobs/${id}`);
+    return response.data;
+  },
+
+  getJobWorkflow: async (id: string): Promise<JobWorkflow> => {
+    const response = await apiClient.get<JobWorkflow>(`/jobs/${id}/workflow`);
     return response.data;
   },
 

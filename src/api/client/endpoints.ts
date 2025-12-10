@@ -61,6 +61,7 @@ export const API_ENDPOINTS = {
   PRODUCT_BATCHES: {
     BASE: "/product-batches",
     BY_ID: (id: string) => `/product-batches/${id}`,
+    AVAILABLE: (productId: string) => `/product-batches/available/${productId}`,
     EXPIRING: "/product-batches/expiring",
     FIFO: (productId: string, quantity: number) =>
       `/product-batches/fifo/${productId}/${quantity}`,
@@ -119,6 +120,7 @@ export const API_ENDPOINTS = {
     STATUS: (id: string) => `/invoices/${id}/status`,
     CANCEL: (id: string) => `/invoices/${id}/cancel`,
     SUMMARY: "/invoices/summary",
+    CREATE_FROM_JOB: (jobId: string) => `/invoices/create-from-job/${jobId}`,
     SEARCH_PRODUCTS: "/invoices/search-products",
   },
   DASHBOARD: {
@@ -129,5 +131,13 @@ export const API_ENDPOINTS = {
     BASE: "/settings",
     BY_ID: (id: string) => `/settings/${id}`,
     ALL: "/settings/all",
+  },
+  JOBS: {
+    BASE: "/jobs",
+    BY_ID: (id: string) => `/jobs/${id}`,
+    WORKFLOW: (id: string) => `/jobs/${id}/workflow`,
+    STATISTICS: "/jobs/statistics",
+    ASSIGN: (id: string) => `/jobs/${id}/assign`,
+    CANCEL: (id: string) => `/jobs/${id}/cancel`,
   },
 } as const;

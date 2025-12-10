@@ -8,6 +8,25 @@ import {
   ProductFilters,
 } from "../types/product.types";
 
+export interface ProductSearchResult {
+  id: string;
+  name: string;
+  sku: string;
+  sellingPrice: string;
+  unitOfMeasure: string;
+  category?: {
+    name: string;
+  };
+  brand?: {
+    name: string;
+  };
+  inventory?: Array<{
+    quantityAvailable: number;
+    location: string;
+  }>;
+  totalAvailable: number;
+}
+
 export const productsService = {
   // Get all products
   getAll: async (filters: ProductFilters = {}): Promise<Product[]> => {
@@ -69,6 +88,21 @@ export const productsService = {
   getLowStock: async (): Promise<Product[]> => {
     const response = await apiClient.get<Product[]>(
       API_ENDPOINTS.PRODUCTS.LOW_STOCK
+    );
+    return response.data;
+  },
+
+  // Search products with stock info
+  searchProducts: async (query: string, limit: number = 20): Promise<ProductSearchResult[]> => {
+    if (!query || query.trim().length < 2) {
+      return [];
+    }
+
+    const response = await apiClient.get<ProductSearchResult[]>(
+      `${API_ENDPOINTS.PRODUCTS.BASE}/search`,
+      {
+        params: { q: query, limit }
+      }
     );
     return response.data;
   },
