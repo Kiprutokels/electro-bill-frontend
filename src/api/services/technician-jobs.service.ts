@@ -1,5 +1,5 @@
 import apiClient from '../client/axios';
-import { Job, JobStatus, UpdateJobRequest } from './jobs.service';
+import { Job, JobStatus } from './jobs.service';
 
 export interface TechnicianJobStats {
   assigned: number;
@@ -13,12 +13,22 @@ export interface StartJobRequest {
   gpsCoordinates?: string;
 }
 
+export interface UpdateJobProgressRequest {
+  imeiNumbers?: string[];
+  photoUrls?: string[];
+  gpsCoordinates?: string;
+  installationNotes?: string;
+  simCardIccid?: string;
+  macAddress?: string;
+}
+
 export interface CompleteJobRequest {
-  devicePosition: string;
   photoUrls: string[];
   imeiNumbers: string[];
   gpsCoordinates?: string;
   installationNotes?: string;
+  simCardIccid?: string;
+  macAddress?: string;
 }
 
 export const technicianJobsService = {
@@ -58,7 +68,7 @@ export const technicianJobsService = {
   // Update job progress
   updateJobProgress: async (
     jobId: string,
-    data: UpdateJobRequest
+    data: UpdateJobProgressRequest
   ): Promise<Job> => {
     const response = await apiClient.patch<Job>(
       `/technician/jobs/${jobId}/progress`,
