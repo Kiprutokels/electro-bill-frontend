@@ -25,6 +25,7 @@ import {
   Loader2,
   Send,
   CheckCircle2,
+  AlertTriangle,
 } from 'lucide-react';
 import { inspectionsService, CheckStatus, InspectionStage } from '@/api/services/inspections.service';
 
@@ -106,13 +107,24 @@ const PostInspection = ({ job }: { job: any }) => {
     return !existingCheck;
   });
 
+  // Three-state toggle: Not Checked → Checked → Issue Found → Not Checked
   const handleToggleCheck = (itemId: string) => {
     const currentStatus = checklistData[itemId]?.status;
+    let nextStatus: CheckStatus;
+    
+    if (!currentStatus || currentStatus === CheckStatus.NOT_CHECKED) {
+      nextStatus = CheckStatus.CHECKED;
+    } else if (currentStatus === CheckStatus.CHECKED) {
+      nextStatus = CheckStatus.ISSUE_FOUND;
+    } else {
+      nextStatus = CheckStatus.NOT_CHECKED;
+    }
+    
     setChecklistData({
       ...checklistData,
       [itemId]: {
         ...checklistData[itemId],
-        status: currentStatus === CheckStatus.CHECKED ? CheckStatus.NOT_CHECKED : CheckStatus.CHECKED,
+        status: nextStatus,
       },
     });
   };
@@ -174,7 +186,7 @@ const PostInspection = ({ job }: { job: any }) => {
       return <Check className="h-5 w-5 text-green-600" />;
     }
     if (status === CheckStatus.ISSUE_FOUND) {
-      return <X className="h-5 w-5 text-red-600" />;
+      return <AlertTriangle className="h-5 w-5 text-red-600" />;
     }
     return <div className="h-5 w-5 border-2 border-gray-300 rounded" />;
   };
@@ -189,7 +201,13 @@ const PostInspection = ({ job }: { job: any }) => {
 
   const checkedCount = items.filter((item: any) => {
     const existing = existingInspections?.find((ei: any) => ei.checklistItemId === item.id);
-    return existing?.status === CheckStatus.CHECKED || checklistData[item.id]?.status === CheckStatus.CHECKED;
+    const currentStatus = existing?.status || checklistData[item.id]?.status;
+    return currentStatus === CheckStatus.CHECKED || currentStatus === CheckStatus.ISSUE_FOUND;
+  }).length;
+
+  const issueCount = items.filter((item: any) => {
+    const existing = existingInspections?.find((ei: any) => ei.checklistItemId === item.id);
+    return existing?.status === CheckStatus.ISSUE_FOUND || checklistData[item.id]?.status === CheckStatus.ISSUE_FOUND;
   }).length;
 
   return (
@@ -201,6 +219,7 @@ const PostInspection = ({ job }: { job: any }) => {
               <CheckCircle2 className="h-5 w-5 text-green-600" />
               <p className="text-sm text-green-800">
                 Post-installation inspection completed. All components verified working after installation.
+                {issueCount > 0 && ` (${issueCount} issue${issueCount > 1 ? 's' : ''} reported)`}
               </p>
             </div>
           </CardContent>
@@ -211,26 +230,52 @@ const PostInspection = ({ job }: { job: any }) => {
       {!hasExistingInspection && selectableItems.length > 0 && (
         <Card>
           <CardContent className="pt-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-4">
+            <div className="flex items-center justify-between gap-4 flex-wrap">
+              <div className="flex items-center gap-4 flex-wrap">
                 <span className="text-sm text-muted-foreground">
-                  Progress: {checkedCount} / {items.length} components checked
+                  Progress: {checkedCount} / {items.length} components reviewed
                 </span>
                 {selectedItems.size > 0 && (
                   <Badge variant="secondary">{selectedItems.size} selected</Badge>
                 )}
+                {issueCount > 0 && (
+                  <Badge variant="destructive" className="gap-1">
+                    <AlertTriangle className="h-3 w-3" />
+                    {issueCount} issue{issueCount > 1 ? 's' : ''}
+                  </Badge>
+                )}
               </div>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={handleMarkSelectedAsChecked}
-                disabled={selectedItems.size === 0}
-                className="bg-green-50 hover:bg-green-100"
-              >
-                <Check className="h-4 w-4 mr-2 text-green-600" />
-                Mark {selectedItems.size > 0 ? selectedItems.size : 'Selected'} as Checked
-              </Button>
+              <div className="flex items-center gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={handleMarkSelectedAsChecked}
+                  disabled={selectedItems.size === 0}
+                  className="bg-green-50 hover:bg-green-100"
+                >
+                  <Check className="h-4 w-4 mr-2 text-green-600" />
+                  Mark {selectedItems.size > 0 ? selectedItems.size : 'Selected'} as Checked
+                </Button>
+                
+                <Button
+                  onClick={handleSubmit}
+                  disabled={submitMutation.isPending || checkedCount < items.length}
+                  size="sm"
+                >
+                  {submitMutation.isPending ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Submitting...
+                    </>
+                  ) : (
+                    <>
+                      <Send className="mr-2 h-4 w-4" />
+                      Submit ({checkedCount}/{items.length})
+                    </>
+                  )}
+                </Button>
+              </div>
             </div>
           </CardContent>
         </Card>
@@ -241,7 +286,7 @@ const PostInspection = ({ job }: { job: any }) => {
         <CardHeader>
           <CardTitle>Post-Installation Component Check</CardTitle>
           <p className="text-sm text-muted-foreground">
-            Verify all components are working correctly after installation
+            Verify all components are working correctly after installation. Click status to toggle: Not Checked → Checked → Issue Found
           </p>
         </CardHeader>
         <CardContent>
@@ -284,7 +329,7 @@ const PostInspection = ({ job }: { job: any }) => {
                     return (
                       <React.Fragment key={item.id}>
                         <TableRow 
-                          className={`${isSelected ? 'bg-blue-50' : ''} ${isExpanded ? 'border-b-0' : ''}`}
+                          className={`${isSelected ? 'bg-blue-50' : ''} ${isExpanded ? 'border-b-0' : ''} ${currentStatus === CheckStatus.ISSUE_FOUND ? 'bg-red-50/50' : ''}`}
                         >
                           {!hasExistingInspection && selectableItems.length > 0 && (
                             <TableCell>
@@ -318,6 +363,11 @@ const PostInspection = ({ job }: { job: any }) => {
                                 )}
                               </button>
                               <span className="font-medium">{item.name}</span>
+                              {currentStatus === CheckStatus.ISSUE_FOUND && (
+                                <Badge variant="destructive" className="text-xs">
+                                  Issue Found
+                                </Badge>
+                              )}
                               {hasNotes && (
                                 <Badge variant="outline" className="text-xs">
                                   Has notes
@@ -332,7 +382,8 @@ const PostInspection = ({ job }: { job: any }) => {
                                 type="button"
                                 onClick={() => handleToggleCheck(item.id)}
                                 className="inline-flex items-center justify-center p-1 hover:bg-muted rounded transition-colors"
-                                aria-label={`Toggle check for ${item.name}`}
+                                aria-label={`Toggle status for ${item.name}`}
+                                title="Click to cycle: Not Checked → Checked → Issue Found"
                               >
                                 {getStatusIcon(currentStatus)}
                               </button>
@@ -357,31 +408,29 @@ const PostInspection = ({ job }: { job: any }) => {
 
                                 {!existingCheck && !hasExistingInspection && (
                                   <>
-                                    <div className="space-y-2">
-                                      <Label htmlFor={`notes-${item.id}`}>Notes (Optional)</Label>
-                                      <Textarea
-                                        id={`notes-${item.id}`}
-                                        placeholder="Add notes if there are any issues..."
-                                        value={checklistData[item.id]?.notes || ''}
-                                        onChange={(e) =>
-                                          setChecklistData({
-                                            ...checklistData,
-                                            [item.id]: {
-                                              ...checklistData[item.id],
-                                              notes: e.target.value,
-                                            },
-                                          })
-                                        }
-                                        rows={2}
-                                        className="text-sm"
-                                      />
-                                    </div>
-
-                                    {checklistData[item.id]?.notes && (
-                                      <div className="flex items-center gap-2">
+                                    <div className="flex items-center gap-2 p-3 bg-muted/50 rounded-lg">
+                                      <div className="flex items-center gap-3">
                                         <Button
                                           type="button"
-                                          variant="outline"
+                                          variant={currentStatus === CheckStatus.CHECKED ? 'default' : 'outline'}
+                                          size="sm"
+                                          onClick={() =>
+                                            setChecklistData({
+                                              ...checklistData,
+                                              [item.id]: {
+                                                ...checklistData[item.id],
+                                                status: CheckStatus.CHECKED,
+                                              },
+                                            })
+                                          }
+                                          className={currentStatus === CheckStatus.CHECKED ? 'bg-green-600 hover:bg-green-700' : ''}
+                                        >
+                                          <Check className="h-4 w-4 mr-1" />
+                                          Checked
+                                        </Button>
+                                        <Button
+                                          type="button"
+                                          variant={currentStatus === CheckStatus.ISSUE_FOUND ? 'default' : 'outline'}
                                           size="sm"
                                           onClick={() =>
                                             setChecklistData({
@@ -392,21 +441,44 @@ const PostInspection = ({ job }: { job: any }) => {
                                               },
                                             })
                                           }
-                                          className={
-                                            checklistData[item.id]?.status === CheckStatus.ISSUE_FOUND
-                                              ? 'bg-red-50 border-red-300'
-                                              : ''
-                                          }
+                                          className={currentStatus === CheckStatus.ISSUE_FOUND ? 'bg-red-600 hover:bg-red-700' : ''}
                                         >
-                                          <X className="h-4 w-4 mr-1 text-red-600" />
-                                          Mark as Issue
+                                          <AlertTriangle className="h-4 w-4 mr-1" />
+                                          Issue Found
                                         </Button>
                                       </div>
-                                    )}
+                                    </div>
+
+                                    <div className="space-y-2">
+                                      <Label htmlFor={`notes-${item.id}`}>
+                                        Notes {currentStatus === CheckStatus.ISSUE_FOUND && <span className="text-red-600">*</span>}
+                                      </Label>
+                                      <Textarea
+                                        id={`notes-${item.id}`}
+                                        placeholder={currentStatus === CheckStatus.ISSUE_FOUND ? "Describe the issue found..." : "Add notes (optional)..."}
+                                        value={checklistData[item.id]?.notes || ''}
+                                        onChange={(e) =>
+                                          setChecklistData({
+                                            ...checklistData,
+                                            [item.id]: {
+                                              ...checklistData[item.id],
+                                              notes: e.target.value,
+                                            },
+                                          })
+                                        }
+                                        rows={3}
+                                        className={`text-sm ${currentStatus === CheckStatus.ISSUE_FOUND ? 'border-red-300' : ''}`}
+                                      />
+                                      {currentStatus === CheckStatus.ISSUE_FOUND && !checklistData[item.id]?.notes && (
+                                        <p className="text-xs text-red-600">Please describe the issue</p>
+                                      )}
+                                    </div>
 
                                     {item.requiresPhoto && (
                                       <div className="space-y-2">
-                                        <Label htmlFor={`photo-${item.id}`}>Photo (Optional)</Label>
+                                        <Label htmlFor={`photo-${item.id}`}>
+                                          Photo {currentStatus === CheckStatus.ISSUE_FOUND && <span className="text-red-600">*</span>}
+                                        </Label>
                                         <Input
                                           id={`photo-${item.id}`}
                                           type="file"
@@ -448,28 +520,6 @@ const PostInspection = ({ job }: { job: any }) => {
               </TableBody>
             </Table>
           </div>
-
-          {!hasExistingInspection && (
-            <div className="flex justify-end mt-4">
-              <Button
-                onClick={handleSubmit}
-                disabled={submitMutation.isPending || checkedCount < items.length}
-                size="lg"
-              >
-                {submitMutation.isPending ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Submitting...
-                  </>
-                ) : (
-                  <>
-                    <Send className="mr-2 h-4 w-4" />
-                    Submit Inspection ({checkedCount}/{items.length})
-                  </>
-                )}
-              </Button>
-            </div>
-          )}
         </CardContent>
       </Card>
     </div>
