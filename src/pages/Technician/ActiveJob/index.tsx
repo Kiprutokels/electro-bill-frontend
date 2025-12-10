@@ -2,17 +2,14 @@ import React, { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
 import {
   Play,
-  Pause,
   CheckCircle,
   AlertCircle,
-  Camera,
-  MapPin,
   Package,
   ClipboardCheck,
   Car,
@@ -60,16 +57,18 @@ const ActiveJob = () => {
     }
   }, []);
 
-  // Fetch active job or specific job
+  // Fetch job data
   const { data: job, isLoading } = useQuery({
-    queryKey: ["active-job", jobId],
+    queryKey: jobId ? ["job-by-id", jobId] : ["active-job"],
     queryFn: async () => {
       if (jobId) {
+        // Fetch specific job by ID
         return await jobsService.getJobById(jobId);
       }
+      // Fetch active job
       return await technicianJobsService.getActiveJob();
     },
-    enabled: !!jobId,
+    enabled: true,
   });
 
   // Start job mutation
@@ -84,6 +83,7 @@ const ActiveJob = () => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["active-job"] });
       queryClient.invalidateQueries({ queryKey: ["technician-jobs"] });
+      queryClient.invalidateQueries({ queryKey: ["job-by-id", job?.id] });
       toast.success("Job started successfully");
     },
     onError: (error: any) => {
@@ -105,6 +105,7 @@ const ActiveJob = () => {
 
     switch (job.status) {
       case JobStatus.ASSIGNED:
+      case JobStatus.PENDING:
         setActiveTab("info");
         break;
       case JobStatus.REQUISITION_PENDING:
@@ -114,11 +115,15 @@ const ActiveJob = () => {
       case JobStatus.PRE_INSPECTION_PENDING:
         setActiveTab("pre-inspection");
         break;
+      case JobStatus.PRE_INSPECTION_APPROVED:
       case JobStatus.IN_PROGRESS:
         setActiveTab("installation");
         break;
       case JobStatus.POST_INSPECTION_PENDING:
         setActiveTab("post-inspection");
+        break;
+      case JobStatus.COMPLETED:
+        setActiveTab("completion");
         break;
       default:
         setActiveTab("info");
@@ -128,7 +133,10 @@ const ActiveJob = () => {
   if (isLoading) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
-        <Loader2 className="h-8 w-8 animate-spin" />
+        <div className="flex flex-col items-center gap-2">
+          <Loader2 className="h-8 w-8 animate-spin" />
+          <p className="text-sm text-muted-foreground">Loading job...</p>
+        </div>
       </div>
     );
   }
@@ -140,7 +148,9 @@ const ActiveJob = () => {
           <AlertCircle className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
           <h3 className="text-lg font-semibold mb-2">No Active Job</h3>
           <p className="text-muted-foreground mb-4">
-            You don't have an active job at the moment
+            {jobId
+              ? "Job not found or you don't have access to this job."
+              : "You don't have an active job at the moment"}
           </p>
           <Button onClick={() => navigate("/technician/jobs")}>
             View My Jobs
@@ -162,7 +172,9 @@ const ActiveJob = () => {
           <Badge className={getStatusColor(job.status)}>
             {job.status.replace(/_/g, " ")}
           </Badge>
-          {job.status === JobStatus.ASSIGNED && (
+          {(job.status === JobStatus.ASSIGNED ||
+            job.status === JobStatus.REQUISITION_APPROVED ||
+            job.status === JobStatus.PRE_INSPECTION_APPROVED) && (
             <Button
               onClick={handleStartJob}
               disabled={startMutation.isPending || !currentLocation}
@@ -182,7 +194,6 @@ const ActiveJob = () => {
       <Card>
         <CardContent className="pt-6">
           <div className="flex items-center justify-between">
-            {/* Progress steps visualization */}
             <JobProgressSteps currentStatus={job.status} />
           </div>
         </CardContent>
@@ -190,18 +201,18 @@ const ActiveJob = () => {
 
       {/* Main Content Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid w-full grid-cols-6">
+        <TabsList className="grid w-full grid-cols-7">
           <TabsTrigger value="info">
             <Briefcase className="h-4 w-4 mr-2" />
             Info
           </TabsTrigger>
-          <TabsTrigger value="vehicle">
-            <Car className="h-4 w-4 mr-2" />
-            Vehicle
-          </TabsTrigger>
           <TabsTrigger value="requisition">
             <Package className="h-4 w-4 mr-2" />
             Materials
+          </TabsTrigger>
+          <TabsTrigger value="vehicle">
+            <Car className="h-4 w-4 mr-2" />
+            Vehicle
           </TabsTrigger>
           <TabsTrigger value="pre-inspection">
             <ClipboardCheck className="h-4 w-4 mr-2" />
@@ -215,18 +226,22 @@ const ActiveJob = () => {
             <CheckCircle className="h-4 w-4 mr-2" />
             Final Check
           </TabsTrigger>
+          <TabsTrigger value="completion">
+            <CheckCircle className="h-4 w-4 mr-2" />
+            Complete
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="info">
           <JobInfo job={job} />
         </TabsContent>
 
-        <TabsContent value="vehicle">
-          <VehicleForm job={job} />
-        </TabsContent>
-
         <TabsContent value="requisition">
           <RequisitionForm job={job} />
+        </TabsContent>
+
+        <TabsContent value="vehicle">
+          <VehicleForm job={job} />
         </TabsContent>
 
         <TabsContent value="pre-inspection">
@@ -240,6 +255,7 @@ const ActiveJob = () => {
         <TabsContent value="post-inspection">
           <PostInspection job={job} />
         </TabsContent>
+
         <TabsContent value="completion">
           <CompletionForm job={job} />
         </TabsContent>
@@ -251,6 +267,7 @@ const ActiveJob = () => {
 // Helper functions
 const getStatusColor = (status: string) => {
   const colors: Record<string, string> = {
+    PENDING: "bg-gray-500",
     ASSIGNED: "bg-blue-500",
     IN_PROGRESS: "bg-purple-500",
     PRE_INSPECTION_PENDING: "bg-orange-500",

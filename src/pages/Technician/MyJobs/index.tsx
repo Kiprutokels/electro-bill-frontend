@@ -1,9 +1,8 @@
-import React, { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
-import { Badge } from '@/components/ui/badge';
+import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import {
   Table,
   TableBody,
@@ -11,14 +10,14 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from '@/components/ui/table';
+} from "@/components/ui/table";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '@/components/ui/select';
+} from "@/components/ui/select";
 import {
   Briefcase,
   Clock,
@@ -26,13 +25,12 @@ import {
   Play,
   Eye,
   Calendar,
-  MapPin,
   Loader2,
   AlertCircle,
-} from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
-import { technicianJobsService } from '@/api/services/technician-jobs.service';
-import { JobStatus } from '@/api/services/jobs.service';
+} from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import { technicianJobsService } from "@/api/services/technician-jobs.service";
+import { JobStatus } from "@/api/services/jobs.service";
 
 const MyJobs = () => {
   const navigate = useNavigate();
@@ -41,7 +39,7 @@ const MyJobs = () => {
 
   // Fetch my jobs
   const { data: jobsData, isLoading } = useQuery({
-    queryKey: ['technician-jobs', page, statusFilter],
+    queryKey: ["technician-jobs", page, statusFilter],
     queryFn: () =>
       technicianJobsService.getMyJobs({
         page,
@@ -52,7 +50,7 @@ const MyJobs = () => {
 
   // Fetch my statistics
   const { data: stats } = useQuery({
-    queryKey: ['technician-stats'],
+    queryKey: ["technician-stats"],
     queryFn: technicianJobsService.getMyStats,
   });
 
@@ -60,23 +58,23 @@ const MyJobs = () => {
 
   const getStatusBadge = (status: string) => {
     const variants: Record<string, { color: string; icon: any }> = {
-      ASSIGNED: { color: 'bg-blue-500', icon: Briefcase },
-      IN_PROGRESS: { color: 'bg-purple-500', icon: Play },
-      PRE_INSPECTION_PENDING: { color: 'bg-orange-500', icon: Clock },
-      PRE_INSPECTION_APPROVED: { color: 'bg-blue-500', icon: CheckCircle },
-      POST_INSPECTION_PENDING: { color: 'bg-orange-500', icon: Clock },
-      COMPLETED: { color: 'bg-green-500', icon: CheckCircle },
-      REQUISITION_PENDING: { color: 'bg-yellow-500', icon: Clock },
-      REQUISITION_APPROVED: { color: 'bg-blue-500', icon: CheckCircle },
+      ASSIGNED: { color: "bg-blue-500", icon: Briefcase },
+      IN_PROGRESS: { color: "bg-purple-500", icon: Play },
+      PRE_INSPECTION_PENDING: { color: "bg-orange-500", icon: Clock },
+      PRE_INSPECTION_APPROVED: { color: "bg-blue-500", icon: CheckCircle },
+      POST_INSPECTION_PENDING: { color: "bg-orange-500", icon: Clock },
+      COMPLETED: { color: "bg-green-500", icon: CheckCircle },
+      REQUISITION_PENDING: { color: "bg-yellow-500", icon: Clock },
+      REQUISITION_APPROVED: { color: "bg-blue-500", icon: CheckCircle },
     };
 
-    const variant = variants[status] || { color: 'bg-gray-500', icon: Clock };
+    const variant = variants[status] || { color: "bg-gray-500", icon: Clock };
     const Icon = variant.icon;
 
     return (
       <Badge className={`${variant.color} text-white`}>
         <Icon className="h-3 w-3 mr-1" />
-        {status.replace(/_/g, ' ')}
+        {status.replace(/_/g, " ")}
       </Badge>
     );
   };
@@ -94,7 +92,9 @@ const MyJobs = () => {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold">My Jobs</h1>
-          <p className="text-muted-foreground">View and manage your assigned jobs</p>
+          <p className="text-muted-foreground">
+            View and manage your assigned jobs
+          </p>
         </div>
       </div>
 
@@ -105,7 +105,9 @@ const MyJobs = () => {
             <CardTitle className="text-sm font-medium">Assigned</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-blue-600">{stats?.assigned || 0}</div>
+            <div className="text-2xl font-bold text-blue-600">
+              {stats?.assigned || 0}
+            </div>
           </CardContent>
         </Card>
         <Card>
@@ -113,7 +115,9 @@ const MyJobs = () => {
             <CardTitle className="text-sm font-medium">In Progress</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-purple-600">{stats?.inProgress || 0}</div>
+            <div className="text-2xl font-bold text-purple-600">
+              {stats?.inProgress || 0}
+            </div>
           </CardContent>
         </Card>
         <Card>
@@ -121,15 +125,21 @@ const MyJobs = () => {
             <CardTitle className="text-sm font-medium">Completed</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-green-600">{stats?.completed || 0}</div>
+            <div className="text-2xl font-bold text-green-600">
+              {stats?.completed || 0}
+            </div>
           </CardContent>
         </Card>
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Pending Action</CardTitle>
+            <CardTitle className="text-sm font-medium">
+              Pending Action
+            </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-orange-600">{stats?.pending || 0}</div>
+            <div className="text-2xl font-bold text-orange-600">
+              {stats?.pending || 0}
+            </div>
           </CardContent>
         </Card>
       </div>
@@ -149,7 +159,9 @@ const MyJobs = () => {
               <SelectContent>
                 <SelectItem value="all">All Statuses</SelectItem>
                 <SelectItem value={JobStatus.ASSIGNED}>Assigned</SelectItem>
-                <SelectItem value={JobStatus.IN_PROGRESS}>In Progress</SelectItem>
+                <SelectItem value={JobStatus.IN_PROGRESS}>
+                  In Progress
+                </SelectItem>
                 <SelectItem value={JobStatus.COMPLETED}>Completed</SelectItem>
               </SelectContent>
             </Select>
@@ -190,19 +202,26 @@ const MyJobs = () => {
                 ) : (
                   jobs.map((job) => (
                     <TableRow key={job.id}>
-                      <TableCell className="font-mono font-medium">{job.jobNumber}</TableCell>
+                      <TableCell className="font-mono font-medium">
+                        {job.jobNumber}
+                      </TableCell>
                       <TableCell>
                         <div>
                           <div className="font-medium">
-                            {job.customer.businessName || job.customer.contactPerson}
+                            {job.customer.businessName ||
+                              job.customer.contactPerson}
                           </div>
-                          <div className="text-sm text-muted-foreground">{job.customer.phone}</div>
+                          <div className="text-sm text-muted-foreground">
+                            {job.customer.phone}
+                          </div>
                         </div>
                       </TableCell>
                       <TableCell>
                         {job.vehicle ? (
                           <div>
-                            <div className="font-medium">{job.vehicle.vehicleReg}</div>
+                            <div className="font-medium">
+                              {job.vehicle.vehicleReg}
+                            </div>
                             <div className="text-sm text-muted-foreground">
                               {job.vehicle.make} {job.vehicle.model}
                             </div>
@@ -211,7 +230,7 @@ const MyJobs = () => {
                           <Badge variant="outline">Not Assigned</Badge>
                         )}
                       </TableCell>
-                      <TableCell>{job.jobType.replace('_', ' ')}</TableCell>
+                      <TableCell>{job.jobType.replace("_", " ")}</TableCell>
                       <TableCell>
                         <div className="flex items-center text-sm">
                           <Calendar className="h-4 w-4 mr-1 text-muted-foreground" />
@@ -221,20 +240,31 @@ const MyJobs = () => {
                       <TableCell>{getStatusBadge(job.status)}</TableCell>
                       <TableCell className="text-right">
                         <div className="flex justify-end gap-2">
-                          <Button variant="ghost" size="sm" onClick={() => handleViewJob(job.id)}>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleViewJob(job.id)}
+                          >
                             <Eye className="h-4 w-4 mr-1" />
                             View
                           </Button>
                           {(job.status === JobStatus.ASSIGNED ||
                             job.status === JobStatus.REQUISITION_APPROVED ||
-                            job.status === JobStatus.PRE_INSPECTION_APPROVED) && (
-                            <Button size="sm" onClick={() => handleStartJob(job.id)}>
+                            job.status ===
+                              JobStatus.PRE_INSPECTION_APPROVED) && (
+                            <Button
+                              size="sm"
+                              onClick={() => handleStartJob(job.id)}
+                            >
                               <Play className="h-4 w-4 mr-1" />
                               Start
                             </Button>
                           )}
                           {job.status === JobStatus.IN_PROGRESS && (
-                            <Button size="sm" onClick={() => handleStartJob(job.id)}>
+                            <Button
+                              size="sm"
+                              onClick={() => handleStartJob(job.id)}
+                            >
                               Continue
                             </Button>
                           )}
