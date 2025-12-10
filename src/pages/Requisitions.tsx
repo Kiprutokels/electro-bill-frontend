@@ -58,6 +58,7 @@ import {
 } from "@/api/services";
 import { jobsService } from "@/api/services";
 import { productsService } from "@/api/services";
+import { ProductBatch, productBatchesService } from "@/api/services/product-batches.service";
 
 interface RequisitionItemForm {
   productId: string;
@@ -84,12 +85,8 @@ const Requisitions = () => {
     notes: "",
   });
 
-  const [requisitionItems, setRequisitionItems] = useState<
-    RequisitionItemForm[]
-  >([]);
-  const [issueQuantities, setIssueQuantities] = useState<
-    Record<string, number>
-  >({});
+  const [requisitionItems, setRequisitionItems] = useState<RequisitionItemForm[]>([]);
+  const [issueQuantities, setIssueQuantities] = useState<Record<string, number>>({});
   const [issueBatches, setIssueBatches] = useState<Record<string, string>>({});
 
   // Fetch requisitions
@@ -109,7 +106,7 @@ const Requisitions = () => {
     queryFn: requisitionsService.getStatistics,
   });
 
-  // Fetch assigned jobs (for creating requisitions)
+  // Fetch assigned jobs
   const { data: jobsData } = useQuery({
     queryKey: ["jobs-assigned"],
     queryFn: () =>
@@ -127,15 +124,30 @@ const Requisitions = () => {
     enabled: isAddDialogOpen,
   });
 
-  // Fetch product batches for issue dialog
-  const { data: batchesData } = useQuery({
-    queryKey: ["product-batches-all"],
+  // Fetch product batches
+  const { data: batchesData, isLoading: isBatchesLoading } = useQuery({
+    queryKey: ["product-batches", selectedRequisition?.id],
     queryFn: async () => {
-      // This would need a proper batches endpoint
-      // For now, return empty array
-      return [];
+      if (!selectedRequisition) return {};
+
+      const result: Record<string, ProductBatch[]> = {};
+
+      // Fetch all batches in parallel
+      await Promise.all(
+        selectedRequisition.items.map(async (item: any) => {
+          try {
+            const batches = await productBatchesService.getAvailableBatches(item.productId);
+            result[item.id] = batches;
+          } catch (error) {
+            console.error(`Failed to fetch batches for product ${item.productId}:`, error);
+            result[item.id] = [];
+          }
+        })
+      );
+
+      return result;
     },
-    enabled: isIssueDialogOpen,
+    enabled: isIssueDialogOpen && !!selectedRequisition,
   });
 
   // Create requisition mutation
@@ -149,9 +161,7 @@ const Requisitions = () => {
       resetForm();
     },
     onError: (error: any) => {
-      toast.error(
-        error.response?.data?.message || "Failed to create requisition"
-      );
+      toast.error(error.response?.data?.message || "Failed to create requisition");
     },
   });
 
@@ -164,9 +174,7 @@ const Requisitions = () => {
       toast.success("Requisition approved successfully");
     },
     onError: (error: any) => {
-      toast.error(
-        error.response?.data?.message || "Failed to approve requisition"
-      );
+      toast.error(error.response?.data?.message || "Failed to approve requisition");
     },
   });
 
@@ -183,9 +191,7 @@ const Requisitions = () => {
       setRejectionReason("");
     },
     onError: (error: any) => {
-      toast.error(
-        error.response?.data?.message || "Failed to reject requisition"
-      );
+      toast.error(error.response?.data?.message || "Failed to reject requisition");
     },
   });
 
@@ -270,7 +276,7 @@ const Requisitions = () => {
   };
 
   const handleReject = () => {
-    if (!selectedRequisition || !rejectionReason) {
+    if (!selectedRequisition || !rejectionReason.trim()) {
       toast.error("Please provide a rejection reason");
       return;
     }
@@ -284,23 +290,31 @@ const Requisitions = () => {
   const handleIssueItems = () => {
     if (!selectedRequisition) return;
 
-    const items: IssueItemRequest[] = selectedRequisition.items
-      .filter((item: any) => issueQuantities[item.id] > 0)
-      .map((item: any) => ({
-        requisitionItemId: item.id,
-        quantityIssued: issueQuantities[item.id],
-        batchId: issueBatches[item.id] || "default-batch-id", // TODO: Fix batch selection
-      }));
+    const items: IssueItemRequest[] = [];
+
+    for (const item of selectedRequisition.items) {
+      const quantity = issueQuantities[item.id] || 0;
+
+      if (quantity > 0) {
+        if (!issueBatches[item.id]) {
+          toast.error(`Please select a batch for ${item.product.name}`);
+          return;
+        }
+
+        items.push({
+          requisitionItemId: item.id,
+          quantityIssued: quantity,
+          batchId: issueBatches[item.id],
+        });
+      }
+    }
 
     if (items.length === 0) {
       toast.error("Please specify quantities to issue");
       return;
     }
 
-    issueMutation.mutate({
-      id: selectedRequisition.id,
-      items,
-    });
+    issueMutation.mutate({ id: selectedRequisition.id, items });
   };
 
   const handleView = (requisition: any) => {
@@ -311,13 +325,17 @@ const Requisitions = () => {
   const handleIssueClick = (requisition: any) => {
     setSelectedRequisition(requisition);
     const initialQuantities: Record<string, number> = {};
+    const initialBatches: Record<string, string> = {};
+
     requisition.items.forEach((item: any) => {
       initialQuantities[item.id] = Math.max(
         0,
         item.quantityRequested - item.quantityIssued
       );
     });
+
     setIssueQuantities(initialQuantities);
+    setIssueBatches(initialBatches);
     setIsIssueDialogOpen(true);
   };
 
@@ -369,9 +387,7 @@ const Requisitions = () => {
       <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">
-              Pending Approval
-            </CardTitle>
+            <CardTitle className="text-sm font-medium">Pending Approval</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-yellow-600">
@@ -391,9 +407,7 @@ const Requisitions = () => {
         </Card>
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">
-              Partially Issued
-            </CardTitle>
+            <CardTitle className="text-sm font-medium">Partially Issued</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-orange-600">
@@ -491,9 +505,7 @@ const Requisitions = () => {
                         <div className="space-y-1">
                           {req.items.slice(0, 2).map((item, idx) => (
                             <div key={idx} className="text-sm">
-                              <span className="font-medium">
-                                {item.product.name}
-                              </span>
+                              <span className="font-medium">{item.product.name}</span>
                               <span className="text-muted-foreground ml-2">
                                 ({item.quantityIssued}/{item.quantityRequested})
                               </span>
@@ -525,6 +537,7 @@ const Requisitions = () => {
                               <Button
                                 size="sm"
                                 onClick={() => handleApprove(req)}
+                                disabled={approveMutation.isPending}
                               >
                                 Approve
                               </Button>
@@ -538,8 +551,7 @@ const Requisitions = () => {
                             </>
                           )}
                           {(req.status === RequisitionStatus.APPROVED ||
-                            req.status ===
-                              RequisitionStatus.PARTIALLY_ISSUED) && (
+                            req.status === RequisitionStatus.PARTIALLY_ISSUED) && (
                             <Button
                               size="sm"
                               onClick={() => handleIssueClick(req)}
@@ -560,8 +572,7 @@ const Requisitions = () => {
           {requisitionsData && requisitionsData.meta.totalPages > 1 && (
             <div className="flex items-center justify-between mt-4">
               <div className="text-sm text-muted-foreground">
-                Showing {requisitions.length} of {requisitionsData.meta.total}{" "}
-                requisitions
+                Showing {requisitions.length} of {requisitionsData.meta.total} requisitions
               </div>
               <div className="flex gap-2">
                 <Button
@@ -613,8 +624,7 @@ const Requisitions = () => {
                       {job.jobNumber} -{" "}
                       {job.vehicle
                         ? `${job.vehicle.vehicleReg}`
-                        : job.customer.businessName ||
-                          job.customer.contactPerson}
+                        : job.customer.businessName || job.customer.contactPerson}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -638,10 +648,7 @@ const Requisitions = () => {
                   </div>
                 ) : (
                   requisitionItems.map((item, index) => (
-                    <div
-                      key={index}
-                      className="grid grid-cols-12 gap-2 items-end"
-                    >
+                    <div key={index} className="grid grid-cols-12 gap-2 items-end">
                       <div className="col-span-7">
                         <Label htmlFor={`product-${index}`} className="text-xs">
                           Product
@@ -665,10 +672,7 @@ const Requisitions = () => {
                         </Select>
                       </div>
                       <div className="col-span-4">
-                        <Label
-                          htmlFor={`quantity-${index}`}
-                          className="text-xs"
-                        >
+                        <Label htmlFor={`quantity-${index}`} className="text-xs">
                           Quantity
                         </Label>
                         <Input
@@ -745,9 +749,7 @@ const Requisitions = () => {
             <div className="space-y-6 py-4">
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <Label className="text-muted-foreground">
-                    Requisition Number
-                  </Label>
+                  <Label className="text-muted-foreground">Requisition Number</Label>
                   <p className="font-mono font-medium text-lg">
                     {selectedRequisition.requisitionNumber}
                   </p>
@@ -760,15 +762,12 @@ const Requisitions = () => {
                 </div>
                 <div>
                   <Label className="text-muted-foreground">Job Number</Label>
-                  <p className="font-medium">
-                    {selectedRequisition.job.jobNumber}
-                  </p>
+                  <p className="font-medium">{selectedRequisition.job.jobNumber}</p>
                 </div>
                 <div>
                   <Label className="text-muted-foreground">Vehicle</Label>
                   <p className="font-medium">
-                    {selectedRequisition.job.vehicle?.vehicleReg ||
-                      "Not assigned"}
+                    {selectedRequisition.job.vehicle?.vehicleReg || "Not assigned"}
                   </p>
                 </div>
                 <div>
@@ -779,33 +778,23 @@ const Requisitions = () => {
                   </p>
                 </div>
                 <div>
-                  <Label className="text-muted-foreground">
-                    Requested Date
-                  </Label>
+                  <Label className="text-muted-foreground">Requested Date</Label>
                   <p className="font-medium">
-                    {new Date(
-                      selectedRequisition.requestedDate
-                    ).toLocaleDateString()}
+                    {new Date(selectedRequisition.requestedDate).toLocaleDateString()}
                   </p>
                 </div>
                 {selectedRequisition.approvedDate && (
                   <div>
-                    <Label className="text-muted-foreground">
-                      Approved Date
-                    </Label>
+                    <Label className="text-muted-foreground">Approved Date</Label>
                     <p className="font-medium">
-                      {new Date(
-                        selectedRequisition.approvedDate
-                      ).toLocaleDateString()}
+                      {new Date(selectedRequisition.approvedDate).toLocaleDateString()}
                     </p>
                   </div>
                 )}
               </div>
 
               <div>
-                <Label className="text-muted-foreground mb-2 block">
-                  Items
-                </Label>
+                <Label className="text-muted-foreground mb-2 block">Items</Label>
                 <div className="border rounded-lg">
                   <Table>
                     <TableHeader>
@@ -817,32 +806,28 @@ const Requisitions = () => {
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {selectedRequisition.items.map(
-                        (item: any, idx: number) => (
-                          <TableRow key={idx}>
-                            <TableCell className="font-medium">
-                              {item.product.name}
-                            </TableCell>
-                            <TableCell className="text-center">
-                              {item.quantityRequested}
-                            </TableCell>
-                            <TableCell className="text-center">
-                              <Badge
-                                variant={
-                                  item.quantityIssued > 0
-                                    ? "default"
-                                    : "outline"
-                                }
-                              >
-                                {item.quantityIssued}
-                              </Badge>
-                            </TableCell>
-                            <TableCell className="text-center">
-                              {item.quantityRequested - item.quantityIssued}
-                            </TableCell>
-                          </TableRow>
-                        )
-                      )}
+                      {selectedRequisition.items.map((item: any, idx: number) => (
+                        <TableRow key={idx}>
+                          <TableCell className="font-medium">
+                            {item.product.name}
+                          </TableCell>
+                          <TableCell className="text-center">
+                            {item.quantityRequested}
+                          </TableCell>
+                          <TableCell className="text-center">
+                            <Badge
+                              variant={
+                                item.quantityIssued > 0 ? "default" : "outline"
+                              }
+                            >
+                              {item.quantityIssued}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="text-center">
+                            {item.quantityRequested - item.quantityIssued}
+                          </TableCell>
+                        </TableRow>
+                      ))}
                     </TableBody>
                   </Table>
                 </div>
@@ -857,9 +842,7 @@ const Requisitions = () => {
 
               {selectedRequisition.rejectionReason && (
                 <div>
-                  <Label className="text-muted-foreground">
-                    Rejection Reason
-                  </Label>
+                  <Label className="text-muted-foreground">Rejection Reason</Label>
                   <p className="text-sm mt-1 text-destructive">
                     {selectedRequisition.rejectionReason}
                   </p>
@@ -868,29 +851,42 @@ const Requisitions = () => {
             </div>
           )}
           <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => setIsViewDialogOpen(false)}
-            >
+            <Button variant="outline" onClick={() => setIsViewDialogOpen(false)}>
               Close
             </Button>
             {selectedRequisition?.status === RequisitionStatus.PENDING && (
               <>
-                <Button onClick={() => handleApprove(selectedRequisition)}>
+                <Button
+                  onClick={() => {
+                    setIsViewDialogOpen(false);
+                    handleApprove(selectedRequisition);
+                  }}
+                  disabled={approveMutation.isPending}
+                >
+                  {approveMutation.isPending && (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  )}
                   Approve
                 </Button>
                 <Button
                   variant="destructive"
-                  onClick={() => handleRejectClick(selectedRequisition)}
+                  onClick={() => {
+                    setIsViewDialogOpen(false);
+                    handleRejectClick(selectedRequisition);
+                  }}
                 >
                   Reject
                 </Button>
               </>
             )}
             {(selectedRequisition?.status === RequisitionStatus.APPROVED ||
-              selectedRequisition?.status ===
-                RequisitionStatus.PARTIALLY_ISSUED) && (
-              <Button onClick={() => handleIssueClick(selectedRequisition)}>
+              selectedRequisition?.status === RequisitionStatus.PARTIALLY_ISSUED) && (
+              <Button
+                onClick={() => {
+                  setIsViewDialogOpen(false);
+                  handleIssueClick(selectedRequisition);
+                }}
+              >
                 Issue Items
               </Button>
             )}
@@ -900,74 +896,119 @@ const Requisitions = () => {
 
       {/* Issue Items Dialog */}
       <Dialog open={isIssueDialogOpen} onOpenChange={setIsIssueDialogOpen}>
-        <DialogContent className="max-w-2xl">
+        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Issue Items</DialogTitle>
             <DialogDescription>
-              Enter quantities to issue for{" "}
+              Select batch and enter quantities to issue for{" "}
               {selectedRequisition?.requisitionNumber}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
-            <div className="border rounded-lg">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Product</TableHead>
-                    <TableHead className="text-center">Requested</TableHead>
-                    <TableHead className="text-center">
-                      Already Issued
-                    </TableHead>
-                    <TableHead className="text-center">Remaining</TableHead>
-                    <TableHead className="text-center">Issue Now</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {selectedRequisition?.items.map((item: any, idx: number) => {
-                    const remaining =
-                      item.quantityRequested - item.quantityIssued;
-                    return (
-                      <TableRow key={idx}>
-                        <TableCell className="font-medium">
-                          {item.product.name}
-                        </TableCell>
-                        <TableCell className="text-center">
-                          {item.quantityRequested}
-                        </TableCell>
-                        <TableCell className="text-center">
-                          {item.quantityIssued}
-                        </TableCell>
-                        <TableCell className="text-center">
-                          <Badge
-                            variant={remaining > 0 ? "destructive" : "default"}
-                          >
-                            {remaining}
-                          </Badge>
-                        </TableCell>
-                        <TableCell className="text-center">
-                          <Input
-                            type="number"
-                            min="0"
-                            max={remaining}
-                            value={issueQuantities[item.id] || 0}
-                            onChange={(e) =>
-                              setIssueQuantities({
-                                ...issueQuantities,
-                                [item.id]: Math.min(
-                                  parseInt(e.target.value) || 0,
-                                  remaining
-                                ),
-                              })
-                            }
-                            className="w-20 text-center"
-                          />
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })}
-                </TableBody>
-              </Table>
-            </div>
+            {isBatchesLoading ? (
+              <div className="text-center py-8">
+                <Loader2 className="h-8 w-8 animate-spin mx-auto mb-2" />
+                <p className="text-sm text-muted-foreground">Loading batches...</p>
+              </div>
+            ) : (
+              <div className="border rounded-lg overflow-hidden">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Product</TableHead>
+                      <TableHead className="text-center">Requested</TableHead>
+                      <TableHead className="text-center">Issued</TableHead>
+                      <TableHead className="text-center">Remaining</TableHead>
+                      <TableHead className="text-center">Batch</TableHead>
+                      <TableHead className="text-center">Issue Qty</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {selectedRequisition?.items.map((item: any) => {
+                      const remaining = item.quantityRequested - item.quantityIssued;
+                      const batches = batchesData?.[item.id] || [];
+
+                      return (
+                        <TableRow key={item.id}>
+                          <TableCell className="font-medium">
+                            <div>
+                              <div>{item.product.name}</div>
+                              <div className="text-xs text-muted-foreground">
+                                {item.product.sku}
+                              </div>
+                            </div>
+                          </TableCell>
+                          <TableCell className="text-center">
+                            {item.quantityRequested}
+                          </TableCell>
+                          <TableCell className="text-center">
+                            {item.quantityIssued}
+                          </TableCell>
+                          <TableCell className="text-center">
+                            <Badge
+                              variant={remaining > 0 ? "destructive" : "default"}
+                            >
+                              {remaining}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="text-center">
+                            <Select
+                              value={issueBatches[item.id] || ""}
+                              onValueChange={(val) =>
+                                setIssueBatches({ ...issueBatches, [item.id]: val })
+                              }
+                              disabled={remaining === 0}
+                            >
+                              <SelectTrigger className="w-[200px]">
+                                <SelectValue placeholder="Select batch" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {batches.length === 0 ? (
+                                  <SelectItem value="no-batch" disabled>
+                                    No batches available
+                                  </SelectItem>
+                                ) : (
+                                  batches.map((batch) => (
+                                    <SelectItem
+                                      key={batch.id}
+                                      value={batch.id}
+                                      disabled={batch.quantityRemaining === 0}
+                                    >
+                                      {batch.batchNumber} • {batch.quantityRemaining} left
+                                      {batch.expiryDate &&
+                                        ` • Exp: ${new Date(
+                                          batch.expiryDate
+                                        ).toLocaleDateString()}`}
+                                    </SelectItem>
+                                  ))
+                                )}
+                              </SelectContent>
+                            </Select>
+                          </TableCell>
+                          <TableCell className="text-center">
+                            <Input
+                              type="number"
+                              min="0"
+                              max={remaining}
+                              value={issueQuantities[item.id] || 0}
+                              onChange={(e) => {
+                                const value = parseInt(e.target.value) || 0;
+                                setIssueQuantities({
+                                  ...issueQuantities,
+                                  [item.id]: Math.min(Math.max(0, value), remaining),
+                                });
+                              }}
+                              className="w-24 text-center"
+                              disabled={remaining === 0}
+                            />
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
+              </div>
+            )}
           </div>
           <DialogFooter>
             <Button
@@ -983,7 +1024,7 @@ const Requisitions = () => {
             </Button>
             <Button
               onClick={handleIssueItems}
-              disabled={issueMutation.isPending}
+              disabled={issueMutation.isPending || isBatchesLoading}
             >
               {issueMutation.isPending && (
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -995,10 +1036,7 @@ const Requisitions = () => {
       </Dialog>
 
       {/* Reject Dialog */}
-      <AlertDialog
-        open={isRejectDialogOpen}
-        onOpenChange={setIsRejectDialogOpen}
-      >
+      <AlertDialog open={isRejectDialogOpen} onOpenChange={setIsRejectDialogOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Reject Requisition</AlertDialogTitle>
@@ -1021,8 +1059,8 @@ const Requisitions = () => {
             </AlertDialogCancel>
             <AlertDialogAction
               onClick={handleReject}
-              className="bg-destructive text-destructive-foreground"
-              disabled={rejectMutation.isPending}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              disabled={rejectMutation.isPending || !rejectionReason.trim()}
             >
               {rejectMutation.isPending && (
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
