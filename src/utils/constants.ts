@@ -55,25 +55,30 @@ export const PERMISSIONS = {
   PERMISSIONS_READ: "permissions.read",
   PERMISSIONS_ASSIGN: "permissions.assign",
 
-    // Jobs
-  JOBS_CREATE: 'jobs.create',
-  JOBS_READ: 'jobs.read',
-  JOBS_UPDATE: 'jobs.update',
-  JOBS_DELETE: 'jobs.delete',
-  JOBS_ASSIGN: 'jobs.assign',
+  // Jobs
+  JOBS_CREATE: "jobs.create",
+  JOBS_READ: "jobs.read",
+  JOBS_UPDATE: "jobs.update",
+  JOBS_DELETE: "jobs.delete",
+  JOBS_ASSIGN: "jobs.assign",
 
   // Technicians
-  TECHNICIANS_CREATE: 'technicians.create',
-  TECHNICIANS_READ: 'technicians.read',
-  TECHNICIANS_UPDATE: 'technicians.update',
-  TECHNICIANS_DELETE: 'technicians.delete',
+  TECHNICIANS_CREATE: "technicians.create",
+  TECHNICIANS_READ: "technicians.read",
+  TECHNICIANS_UPDATE: "technicians.update",
+  TECHNICIANS_DELETE: "technicians.delete",
 
   // Vehicles
-  VEHICLES_CREATE: 'vehicles.create',
-  VEHICLES_READ: 'vehicles.read',
-  VEHICLES_UPDATE: 'vehicles.update',
-  VEHICLES_DELETE: 'vehicles.delete',
-  
+  VEHICLES_CREATE: "vehicles.create",
+  VEHICLES_READ: "vehicles.read",
+  VEHICLES_UPDATE: "vehicles.update",
+  VEHICLES_DELETE: "vehicles.delete",
+
+  // Subscriptions
+  SUBSCRIPTIONS_READ: "subscriptions.read",
+  SUBSCRIPTIONS_CREATE: "subscriptions.create",
+  SUBSCRIPTIONS_UPDATE: "subscriptions.update",
+  SUBSCRIPTIONS_DELETE: "subscriptions.delete",
 } as const;
 
 export const APP_NAME = "ElectroBill";
@@ -98,12 +103,12 @@ export const ROUTES = {
   REPORTS: "/reports",
   SETTINGS: "/settings",
 
-
-    VEHICLES: '/vehicles',
-  JOBS: '/jobs',
-  TECHNICIANS: '/technicians',
-  REQUISITIONS: '/requisitions',
-  INSPECTIONS: '/inspections',
+  VEHICLES: "/vehicles",
+  JOBS: "/jobs",
+  TECHNICIANS: "/technicians",
+  REQUISITIONS: "/requisitions",
+  INSPECTIONS: "/inspections",
 } as const;
 
-export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000/api/v1';
+export const API_BASE_URL =
+  import.meta.env.VITE_API_BASE_URL || "http://localhost:5000/api/v1";
