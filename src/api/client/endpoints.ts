@@ -140,4 +140,11 @@ export const API_ENDPOINTS = {
     ASSIGN: (id: string) => `/jobs/${id}/assign`,
     CANCEL: (id: string) => `/jobs/${id}/cancel`,
   },
+
+  SUBSCRIPTIONS: {
+    BASE: '/subscriptions',
+    BY_ID: (id: string) => `/subscriptions/${id}`,
+    BY_CUSTOMER: (customerId: string) => `/subscriptions/customer/${customerId}`,
+    STATS: '/subscriptions/dashboard-stats',
+  },
 } as const;
