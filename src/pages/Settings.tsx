@@ -5,11 +5,11 @@ import { z } from "zod";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
+import { Switch } from "@/components/ui/switch";
 import {
   Form,
   FormControl,
+  FormDescription,
   FormField,
   FormItem,
   FormLabel,
@@ -17,7 +17,16 @@ import {
 } from "@/components/ui/form";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Separator } from "@/components/ui/separator";
-import { AlertCircle, Building2, FileText, Settings as SettingsIcon, Loader2, Save } from "lucide-react";
+import { 
+  AlertCircle, 
+  Building2, 
+  FileText, 
+  Settings as SettingsIcon, 
+  Loader2, 
+  Save,
+  DollarSign,
+  CreditCard
+} from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { PERMISSIONS } from "@/utils/constants";
 import { useSettings } from "@/hooks/useSettings";
@@ -38,6 +47,10 @@ const settingsSchema = z.object({
   invoicePrefix: z.string().min(1).max(10).default("INV"),
   receiptPrefix: z.string().min(1).max(10).default("RCP"),
   logoUrl: z.string().url("Invalid URL").max(255).optional().or(z.literal("")),
+  processingFeeEnabled: z.boolean().default(true),
+  processingFeeAmount: z.number().min(0).default(1000),
+  serviceFeeEnabled: z.boolean().default(false),
+  serviceFeePercentage: z.number().min(0).max(100).default(0),
 });
 
 type SettingsFormData = z.infer<typeof settingsSchema>;
@@ -65,6 +78,10 @@ const Settings = () => {
       invoicePrefix: "INV",
       receiptPrefix: "RCP",
       logoUrl: "",
+      processingFeeEnabled: true,
+      processingFeeAmount: 1000,
+      serviceFeeEnabled: false,
+      serviceFeePercentage: 0,
     },
   });
 
@@ -87,6 +104,10 @@ const Settings = () => {
         invoicePrefix: settings.invoicePrefix || "INV",
         receiptPrefix: settings.receiptPrefix || "RCP",
         logoUrl: settings.logoUrl || "",
+        processingFeeEnabled: settings.processingFeeEnabled ?? true,
+        processingFeeAmount: settings.processingFeeAmount || 1000,
+        serviceFeeEnabled: settings.serviceFeeEnabled ?? false,
+        serviceFeePercentage: settings.serviceFeePercentage || 0,
       });
     }
   }, [settings, form]);
@@ -96,10 +117,9 @@ const Settings = () => {
 
     try {
       // Clean empty strings to undefined
-      const cleanData = Object.entries(data).reduce((acc, [key, value]) => {
-        acc[key as keyof SettingsFormData] = value === "" ? undefined : value;
-        return acc;
-      }, {} as Partial<SettingsFormData>);
+      const cleanData = Object.fromEntries(
+        Object.entries(data).map(([key, value]) => [key, value === "" ? undefined : value])
+      ) as Partial<SettingsFormData>;
 
       await updateSettings(settings.id, cleanData);
     } catch (err) {
@@ -169,7 +189,7 @@ const Settings = () => {
           <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
             {/* Mobile-friendly tabs */}
             <div className="overflow-x-auto">
-              <TabsList className="grid w-full grid-cols-3 lg:w-[400px]">
+              <TabsList className="grid w-full grid-cols-4 lg:w-[500px]">
                 <TabsTrigger value="business" className="text-xs sm:text-sm">
                   <Building2 className="w-4 h-4 mr-1 sm:mr-2" />
                   <span className="hidden sm:inline">Business</span>
@@ -177,6 +197,10 @@ const Settings = () => {
                 <TabsTrigger value="documents" className="text-xs sm:text-sm">
                   <FileText className="w-4 h-4 mr-1 sm:mr-2" />
                   <span className="hidden sm:inline">Documents</span>
+                </TabsTrigger>
+                <TabsTrigger value="fees" className="text-xs sm:text-sm">
+                  <DollarSign className="w-4 h-4 mr-1 sm:mr-2" />
+                  <span className="hidden sm:inline">Fees</span>
                 </TabsTrigger>
                 <TabsTrigger value="system" className="text-xs sm:text-sm">
                   <SettingsIcon className="w-4 h-4 mr-1 sm:mr-2" />
@@ -418,6 +442,167 @@ const Settings = () => {
               </Card>
             </TabsContent>
 
+            {/* Fees Settings Tab */}
+            <TabsContent value="fees" className="space-y-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center space-x-2">
+                    <CreditCard className="h-5 w-5" />
+                    <span>Fee Configuration</span>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-6">
+                  {/* Processing Fee */}
+                  <div className="space-y-4">
+                    <div>
+                      <h3 className="text-lg font-medium mb-2">Processing Fee</h3>
+                      <p className="text-sm text-muted-foreground">
+                        Fixed processing fee added to job-generated invoices
+                      </p>
+                    </div>
+
+                    <FormField
+                      control={form.control}
+                      name="processingFeeEnabled"
+                      render={({ field }) => (
+                        <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
+                          <div className="space-y-0.5">
+                            <FormLabel className="text-base">Enable Processing Fee</FormLabel>
+                            <FormDescription>
+                              Add a fixed processing fee to all job invoices
+                            </FormDescription>
+                          </div>
+                          <FormControl>
+                            <Switch
+                              checked={field.value}
+                              onCheckedChange={field.onChange}
+                              disabled={!canUpdate}
+                            />
+                          </FormControl>
+                        </FormItem>
+                      )}
+                    />
+
+                    <FormField
+                      control={form.control}
+                      name="processingFeeAmount"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Processing Fee Amount ({form.watch('defaultCurrency')})</FormLabel>
+                          <FormControl>
+                            <Input
+                              type="number"
+                              step="0.01"
+                              min="0"
+                              {...field}
+                              onChange={(e) => field.onChange(Number(e.target.value))}
+                              disabled={!canUpdate || !form.watch('processingFeeEnabled')}
+                            />
+                          </FormControl>
+                          <FormDescription>
+                            Fixed amount added to each job invoice
+                          </FormDescription>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+
+                  <Separator />
+
+                  {/* Service Charge */}
+                  <div className="space-y-4">
+                    <div>
+                      <h3 className="text-lg font-medium mb-2">Service Charge</h3>
+                      <p className="text-sm text-muted-foreground">
+                        Percentage-based service charge applied to subtotal
+                      </p>
+                    </div>
+
+                    <FormField
+                      control={form.control}
+                      name="serviceFeeEnabled"
+                      render={({ field }) => (
+                        <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
+                          <div className="space-y-0.5">
+                            <FormLabel className="text-base">Enable Service Charge</FormLabel>
+                            <FormDescription>
+                              Add a percentage-based service charge to invoices
+                            </FormDescription>
+                          </div>
+                          <FormControl>
+                            <Switch
+                              checked={field.value}
+                              onCheckedChange={field.onChange}
+                              disabled={!canUpdate}
+                            />
+                          </FormControl>
+                        </FormItem>
+                      )}
+                    />
+
+                    <FormField
+                      control={form.control}
+                      name="serviceFeePercentage"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Service Charge Percentage (%)</FormLabel>
+                          <FormControl>
+                            <Input
+                              type="number"
+                              step="0.01"
+                              min="0"
+                              max="100"
+                              {...field}
+                              onChange={(e) => field.onChange(Number(e.target.value))}
+                              disabled={!canUpdate || !form.watch('serviceFeeEnabled')}
+                            />
+                          </FormControl>
+                          <FormDescription>
+                            Percentage of subtotal (after discount) added as service charge
+                          </FormDescription>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+
+                  {/* Fee Calculation Preview */}
+                  <div className="rounded-lg border bg-muted p-4">
+                    <h4 className="font-medium mb-2">Fee Calculation Preview</h4>
+                    <div className="space-y-1 text-sm">
+                      <p>Example Invoice: {form.watch('defaultCurrency')} 10,000</p>
+                      {form.watch('serviceFeeEnabled') && (
+                        <p>
+                          + Service Charge ({form.watch('serviceFeePercentage')}%):{' '}
+                          {form.watch('defaultCurrency')}{' '}
+                          {(10000 * (form.watch('serviceFeePercentage') / 100)).toFixed(2)}
+                        </p>
+                      )}
+                      {form.watch('processingFeeEnabled') && (
+                        <p>
+                          + Processing Fee: {form.watch('defaultCurrency')}{' '}
+                          {form.watch('processingFeeAmount').toFixed(2)}
+                        </p>
+                      )}
+                      <p className="font-medium pt-2 border-t">
+                        Total: {form.watch('defaultCurrency')}{' '}
+                        {(
+                          10000 +
+                          (form.watch('serviceFeeEnabled')
+                            ? 10000 * (form.watch('serviceFeePercentage') / 100)
+                            : 0) +
+                          (form.watch('processingFeeEnabled')
+                            ? form.watch('processingFeeAmount')
+                            : 0)
+                        ).toFixed(2)}
+                      </p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </TabsContent>
+
             {/* System Settings Tab */}
             <TabsContent value="system" className="space-y-6">
               <Card>
@@ -470,7 +655,7 @@ const Settings = () => {
             </TabsContent>
           </Tabs>
 
-          {/* Save Button - Fixed at bottom on mobile */}
+          {/* Save Button  */}
           {canUpdate && (
             <div className="sticky bottom-4 sm:static sm:bottom-auto bg-background pt-4 border-t sm:border-t-0">
               <Button
