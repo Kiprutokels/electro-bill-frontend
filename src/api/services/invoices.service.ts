@@ -44,6 +44,33 @@ export const invoicesService = {
     return response.data;
   },
 
+  // Get invoice by job ID (check if job already has invoice)
+  getByJobId: async (jobId: string): Promise<Invoice | null> => {
+    try {
+      const response = await apiClient.get<Invoice>(
+        `${API_ENDPOINTS.INVOICES.BASE}/job/${jobId}`
+      );
+      return response.data;
+    } catch (error: any) {
+      if (error.response?.status === 404) {
+        return null;
+      }
+      throw error;
+    }
+  },
+
+  // Check if job already has an invoice
+  hasInvoiceForJob: async (jobId: string): Promise<boolean> => {
+    try {
+      const response = await apiClient.get<{ hasInvoice: boolean }>(
+        `${API_ENDPOINTS.INVOICES.BASE}/job/${jobId}/exists`
+      );
+      return response.data.hasInvoice;
+    } catch (error) {
+      return false;
+    }
+  },
+
   // Create new invoice
   create: async (data: CreateInvoiceRequest): Promise<Invoice> => {
     const response = await apiClient.post<Invoice>(
@@ -52,6 +79,8 @@ export const invoicesService = {
     );
     return response.data;
   },
+
+  // Create invoice from job
   createFromJob: async (jobId: string): Promise<Invoice> => {
     const response = await apiClient.post<Invoice>(
       API_ENDPOINTS.INVOICES.CREATE_FROM_JOB(jobId)
@@ -94,5 +123,4 @@ export const invoicesService = {
   },
 };
 
-// Export types for easier imports
 export * from "../types/invoice.types";

@@ -33,6 +33,8 @@ import {
   Clock,
   AlertTriangle,
   Loader2,
+  Briefcase,
+  FileText,
 } from "lucide-react";
 import {
   Invoice,
@@ -151,6 +153,10 @@ const InvoiceViewDialog: React.FC<InvoiceViewDialogProps> = ({
   // Safely handle items array with proper type checking
   const items = Array.isArray(displayInvoice.items) ? displayInvoice.items : [];
 
+  // Determine invoice source
+  const isJobInvoice = !!displayInvoice.jobId;
+  const isQuotationInvoice = !!displayInvoice.quotationId;
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
@@ -160,7 +166,21 @@ const InvoiceViewDialog: React.FC<InvoiceViewDialogProps> = ({
               <Eye className="h-5 w-5" />
               Invoice Details
             </DialogTitle>
-            {getStatusBadge(displayInvoice.status)}
+            <div className="flex items-center gap-2">
+              {getStatusBadge(displayInvoice.status)}
+              {isJobInvoice && (
+                <Badge variant="outline" className="bg-purple-50 text-purple-700 border-purple-200">
+                  <Briefcase className="w-3 h-3 mr-1" />
+                  Job Invoice
+                </Badge>
+              )}
+              {isQuotationInvoice && (
+                <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">
+                  <FileText className="w-3 h-3 mr-1" />
+                  Quotation Invoice
+                </Badge>
+              )}
+            </div>
           </div>
           <DialogDescription>
             View invoice information, items, and manage status updates.
@@ -189,13 +209,17 @@ const InvoiceViewDialog: React.FC<InvoiceViewDialogProps> = ({
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div>
-                    <p className="text-sm text-muted-foreground">Invoice Number</p>
+                    <p className="text-sm text-muted-foreground">
+                      Invoice Number
+                    </p>
                     <p className="font-mono font-medium">
                       {displayInvoice.invoiceNumber}
                     </p>
                   </div>
                   <div>
-                    <p className="text-sm text-muted-foreground">Invoice Date</p>
+                    <p className="text-sm text-muted-foreground">
+                      Invoice Date
+                    </p>
                     <p className="flex items-center gap-2">
                       <Calendar className="h-4 w-4" />
                       {formatDate(displayInvoice.invoiceDate)}
@@ -210,16 +234,31 @@ const InvoiceViewDialog: React.FC<InvoiceViewDialogProps> = ({
                   </div>
                   {displayInvoice.paymentTerms && (
                     <div>
-                      <p className="text-sm text-muted-foreground">Payment Terms</p>
+                      <p className="text-sm text-muted-foreground">
+                        Payment Terms
+                      </p>
                       <p>{displayInvoice.paymentTerms}</p>
                     </div>
                   )}
+                  {displayInvoice.job && (
+                    <div className="border-t pt-4">
+                      <p className="text-sm text-muted-foreground">
+                        Related Job
+                      </p>
+                      <p className="font-mono font-medium text-purple-600">
+                        {displayInvoice.job.jobNumber}
+                      </p>
+                      <p className="text-sm text-muted-foreground mt-1">
+                        {displayInvoice.job.serviceDescription}
+                      </p>
+                    </div>
+                  )}
                   {displayInvoice.quotation && (
-                    <div>
+                    <div className="border-t pt-4">
                       <p className="text-sm text-muted-foreground">
                         Related Quotation
                       </p>
-                      <p className="font-mono">
+                      <p className="font-mono font-medium text-blue-600">
                         {displayInvoice.quotation.quotationNumber}
                       </p>
                     </div>
@@ -245,21 +284,27 @@ const InvoiceViewDialog: React.FC<InvoiceViewDialogProps> = ({
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div>
-                    <p className="text-sm text-muted-foreground">Customer Code</p>
+                    <p className="text-sm text-muted-foreground">
+                      Customer Code
+                    </p>
                     <p className="font-medium">
                       {displayInvoice.customer?.customerCode || "N/A"}
                     </p>
                   </div>
                   {displayInvoice.customer?.businessName && (
                     <div>
-                      <p className="text-sm text-muted-foreground">Business Name</p>
+                      <p className="text-sm text-muted-foreground">
+                        Business Name
+                      </p>
                       <p className="font-medium">
                         {displayInvoice.customer.businessName}
                       </p>
                     </div>
                   )}
                   <div>
-                    <p className="text-sm text-muted-foreground">Contact Person</p>
+                    <p className="text-sm text-muted-foreground">
+                      Contact Person
+                    </p>
                     <p className="flex items-center gap-2">
                       <User className="h-4 w-4" />
                       {displayInvoice.customer?.contactPerson || "N/A"}
@@ -299,7 +344,9 @@ const InvoiceViewDialog: React.FC<InvoiceViewDialogProps> = ({
                     <Table>
                       <TableHeader>
                         <TableRow>
-                          <TableHead className="min-w-[200px]">Product</TableHead>
+                          <TableHead className="min-w-[200px]">
+                            Product
+                          </TableHead>
                           <TableHead className="hidden md:table-cell">
                             Description
                           </TableHead>
@@ -325,7 +372,8 @@ const InvoiceViewDialog: React.FC<InvoiceViewDialogProps> = ({
                             item.discountPercentage || 0
                           );
                           const subtotal = quantity * unitPrice;
-                          const discountAmount = subtotal * (discountPercentage / 100);
+                          const discountAmount =
+                            subtotal * (discountPercentage / 100);
                           const total = subtotal - discountAmount;
 
                           return (
@@ -343,6 +391,11 @@ const InvoiceViewDialog: React.FC<InvoiceViewDialogProps> = ({
                                     {item.product?.brand?.name &&
                                       ` • ${item.product.brand.name}`}
                                   </p>
+                                  {item.product?.warrantyPeriodMonths > 0 && (
+                                    <Badge variant="outline" className="text-xs mt-1 bg-green-50 text-green-700 border-green-200">
+                                      {item.product.warrantyPeriodMonths} months warranty
+                                    </Badge>
+                                  )}
                                 </div>
                               </TableCell>
                               <TableCell className="hidden md:table-cell">
@@ -378,36 +431,79 @@ const InvoiceViewDialog: React.FC<InvoiceViewDialogProps> = ({
                 <CardTitle>Pricing Summary</CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="space-y-2 max-w-md ml-auto">
-                  <div className="flex justify-between">
-                    <span>Subtotal:</span>
-                    <span>{formatCurrency(Number(displayInvoice.subtotal))}</span>
+                <div className="space-y-3 max-w-md ml-auto">
+                  <div className="flex justify-between text-base">
+                    <span className="text-muted-foreground">Subtotal:</span>
+                    <span className="font-medium">
+                      {formatCurrency(Number(displayInvoice.subtotal))}
+                    </span>
                   </div>
+                  
                   {Number(displayInvoice.discountAmount) > 0 && (
                     <div className="flex justify-between text-green-600">
                       <span>Discount:</span>
-                      <span>
+                      <span className="font-medium">
                         -{formatCurrency(Number(displayInvoice.discountAmount))}
                       </span>
                     </div>
                   )}
-                  <div className="flex justify-between">
-                    <span>Tax:</span>
-                    <span>{formatCurrency(Number(displayInvoice.taxAmount))}</span>
+
+                  <div className="border-t pt-3 space-y-2">
+                    {Number(displayInvoice.serviceFee) > 0 && (
+                      <div className="flex justify-between text-blue-600">
+                        <span>Service Charge:</span>
+                        <span className="font-medium">
+                          +{formatCurrency(Number(displayInvoice.serviceFee))}
+                        </span>
+                      </div>
+                    )}
+                    
+                    {Number(displayInvoice.processingFee) > 0 && (
+                      <div className="flex justify-between text-purple-600">
+                        <span>Processing Fee:</span>
+                        <span className="font-medium">
+                          +{formatCurrency(Number(displayInvoice.processingFee))}
+                        </span>
+                      </div>
+                    )}
                   </div>
-                  <div className="flex justify-between font-bold text-lg border-t pt-2">
-                    <span>Total Amount:</span>
-                    <span>
-                      {formatCurrency(Number(displayInvoice.totalAmount))}
-                    </span>
-                  </div>
-                  {Number(displayInvoice.amountPaid) > 0 && (
-                    <div className="flex justify-between text-green-600">
-                      <span>Amount Paid:</span>
+
+                  <div className="border-t pt-3">
+                    <div className="flex justify-between text-sm text-muted-foreground">
+                      <span>Tax (included in prices):</span>
                       <span>
-                        {formatCurrency(Number(displayInvoice.amountPaid))}
+                        {formatCurrency(Number(displayInvoice.taxAmount))}
                       </span>
                     </div>
+                  </div>
+
+                  <div className="border-t pt-3">
+                    <div className="flex justify-between font-bold text-lg">
+                      <span>Total Amount:</span>
+                      <span className="text-primary">
+                        {formatCurrency(Number(displayInvoice.totalAmount))}
+                      </span>
+                    </div>
+                  </div>
+
+                  {Number(displayInvoice.amountPaid) > 0 && (
+                    <>
+                      <div className="flex justify-between text-green-600 font-medium">
+                        <span>Amount Paid:</span>
+                        <span>
+                          {formatCurrency(Number(displayInvoice.amountPaid))}
+                        </span>
+                      </div>
+                      <div className="flex justify-between text-orange-600 font-medium border-t pt-3">
+                        <span>Outstanding Balance:</span>
+                        <span>
+                          {formatCurrency(
+                            Number(displayInvoice.totalAmount) - 
+                            Number(displayInvoice.amountPaid)
+                          )}
+                        </span>
+                      </div>
+                    </>
                   )}
                 </div>
               </CardContent>
