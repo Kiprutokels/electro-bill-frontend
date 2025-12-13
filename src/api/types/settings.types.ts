@@ -15,6 +15,11 @@ export interface SystemSettings {
   invoicePrefix: string;
   receiptPrefix: string;
   logoUrl?: string;
+  // Fee Settings
+  processingFeeEnabled: boolean;
+  processingFeeAmount: number;
+  serviceFeeEnabled: boolean;
+  serviceFeePercentage: number;
   createdAt: string;
   updatedAt: string;
 }
@@ -35,6 +40,11 @@ export interface CreateSettingsRequest {
   invoicePrefix?: string;
   receiptPrefix?: string;
   logoUrl?: string;
+  // Fee Settings
+  processingFeeEnabled?: boolean;
+  processingFeeAmount?: number;
+  serviceFeeEnabled?: boolean;
+  serviceFeePercentage?: number;
 }
 
 export interface UpdateSettingsRequest extends Partial<CreateSettingsRequest> {}

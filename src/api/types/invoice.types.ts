@@ -39,6 +39,7 @@ export interface InvoiceProduct {
   sku: string;
   sellingPrice: string;
   unitOfMeasure: string;
+  warrantyPeriodMonths: number;
   category: {
     name: string;
   };
@@ -71,6 +72,13 @@ export interface InvoiceQuotation {
   quotationDate: string;
 }
 
+export interface InvoiceJob {
+  id: string;
+  jobNumber: string;
+  status: string;
+  serviceDescription: string;
+}
+
 export interface InvoiceReceipt {
   id: string;
   receiptNumber: string;
@@ -83,11 +91,14 @@ export interface Invoice {
   invoiceNumber: string;
   quotationId?: string;
   customerId: string;
+  jobId?: string;
   invoiceDate: string;
   dueDate: string;
   subtotal: string;
   taxAmount: string;
   discountAmount: string;
+  serviceFee: number;
+  processingFee: number; 
   totalAmount: string;
   amountPaid: string;
   status: InvoiceStatus;
@@ -98,6 +109,7 @@ export interface Invoice {
   updatedAt: string;
   customer: InvoiceCustomer;
   quotation?: InvoiceQuotation;
+  job?: InvoiceJob;
   createdByUser: InvoiceUser;
   items: InvoiceItem[];
   receiptItems?: Array<{
@@ -155,6 +167,7 @@ export interface ProductSearchResult {
   sku: string;
   sellingPrice: string;
   unitOfMeasure: string;
+  warrantyPeriodMonths: number;
   category?: {
     name: string;
   };

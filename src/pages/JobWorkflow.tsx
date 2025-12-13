@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -23,7 +23,8 @@ import {
   AlertCircle,
   FileText,
   DollarSign,
-  Loader2
+  Loader2,
+  Eye
 } from 'lucide-react';
 import { jobsService } from '@/api/services/jobs.service';
 import { invoicesService } from '@/api/services/invoices.service';
@@ -33,12 +34,40 @@ const JobWorkflow = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const [generatingInvoice, setGeneratingInvoice] = useState(false);
+  const [checkingInvoice, setCheckingInvoice] = useState(false);
+  const [existingInvoiceId, setExistingInvoiceId] = useState<string | null>(null);
 
   const { data: jobWorkflow, isLoading } = useQuery({
     queryKey: ['job-workflow', id],
     queryFn: () => jobsService.getJobWorkflow(id!),
     enabled: !!id
   });
+
+  // Check if invoice exists when job is completed
+  useEffect(() => {
+    if (jobWorkflow?.status === 'COMPLETED' && id) {
+      checkForExistingInvoice();
+    }
+  }, [jobWorkflow?.status, id]);
+
+  const checkForExistingInvoice = async () => {
+    if (!id) return;
+    
+    setCheckingInvoice(true);
+    try {
+      const hasInvoice = await invoicesService.hasInvoiceForJob(id);
+      if (hasInvoice) {
+        const invoice = await invoicesService.getByJobId(id);
+        if (invoice) {
+          setExistingInvoiceId(invoice.id);
+        }
+      }
+    } catch (error) {
+      console.error('Error checking for existing invoice:', error);
+    } finally {
+      setCheckingInvoice(false);
+    }
+  };
 
   const handleGenerateInvoice = async () => {
     if (!id) return;
@@ -52,6 +81,12 @@ const JobWorkflow = () => {
       toast.error(error.response?.data?.message || 'Failed to generate invoice');
     } finally {
       setGeneratingInvoice(false);
+    }
+  };
+
+  const handleViewInvoice = () => {
+    if (existingInvoiceId) {
+      navigate(`/invoices/${existingInvoiceId}`);
     }
   };
 
@@ -99,14 +134,28 @@ const JobWorkflow = () => {
             {jobWorkflow.status.replace(/_/g, ' ')}
           </Badge>
           {jobWorkflow.status === 'COMPLETED' && (
-            <Button onClick={handleGenerateInvoice} disabled={generatingInvoice}>
-              {generatingInvoice ? (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            <>
+              {checkingInvoice ? (
+                <Button disabled>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Checking...
+                </Button>
+              ) : existingInvoiceId ? (
+                <Button onClick={handleViewInvoice}>
+                  <Eye className="mr-2 h-4 w-4" />
+                  View Invoice
+                </Button>
               ) : (
-                <DollarSign className="mr-2 h-4 w-4" />
+                <Button onClick={handleGenerateInvoice} disabled={generatingInvoice}>
+                  {generatingInvoice ? (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  ) : (
+                    <DollarSign className="mr-2 h-4 w-4" />
+                  )}
+                  Generate Invoice
+                </Button>
               )}
-              Generate Invoice
-            </Button>
+            </>
           )}
         </div>
       </div>

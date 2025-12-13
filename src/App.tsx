@@ -18,6 +18,7 @@ import AdminLayout from "./components/layout/AdminLayout";
 import NotFound from "./pages/NotFound";
 import { Loader2 } from "lucide-react";
 import Invoices from "./pages/Invoices";
+import InvoiceView from "./pages/InvoiceView";
 import Inventory from "./pages/Inventory";
 import Quotations from "./pages/Quotations";
 import ProductBatches from "./pages/Inventory/Batches";
@@ -26,6 +27,7 @@ import NewPayment from "./pages/NewPayment";
 import Settings from "./pages/Settings";
 import Transactions from "./pages/Transactions";
 import Reports from "./pages/Reports";
+import Subscriptions from "./pages/Subscriptions";
 
 // Vehicle Tracking
 import Vehicles from "./pages/Vehicles";
@@ -104,8 +106,10 @@ const AppRoutes = () => {
             <Route path="inventory/batches" element={<ProductBatches />} />
             <Route path="quotations" element={<Quotations />} />
             <Route path="invoices" element={<Invoices />} />
+            <Route path="invoices/:id" element={<InvoiceView />} />
             <Route path="payments" element={<Payments />} />
             <Route path="payments/new" element={<NewPayment />} />
+            <Route path="subscriptions" element={<Subscriptions />} />
             <Route path="settings/*" element={<Settings />} />
             <Route path="transactions" element={<Transactions />} />
             <Route path="reports" element={<Reports />} />
@@ -119,7 +123,7 @@ const AppRoutes = () => {
             <Route path="jobs/:id/workflow" element={<JobWorkflow />} />
           </>
         )}
-        
+
         {/* Technician Routes */}
         {isTechnician && (
           <>

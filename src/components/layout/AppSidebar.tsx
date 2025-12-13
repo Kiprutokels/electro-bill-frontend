@@ -132,6 +132,13 @@ const adminNavigation = [
     permission: null,
     section: "tracking",
   },
+  {
+    name: "Subscriptions",
+    href: "/subscriptions",
+    icon: CreditCard,
+    permission: PERMISSIONS.SUBSCRIPTIONS_READ,
+    section: "system",
+  },
 
   // System Section
   {
