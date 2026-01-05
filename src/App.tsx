@@ -28,6 +28,7 @@ import Settings from "./pages/Settings";
 import Transactions from "./pages/Transactions";
 import Reports from "./pages/Reports";
 import Subscriptions from "./pages/Subscriptions";
+import ProcessingFees from './pages/ProcessingFees';
 
 // Vehicle Tracking
 import Vehicles from "./pages/Vehicles";
@@ -113,6 +114,7 @@ const AppRoutes = () => {
             <Route path="settings/*" element={<Settings />} />
             <Route path="transactions" element={<Transactions />} />
             <Route path="reports" element={<Reports />} />
+            <Route path="processing-fees" element={<ProcessingFees />} />
 
             {/* Vehicle Tracking */}
             <Route path="vehicles" element={<Vehicles />} />
