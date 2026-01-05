@@ -10,7 +10,12 @@ import { toast } from 'sonner';
 import { MapPin, Save, Loader2 } from 'lucide-react';
 import { technicianJobsService } from '@/api/services/technician-jobs.service';
 
-const InstallationProgress = ({ job }: { job: any }) => {
+interface InstallationProgressProps {
+  job: any;
+  onComplete?: () => void;
+}
+
+const InstallationProgress = ({ job, onComplete }: InstallationProgressProps) => {
   const queryClient = useQueryClient();
   const [formData, setFormData] = useState({
     imeiNumbers: job.imeiNumbers?.join(', ') || '',
@@ -41,9 +46,13 @@ const InstallationProgress = ({ job }: { job: any }) => {
         photoUrls: uploadedUrls,
       });
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['active-job'] });
-      toast.success('Installation progress updated successfully');
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ['active-job'] });
+      await queryClient.invalidateQueries({ queryKey: ['job-by-id', job.id] });
+      toast.success('Installation progress saved successfully');
+      if (onComplete) {
+        onComplete();
+      }
     },
     onError: (error: any) => {
       toast.error(error.response?.data?.message || 'Failed to update progress');
@@ -259,7 +268,7 @@ const InstallationProgress = ({ job }: { job: any }) => {
           ) : (
             <>
               <Save className="mr-2 h-4 w-4" />
-              Save Progress
+              Save & Continue
             </>
           )}
         </Button>

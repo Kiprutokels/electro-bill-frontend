@@ -20,22 +20,28 @@ import {
   ChevronDown,
   ChevronRight,
   Check,
-  X,
   Camera,
   Loader2,
   Send,
   CheckCircle2,
   AlertTriangle,
+  Edit,
 } from 'lucide-react';
 import { inspectionsService, CheckStatus, InspectionStage } from '@/api/services/inspections.service';
 
-const PostInspection = ({ job }: { job: any }) => {
+interface PostInspectionProps {
+  job: any;
+  onComplete?: () => void;
+}
+
+const PostInspection = ({ job, onComplete }: PostInspectionProps) => {
   const queryClient = useQueryClient();
   const [checklistData, setChecklistData] = useState<Record<string, any>>({});
   const [photoFiles, setPhotoFiles] = useState<Record<string, File>>({});
   const [expandedItem, setExpandedItem] = useState<string | null>(null);
   const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
   const [selectAll, setSelectAll] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
 
   // Fetch checklist items
   const { data: checklistItems, isLoading: loadingItems } = useQuery({
@@ -83,14 +89,19 @@ const PostInspection = ({ job }: { job: any }) => {
         inspections,
       });
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['job-post-inspections'] });
-      queryClient.invalidateQueries({ queryKey: ['active-job'] });
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ['job-post-inspections'] });
+      await queryClient.invalidateQueries({ queryKey: ['active-job'] });
+      await queryClient.invalidateQueries({ queryKey: ['job-by-id', job.id] });
       toast.success('Post-installation inspection submitted');
       setChecklistData({});
       setPhotoFiles({});
       setSelectedItems(new Set());
       setSelectAll(false);
+      setIsEditing(false);
+      if (onComplete) {
+        onComplete();
+      }
     },
     onError: (error: any) => {
       toast.error(error.response?.data?.message || 'Failed to submit inspection');
@@ -104,10 +115,9 @@ const PostInspection = ({ job }: { job: any }) => {
     const existingCheck = existingInspections?.find(
       (ei: any) => ei.checklistItemId === item.id
     );
-    return !existingCheck;
+    return !existingCheck || isEditing;
   });
 
-  // Three-state toggle: Not Checked → Checked → Issue Found → Not Checked
   const handleToggleCheck = (itemId: string) => {
     const currentStatus = checklistData[itemId]?.status;
     let nextStatus: CheckStatus;
@@ -173,12 +183,17 @@ const PostInspection = ({ job }: { job: any }) => {
       return !existing && !checklistData[item.id]?.status;
     });
 
-    if (incomplete.length > 0) {
+    if (incomplete.length > 0 && !isEditing) {
       toast.error(`Please check ${incomplete.length} remaining components`);
       return;
     }
 
     submitMutation.mutate();
+  };
+
+  const handleEdit = () => {
+    setIsEditing(true);
+    toast.info("Edit mode enabled. You can now modify your inspection.");
   };
 
   const getStatusIcon = (status?: string) => {
@@ -212,22 +227,32 @@ const PostInspection = ({ job }: { job: any }) => {
 
   return (
     <div className="space-y-4">
-      {hasExistingInspection && (
+      {hasExistingInspection && !isEditing && (
         <Card className="border-green-200 bg-green-50">
           <CardContent className="pt-4">
-            <div className="flex items-center gap-2">
-              <CheckCircle2 className="h-5 w-5 text-green-600" />
-              <p className="text-sm text-green-800">
-                Post-installation inspection completed. All components verified working after installation.
-                {issueCount > 0 && ` (${issueCount} issue${issueCount > 1 ? 's' : ''} reported)`}
-              </p>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <CheckCircle2 className="h-5 w-5 text-green-600" />
+                <p className="text-sm text-green-800">
+                  Post-installation inspection completed. All components verified working after installation.
+                  {issueCount > 0 && ` (${issueCount} issue${issueCount > 1 ? 's' : ''} reported)`}
+                </p>
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleEdit}
+              >
+                <Edit className="h-4 w-4 mr-2" />
+                Edit Inspection
+              </Button>
             </div>
           </CardContent>
         </Card>
       )}
 
       {/* Quick Actions */}
-      {!hasExistingInspection && selectableItems.length > 0 && (
+      {(!hasExistingInspection || isEditing) && selectableItems.length > 0 && (
         <Card>
           <CardContent className="pt-4">
             <div className="flex items-center justify-between gap-4 flex-wrap">
@@ -260,7 +285,7 @@ const PostInspection = ({ job }: { job: any }) => {
                 
                 <Button
                   onClick={handleSubmit}
-                  disabled={submitMutation.isPending || checkedCount < items.length}
+                  disabled={submitMutation.isPending || (checkedCount < items.length && !isEditing)}
                   size="sm"
                 >
                   {submitMutation.isPending ? (
@@ -271,7 +296,7 @@ const PostInspection = ({ job }: { job: any }) => {
                   ) : (
                     <>
                       <Send className="mr-2 h-4 w-4" />
-                      Submit ({checkedCount}/{items.length})
+                      {isEditing ? 'Update' : 'Submit'} ({checkedCount}/{items.length})
                     </>
                   )}
                 </Button>
@@ -294,7 +319,7 @@ const PostInspection = ({ job }: { job: any }) => {
             <Table>
               <TableHeader>
                 <TableRow className="bg-muted/50">
-                  {!hasExistingInspection && selectableItems.length > 0 && (
+                  {(!hasExistingInspection || isEditing) && selectableItems.length > 0 && (
                     <TableHead className="w-10">
                       <Checkbox
                         checked={selectAll}
@@ -323,7 +348,7 @@ const PostInspection = ({ job }: { job: any }) => {
                     const currentStatus = existingCheck?.status || checklistData[item.id]?.status;
                     const isExpanded = expandedItem === item.id;
                     const isSelected = selectedItems.has(item.id);
-                    const isSelectable = !existingCheck && !hasExistingInspection;
+                    const isSelectable = !existingCheck || isEditing;
                     const hasNotes = existingCheck?.notes || checklistData[item.id]?.notes;
 
                     return (
@@ -331,7 +356,7 @@ const PostInspection = ({ job }: { job: any }) => {
                         <TableRow 
                           className={`${isSelected ? 'bg-blue-50' : ''} ${isExpanded ? 'border-b-0' : ''} ${currentStatus === CheckStatus.ISSUE_FOUND ? 'bg-red-50/50' : ''}`}
                         >
-                          {!hasExistingInspection && selectableItems.length > 0 && (
+                          {(!hasExistingInspection || isEditing) && selectableItems.length > 0 && (
                             <TableCell>
                               {isSelectable ? (
                                 <Checkbox
@@ -377,7 +402,7 @@ const PostInspection = ({ job }: { job: any }) => {
                           </TableCell>
                           
                           <TableCell className="text-center">
-                            {!existingCheck && !hasExistingInspection ? (
+                            {(!existingCheck || isEditing) ? (
                               <button
                                 type="button"
                                 onClick={() => handleToggleCheck(item.id)}
@@ -395,6 +420,7 @@ const PostInspection = ({ job }: { job: any }) => {
                           </TableCell>
                         </TableRow>
 
+                        {/* Expanded Details Row */}
                         {isExpanded && (
                           <TableRow className="bg-muted/20">
                             <TableCell colSpan={4} className="p-0">
@@ -406,7 +432,7 @@ const PostInspection = ({ job }: { job: any }) => {
                                   </div>
                                 )}
 
-                                {!existingCheck && !hasExistingInspection && (
+                                {(!existingCheck || isEditing) && (
                                   <>
                                     <div className="flex items-center gap-2 p-3 bg-muted/50 rounded-lg">
                                       <div className="flex items-center gap-3">
@@ -503,7 +529,7 @@ const PostInspection = ({ job }: { job: any }) => {
                                   </>
                                 )}
 
-                                {existingCheck?.notes && (
+                                {existingCheck?.notes && !isEditing && (
                                   <div className="p-3 bg-muted rounded-lg">
                                     <Label className="text-xs text-muted-foreground">Technician Notes</Label>
                                     <p className="text-sm mt-1">{existingCheck.notes}</p>

@@ -20,23 +20,28 @@ import {
   ChevronDown,
   ChevronRight,
   Check,
-  X,
   Camera,
   Loader2,
   Send,
-  AlertCircle,
   CheckCircle2,
   AlertTriangle,
+  Edit,
 } from 'lucide-react';
 import { inspectionsService, CheckStatus, InspectionStage } from '@/api/services/inspections.service';
 
-const PreInspection = ({ job }: { job: any }) => {
+interface PreInspectionProps {
+  job: any;
+  onComplete?: () => void;
+}
+
+const PreInspection = ({ job, onComplete }: PreInspectionProps) => {
   const queryClient = useQueryClient();
   const [checklistData, setChecklistData] = useState<Record<string, any>>({});
   const [photoFiles, setPhotoFiles] = useState<Record<string, File>>({});
   const [expandedItem, setExpandedItem] = useState<string | null>(null);
   const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
   const [selectAll, setSelectAll] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
 
   // Fetch checklist items
   const { data: checklistItems, isLoading: loadingItems } = useQuery({
@@ -85,14 +90,19 @@ const PreInspection = ({ job }: { job: any }) => {
         inspections,
       });
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['job-pre-inspections'] });
-      queryClient.invalidateQueries({ queryKey: ['active-job'] });
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ['job-pre-inspections'] });
+      await queryClient.invalidateQueries({ queryKey: ['active-job'] });
+      await queryClient.invalidateQueries({ queryKey: ['job-by-id', job.id] });
       toast.success('Pre-installation inspection submitted');
       setChecklistData({});
       setPhotoFiles({});
       setSelectedItems(new Set());
       setSelectAll(false);
+      setIsEditing(false);
+      if (onComplete) {
+        onComplete();
+      }
     },
     onError: (error: any) => {
       toast.error(error.response?.data?.message || 'Failed to submit inspection');
@@ -102,18 +112,16 @@ const PreInspection = ({ job }: { job: any }) => {
   const items = checklistItems?.data || [];
   const hasExistingInspection = existingInspections && existingInspections.length > 0;
 
-  // Get only items that can be selected (not already checked)
   const selectableItems = items.filter((item: any) => {
     const existingCheck = existingInspections?.find(
       (ei: any) => ei.checklistItemId === item.id
     );
-    return !existingCheck;
+    return !existingCheck || isEditing;
   });
 
-  // Three-state toggle: Not Checked → Checked → Issue Found → Not Checked
   const handleToggleCheck = (itemId: string) => {
     const currentStatus = checklistData[itemId]?.status;
-    let nextStatus;
+    let nextStatus: CheckStatus;
     
     if (!currentStatus || currentStatus === CheckStatus.NOT_CHECKED) {
       nextStatus = CheckStatus.CHECKED;
@@ -132,7 +140,6 @@ const PreInspection = ({ job }: { job: any }) => {
     });
   };
 
-  // Handle select all checkbox
   const handleSelectAll = () => {
     if (selectAll) {
       setSelectedItems(new Set());
@@ -144,7 +151,6 @@ const PreInspection = ({ job }: { job: any }) => {
     }
   };
 
-  // Handle individual select
   const handleSelectItem = (itemId: string) => {
     const newSelected = new Set(selectedItems);
     if (newSelected.has(itemId)) {
@@ -153,11 +159,9 @@ const PreInspection = ({ job }: { job: any }) => {
       newSelected.add(itemId);
     }
     setSelectedItems(newSelected);
-    
     setSelectAll(newSelected.size === selectableItems.length && selectableItems.length > 0);
   };
 
-  // Mark selected as checked
   const handleMarkSelectedAsChecked = () => {
     const newData = { ...checklistData };
     selectedItems.forEach((itemId) => {
@@ -185,12 +189,17 @@ const PreInspection = ({ job }: { job: any }) => {
       return !existing && !checklistData[item.id]?.status;
     });
 
-    if (incomplete.length > 0) {
+    if (incomplete.length > 0 && !isEditing) {
       toast.error(`Please check ${incomplete.length} remaining components`);
       return;
     }
 
     submitMutation.mutate();
+  };
+
+  const handleEdit = () => {
+    setIsEditing(true);
+    toast.info("Edit mode enabled. You can now modify your inspection.");
   };
 
   const getStatusIcon = (status?: string) => {
@@ -224,35 +233,32 @@ const PreInspection = ({ job }: { job: any }) => {
 
   return (
     <div className="space-y-4">
-      {hasExistingInspection && (
+      {hasExistingInspection && !isEditing && (
         <Card className="border-green-200 bg-green-50">
           <CardContent className="pt-4">
-            <div className="flex items-center gap-2">
-              <CheckCircle2 className="h-5 w-5 text-green-600" />
-              <p className="text-sm text-green-800">
-                Pre-installation inspection completed. Components verified before starting work.
-                {issueCount > 0 && ` (${issueCount} issue${issueCount > 1 ? 's' : ''} reported)`}
-              </p>
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      {!job.vehicleId && (
-        <Card className="border-orange-200 bg-orange-50">
-          <CardContent className="pt-4">
-            <div className="flex items-center gap-2">
-              <AlertCircle className="h-5 w-5 text-orange-600" />
-              <p className="text-sm text-orange-800">
-                Add vehicle information in the Vehicle tab first
-              </p>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <CheckCircle2 className="h-5 w-5 text-green-600" />
+                <p className="text-sm text-green-800">
+                  Pre-installation inspection completed. Components verified before starting work.
+                  {issueCount > 0 && ` (${issueCount} issue${issueCount > 1 ? 's' : ''} reported)`}
+                </p>
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleEdit}
+              >
+                <Edit className="h-4 w-4 mr-2" />
+                Edit Inspection
+              </Button>
             </div>
           </CardContent>
         </Card>
       )}
 
       {/* Quick Actions */}
-      {!hasExistingInspection && selectableItems.length > 0 && (
+      {(!hasExistingInspection || isEditing) && selectableItems.length > 0 && (
         <Card>
           <CardContent className="pt-4">
             <div className="flex items-center justify-between gap-4 flex-wrap">
@@ -285,7 +291,7 @@ const PreInspection = ({ job }: { job: any }) => {
                 
                 <Button
                   onClick={handleSubmit}
-                  disabled={submitMutation.isPending || !job.vehicleId || checkedCount < items.length}
+                  disabled={submitMutation.isPending || !job.vehicleId || (checkedCount < items.length && !isEditing)}
                   size="sm"
                 >
                   {submitMutation.isPending ? (
@@ -296,7 +302,7 @@ const PreInspection = ({ job }: { job: any }) => {
                   ) : (
                     <>
                       <Send className="mr-2 h-4 w-4" />
-                      Submit ({checkedCount}/{items.length})
+                      {isEditing ? 'Update' : 'Submit'} ({checkedCount}/{items.length})
                     </>
                   )}
                 </Button>
@@ -319,7 +325,7 @@ const PreInspection = ({ job }: { job: any }) => {
             <Table>
               <TableHeader>
                 <TableRow className="bg-muted/50">
-                  {!hasExistingInspection && selectableItems.length > 0 && (
+                  {(!hasExistingInspection || isEditing) && selectableItems.length > 0 && (
                     <TableHead className="w-10">
                       <Checkbox
                         checked={selectAll}
@@ -348,7 +354,7 @@ const PreInspection = ({ job }: { job: any }) => {
                     const currentStatus = existingCheck?.status || checklistData[item.id]?.status;
                     const isExpanded = expandedItem === item.id;
                     const isSelected = selectedItems.has(item.id);
-                    const isSelectable = !existingCheck && !hasExistingInspection;
+                    const isSelectable = !existingCheck || isEditing;
                     const hasNotes = existingCheck?.notes || checklistData[item.id]?.notes;
 
                     return (
@@ -356,7 +362,7 @@ const PreInspection = ({ job }: { job: any }) => {
                         <TableRow 
                           className={`${isSelected ? 'bg-blue-50' : ''} ${isExpanded ? 'border-b-0' : ''} ${currentStatus === CheckStatus.ISSUE_FOUND ? 'bg-red-50/50' : ''}`}
                         >
-                          {!hasExistingInspection && selectableItems.length > 0 && (
+                          {(!hasExistingInspection || isEditing) && selectableItems.length > 0 && (
                             <TableCell>
                               {isSelectable ? (
                                 <Checkbox
@@ -402,7 +408,7 @@ const PreInspection = ({ job }: { job: any }) => {
                           </TableCell>
                           
                           <TableCell className="text-center">
-                            {!existingCheck && !hasExistingInspection ? (
+                            {(!existingCheck || isEditing) ? (
                               <button
                                 type="button"
                                 onClick={() => handleToggleCheck(item.id)}
@@ -432,7 +438,7 @@ const PreInspection = ({ job }: { job: any }) => {
                                   </div>
                                 )}
 
-                                {!existingCheck && !hasExistingInspection && (
+                                {(!existingCheck || isEditing) && (
                                   <>
                                     <div className="flex items-center gap-2 p-3 bg-muted/50 rounded-lg">
                                       <div className="flex items-center gap-3">
@@ -529,7 +535,7 @@ const PreInspection = ({ job }: { job: any }) => {
                                   </>
                                 )}
 
-                                {existingCheck?.notes && (
+                                {existingCheck?.notes && !isEditing && (
                                   <div className="p-3 bg-muted rounded-lg">
                                     <Label className="text-xs text-muted-foreground">Technician Notes</Label>
                                     <p className="text-sm mt-1">{existingCheck.notes}</p>

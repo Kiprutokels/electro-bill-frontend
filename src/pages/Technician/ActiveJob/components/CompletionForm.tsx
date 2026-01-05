@@ -33,12 +33,27 @@ const CompletionForm = ({ job }: { job: any }) => {
         simCardIccid: job.simCardIccid,
         macAddress: job.macAddress,
       }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['active-job'] });
-      queryClient.invalidateQueries({ queryKey: ['technician-jobs'] });
-      queryClient.invalidateQueries({ queryKey: ['job-by-id', job.id] });
+    onSuccess: async () => {
+      // Remove old cache entries immediately
+      queryClient.removeQueries({ queryKey: ['active-job'] });
+      queryClient.removeQueries({ queryKey: ['job-by-id', job.id] });
+      
+      // Invalidate and refetch all related queries
+      await Promise.all([
+        queryClient.invalidateQueries({ 
+          queryKey: ['technician-jobs'],
+          refetchType: 'active'
+        }),
+        queryClient.invalidateQueries({ 
+          queryKey: ['technician-stats'],
+          refetchType: 'active'
+        }),
+      ]);
+      
       toast.success('Job completed successfully!');
-      navigate('/technician/jobs');
+      
+      // Navigate with replace to prevent back navigation to completed job
+      navigate('/technician/jobs', { replace: true });
     },
     onError: (error: any) => {
       toast.error(error.response?.data?.message || 'Failed to complete job');
@@ -65,10 +80,10 @@ const CompletionForm = ({ job }: { job: any }) => {
 
     completeMutation.mutate();
   };
+
   // Prerequisite checks
   const hasVehicle = !!job.vehicleId;
   
-  // Pre-inspection: check if any pre-inspection records exist
   const hasPreInspection = [
     'REQUISITION_PENDING',
     'REQUISITION_APPROVED', 
@@ -80,7 +95,6 @@ const CompletionForm = ({ job }: { job: any }) => {
     'VERIFIED'
   ].includes(job.status);
   
-  // Installation data: must have at least IMEI numbers AND photos
   const hasInstallationData = (
     job.imeiNumbers && 
     job.imeiNumbers.length > 0 && 
@@ -88,7 +102,6 @@ const CompletionForm = ({ job }: { job: any }) => {
     job.photoUrls.length > 0
   );
   
-  // Post-inspection: only allow completion if post-inspection is done
   const hasPostInspection = [
     'POST_INSPECTION_PENDING',
     'COMPLETED',
