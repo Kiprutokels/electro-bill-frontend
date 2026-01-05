@@ -17,6 +17,7 @@ import {
   Briefcase,
   PackageSearch,
   MapPin,
+  DollarSign,
 } from "lucide-react";
 import {
   Sidebar,
@@ -137,6 +138,13 @@ const adminNavigation = [
     href: "/subscriptions",
     icon: CreditCard,
     permission: PERMISSIONS.SUBSCRIPTIONS_READ,
+    section: "system",
+  },
+  {
+    name: "Processing Fees",
+    href: "/processing-fees",
+    icon: DollarSign,
+    permission: PERMISSIONS.PROCESSING_FEES_READ,
     section: "system",
   },
 
