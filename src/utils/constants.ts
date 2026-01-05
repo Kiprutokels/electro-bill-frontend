@@ -79,6 +79,12 @@ export const PERMISSIONS = {
   SUBSCRIPTIONS_CREATE: "subscriptions.create",
   SUBSCRIPTIONS_UPDATE: "subscriptions.update",
   SUBSCRIPTIONS_DELETE: "subscriptions.delete",
+
+  // Processing Fees
+  PROCESSING_FEES_READ: "processing_fees.read",
+  PROCESSING_FEES_SETTLE: "processing_fees.settle",
+
+  
 } as const;
 
 export const APP_NAME = "ElectroBill";
