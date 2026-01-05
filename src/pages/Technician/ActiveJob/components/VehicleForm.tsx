@@ -8,7 +8,12 @@ import { toast } from 'sonner';
 import { Loader2, Save } from 'lucide-react';
 import { technicianJobsService } from '@/api/services/technician-jobs.service';
 
-const VehicleForm = ({ job }: { job: any }) => {
+interface VehicleFormProps {
+  job: any;
+  onComplete?: () => void;
+}
+
+const VehicleForm = ({ job, onComplete }: VehicleFormProps) => {
   const queryClient = useQueryClient();
   const [formData, setFormData] = useState({
     vehicleReg: job.vehicle?.vehicleReg || '',
@@ -35,9 +40,13 @@ const VehicleForm = ({ job }: { job: any }) => {
           : undefined,
         vehicleType: formData.vehicleType || undefined,
       }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['active-job'] });
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ['active-job'] });
+      await queryClient.invalidateQueries({ queryKey: ['job-by-id', job.id] });
       toast.success('Vehicle information saved successfully');
+      if (onComplete) {
+        onComplete();
+      }
     },
     onError: (error: any) => {
       toast.error(error.response?.data?.message || 'Failed to save vehicle information');
@@ -186,7 +195,7 @@ const VehicleForm = ({ job }: { job: any }) => {
               ) : (
                 <>
                   <Save className="mr-2 h-4 w-4" />
-                  Save Vehicle Information
+                  Save & Continue
                 </>
               )}
             </Button>
