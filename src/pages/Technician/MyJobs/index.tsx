@@ -37,7 +37,7 @@ const MyJobs = () => {
   const [statusFilter, setStatusFilter] = useState<JobStatus | undefined>();
   const [page, setPage] = useState(1);
 
-  // Fetch my jobs
+  // Fetch my jobs with aggressive refetch settings
   const { data: jobsData, isLoading } = useQuery({
     queryKey: ["technician-jobs", page, statusFilter],
     queryFn: () =>
@@ -46,12 +46,20 @@ const MyJobs = () => {
         limit: 10,
         status: statusFilter,
       }),
+    staleTime: 0,
+    gcTime: 1000 * 60 * 5, // Keep in cache for 5 minutes
+    refetchOnMount: 'always',
+    refetchOnWindowFocus: true,
   });
 
   // Fetch my statistics
   const { data: stats } = useQuery({
     queryKey: ["technician-stats"],
     queryFn: technicianJobsService.getMyStats,
+    staleTime: 0,
+    gcTime: 1000 * 60 * 5,
+    refetchOnMount: 'always',
+    refetchOnWindowFocus: true,
   });
 
   const jobs = jobsData?.data || [];
@@ -151,7 +159,10 @@ const MyJobs = () => {
             <CardTitle>Assigned Jobs</CardTitle>
             <Select
               value={statusFilter}
-              onValueChange={(val) => setStatusFilter(val as JobStatus)}
+              onValueChange={(val) => {
+                setStatusFilter(val === 'all' ? undefined : val as JobStatus);
+                setPage(1);
+              }}
             >
               <SelectTrigger className="w-[200px]">
                 <SelectValue placeholder="Filter by status" />
@@ -194,7 +205,7 @@ const MyJobs = () => {
                       <div className="flex flex-col items-center gap-2">
                         <AlertCircle className="h-8 w-8 text-muted-foreground" />
                         <p className="text-muted-foreground">
-                          No jobs assigned yet. Please contact your supervisor.
+                          No jobs found. {statusFilter ? 'Try changing the filter.' : 'Please contact your supervisor.'}
                         </p>
                       </div>
                     </TableCell>
