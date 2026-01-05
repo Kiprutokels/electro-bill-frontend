@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -24,6 +24,7 @@ import { Plus, Minus, Loader2, Send, Check, ChevronsUpDown } from "lucide-react"
 import { requisitionsService } from "@/api/services/requisitions.service";
 import { productsService } from "@/api/services/products.service";
 import { cn } from "@/lib/utils";
+import React from "react";
 
 interface FormItem {
   productId: string;
@@ -38,7 +39,12 @@ interface ProductOption {
   totalAvailable: number;
 }
 
-const RequisitionForm = ({ job }: { job: any }) => {
+interface RequisitionFormProps {
+  job: any;
+  onComplete?: () => void;
+}
+
+const RequisitionForm = ({ job, onComplete }: RequisitionFormProps) => {
   const queryClient = useQueryClient();
   const [items, setItems] = useState<FormItem[]>([{ productId: "", productName: "", quantityRequested: 1 }]);
   const [notes, setNotes] = useState("");
@@ -47,7 +53,7 @@ const RequisitionForm = ({ job }: { job: any }) => {
   const [openProductSelects, setOpenProductSelects] = useState<Record<number, boolean>>({});
 
   // Debounce search queries per index
-  useEffect(() => {
+  React.useEffect(() => {
     const timers: NodeJS.Timeout[] = [];
 
     Object.entries(searchQueries).forEach(([indexStr, query]) => {
@@ -70,34 +76,20 @@ const RequisitionForm = ({ job }: { job: any }) => {
     queryFn: () => requisitionsService.getRequisitions({ jobId: job.id }),
   });
 
-  // Memoized search function for each dropdown
-  const searchProducts = useCallback(async (query: string) => {
-    if (!query || query.trim().length < 2) {
-      return [];
-    }
-    return await productsService.searchProducts(query, 10);
-  }, []);
-
-  // Use query for each active search
-  const useProductSearch = (index: number) => {
-    return useQuery({
-      queryKey: ['product-search', index, debouncedQueries[index]],
-      queryFn: () => searchProducts(debouncedQueries[index] || ''),
-      enabled: !!debouncedQueries[index] && debouncedQueries[index].length >= 2,
-      staleTime: 1000 * 60 * 5, // Cache for 5 minutes
-    });
-  };
-
   const createMutation = useMutation({
     mutationFn: requisitionsService.createRequisition,
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["job-requisitions"] });
-      queryClient.invalidateQueries({ queryKey: ["active-job"] });
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["job-requisitions"] });
+      await queryClient.invalidateQueries({ queryKey: ["active-job"] });
+      await queryClient.invalidateQueries({ queryKey: ["job-by-id", job.id] });
       toast.success("Requisition created successfully");
       setItems([{ productId: "", productName: "", quantityRequested: 1 }]);
       setNotes("");
       setSearchQueries({});
       setDebouncedQueries({});
+      if (onComplete) {
+        onComplete();
+      }
     },
     onError: (error: any) => {
       toast.error(
@@ -175,6 +167,7 @@ const RequisitionForm = ({ job }: { job: any }) => {
   };
 
   const requisitions = requisitionsData?.data || [];
+  const hasApprovedRequisition = requisitions.some((req: any) => req.status === 'APPROVED');
 
   return (
     <div className="space-y-6">
@@ -296,7 +289,7 @@ const RequisitionForm = ({ job }: { job: any }) => {
   );
 };
 
-//  component for each product dropdown to isolate state
+// Separate component for each product dropdown to isolate state
 interface ProductSearchDropdownProps {
   index: number;
   item: FormItem;
