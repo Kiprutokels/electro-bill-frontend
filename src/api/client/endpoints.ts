@@ -2,8 +2,10 @@ export const API_ENDPOINTS = {
   // Authentication
   AUTH: {
     LOGIN: "/auth/login",
-    PROFILE: "/auth/profile",
-    CHANGE_PASSWORD: "/auth/change-password",
+    PROFILE: '/auth/profile',
+    CHANGE_PASSWORD: '/auth/change-password',
+    FORGOT_PASSWORD: '/auth/forgot-password',
+    RESET_PASSWORD: '/auth/reset-password',
   },
 
   // Users
