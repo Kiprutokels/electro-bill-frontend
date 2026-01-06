@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Table,
   TableBody,
@@ -48,6 +49,8 @@ import {
   Eye,
   Minus,
   Loader2,
+  DollarSign,
+  Send,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -55,10 +58,18 @@ import {
   RequisitionStatus,
   CreateRequisitionRequest,
   IssueItemRequest,
-} from "@/api/services";
-import { jobsService } from "@/api/services";
-import { productsService } from "@/api/services";
-import { ProductBatch, productBatchesService } from "@/api/services/product-batches.service";
+} from "@/api/services/requisitions.service";
+import { jobsService } from "@/api/services/jobs.service";
+import { productsService } from "@/api/services/products.service";
+import {
+  ProductBatch,
+  productBatchesService,
+} from "@/api/services/product-batches.service";
+import {
+  advanceRequestsService,
+  AdvanceRequestStatus,
+  DisbursementMethod,
+} from "@/api/services/advance-requests.service";
 
 interface RequisitionItemForm {
   productId: string;
@@ -68,15 +79,17 @@ interface RequisitionItemForm {
 
 const Requisitions = () => {
   const queryClient = useQueryClient();
-  const [page, setPage] = useState(1);
-  const [searchTerm, setSearchTerm] = useState("");
+  const [activeTab, setActiveTab] = useState("materials");
+
+  // Material Requisitions State
+  const [materialPage, setMaterialPage] = useState(1);
+  const [materialSearchTerm, setMaterialSearchTerm] = useState("");
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
   const [isIssueDialogOpen, setIsIssueDialogOpen] = useState(false);
   const [isRejectDialogOpen, setIsRejectDialogOpen] = useState(false);
   const [selectedRequisition, setSelectedRequisition] = useState<any>(null);
   const [rejectionReason, setRejectionReason] = useState("");
-
   const [formData, setFormData] = useState<{
     jobId: string;
     notes: string;
@@ -84,26 +97,61 @@ const Requisitions = () => {
     jobId: "",
     notes: "",
   });
-
-  const [requisitionItems, setRequisitionItems] = useState<RequisitionItemForm[]>([]);
-  const [issueQuantities, setIssueQuantities] = useState<Record<string, number>>({});
+  const [requisitionItems, setRequisitionItems] = useState<
+    RequisitionItemForm[]
+  >([]);
+  const [issueQuantities, setIssueQuantities] = useState<
+    Record<string, number>
+  >({});
   const [issueBatches, setIssueBatches] = useState<Record<string, string>>({});
 
-  // Fetch requisitions
-  const { data: requisitionsData, isLoading } = useQuery({
-    queryKey: ["requisitions", page, searchTerm],
+  // Advance Requests State
+  const [advancePage, setAdvancePage] = useState(1);
+  const [advanceSearchTerm, setAdvanceSearchTerm] = useState("");
+  const [selectedAdvance, setSelectedAdvance] = useState<any>(null);
+  const [isAdvanceViewOpen, setIsAdvanceViewOpen] = useState(false);
+  const [isAdvanceRejectOpen, setIsAdvanceRejectOpen] = useState(false);
+  const [isDisburseDialogOpen, setIsDisburseDialogOpen] = useState(false);
+  const [advanceRejectionReason, setAdvanceRejectionReason] = useState("");
+  const [disbursementData, setDisbursementData] = useState({
+    method: DisbursementMethod.MPESA,
+    reference: "",
+  });
+
+  // Fetch Material Requisitions
+  const { data: requisitionsData, isLoading: isLoadingRequisitions } = useQuery(
+    {
+      queryKey: ["requisitions", materialPage, materialSearchTerm],
+      queryFn: () =>
+        requisitionsService.getRequisitions({
+          page: materialPage,
+          limit: 10,
+          search: materialSearchTerm,
+        }),
+    }
+  );
+
+  // Fetch Material Statistics
+  const { data: materialStats } = useQuery({
+    queryKey: ["requisition-statistics"],
+    queryFn: requisitionsService.getStatistics,
+  });
+
+  // Fetch Advance Requests
+  const { data: advanceRequestsData, isLoading: isLoadingAdvances } = useQuery({
+    queryKey: ["advance-requests", advancePage, advanceSearchTerm],
     queryFn: () =>
-      requisitionsService.getRequisitions({
-        page,
+      advanceRequestsService.getAdvanceRequests({
+        page: advancePage,
         limit: 10,
-        search: searchTerm,
+        search: advanceSearchTerm,
       }),
   });
 
-  // Fetch statistics
-  const { data: statistics } = useQuery({
-    queryKey: ["requisition-statistics"],
-    queryFn: requisitionsService.getStatistics,
+  // Fetch Advance Statistics
+  const { data: advanceStats } = useQuery({
+    queryKey: ["advance-request-statistics"],
+    queryFn: advanceRequestsService.getStatistics,
   });
 
   // Fetch assigned jobs
@@ -132,14 +180,18 @@ const Requisitions = () => {
 
       const result: Record<string, ProductBatch[]> = {};
 
-      // Fetch all batches in parallel
       await Promise.all(
         selectedRequisition.items.map(async (item: any) => {
           try {
-            const batches = await productBatchesService.getAvailableBatches(item.productId);
+            const batches = await productBatchesService.getAvailableBatches(
+              item.productId
+            );
             result[item.id] = batches;
           } catch (error) {
-            console.error(`Failed to fetch batches for product ${item.productId}:`, error);
+            console.error(
+              `Failed to fetch batches for product ${item.productId}:`,
+              error
+            );
             result[item.id] = [];
           }
         })
@@ -150,7 +202,8 @@ const Requisitions = () => {
     enabled: isIssueDialogOpen && !!selectedRequisition,
   });
 
-  // Create requisition mutation
+  // ============= MATERIAL REQUISITIONS MUTATIONS =============
+
   const createMutation = useMutation({
     mutationFn: requisitionsService.createRequisition,
     onSuccess: () => {
@@ -161,11 +214,12 @@ const Requisitions = () => {
       resetForm();
     },
     onError: (error: any) => {
-      toast.error(error.response?.data?.message || "Failed to create requisition");
+      toast.error(
+        error.response?.data?.message || "Failed to create requisition"
+      );
     },
   });
 
-  // Approve mutation
   const approveMutation = useMutation({
     mutationFn: requisitionsService.approveRequisition,
     onSuccess: () => {
@@ -174,11 +228,12 @@ const Requisitions = () => {
       toast.success("Requisition approved successfully");
     },
     onError: (error: any) => {
-      toast.error(error.response?.data?.message || "Failed to approve requisition");
+      toast.error(
+        error.response?.data?.message || "Failed to approve requisition"
+      );
     },
   });
 
-  // Reject mutation
   const rejectMutation = useMutation({
     mutationFn: ({ id, reason }: { id: string; reason: string }) =>
       requisitionsService.rejectRequisition(id, reason),
@@ -191,7 +246,9 @@ const Requisitions = () => {
       setRejectionReason("");
     },
     onError: (error: any) => {
-      toast.error(error.response?.data?.message || "Failed to reject requisition");
+      toast.error(
+        error.response?.data?.message || "Failed to reject requisition"
+      );
     },
   });
 
@@ -212,6 +269,62 @@ const Requisitions = () => {
       toast.error(error.response?.data?.message || "Failed to issue items");
     },
   });
+
+  // ============= ADVANCE REQUEST MUTATIONS =============
+
+  const approveAdvanceMutation = useMutation({
+    mutationFn: advanceRequestsService.approveAdvanceRequest,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["advance-requests"] });
+      queryClient.invalidateQueries({
+        queryKey: ["advance-request-statistics"],
+      });
+      toast.success("Advance request approved");
+    },
+    onError: (error: any) => {
+      toast.error(error.response?.data?.message || "Failed to approve request");
+    },
+  });
+
+  const rejectAdvanceMutation = useMutation({
+    mutationFn: ({ id, reason }: { id: string; reason: string }) =>
+      advanceRequestsService.rejectAdvanceRequest(id, reason),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["advance-requests"] });
+      queryClient.invalidateQueries({
+        queryKey: ["advance-request-statistics"],
+      });
+      toast.success("Advance request rejected");
+      setIsAdvanceRejectOpen(false);
+      setSelectedAdvance(null);
+      setAdvanceRejectionReason("");
+    },
+    onError: (error: any) => {
+      toast.error(error.response?.data?.message || "Failed to reject request");
+    },
+  });
+
+  const disburseMutation = useMutation({
+    mutationFn: ({ id, data }: { id: string; data: any }) =>
+      advanceRequestsService.disburseAdvanceRequest(id, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["advance-requests"] });
+      queryClient.invalidateQueries({
+        queryKey: ["advance-request-statistics"],
+      });
+      toast.success("Advance disbursed successfully");
+      setIsDisburseDialogOpen(false);
+      setSelectedAdvance(null);
+      setDisbursementData({ method: DisbursementMethod.MPESA, reference: "" });
+    },
+    onError: (error: any) => {
+      toast.error(
+        error.response?.data?.message || "Failed to disburse advance"
+      );
+    },
+  });
+
+  // ============= HANDLERS =============
 
   const resetForm = () => {
     setFormData({ jobId: "", notes: "" });
@@ -344,6 +457,52 @@ const Requisitions = () => {
     setIsRejectDialogOpen(true);
   };
 
+  // Advance Request Handlers
+  const handleApproveAdvance = (request: any) => {
+    approveAdvanceMutation.mutate(request.id);
+  };
+
+  const handleRejectAdvance = () => {
+    if (!selectedAdvance || !advanceRejectionReason.trim()) {
+      toast.error("Please provide a rejection reason");
+      return;
+    }
+
+    rejectAdvanceMutation.mutate({
+      id: selectedAdvance.id,
+      reason: advanceRejectionReason,
+    });
+  };
+
+  const handleDisburse = () => {
+    if (!selectedAdvance) return;
+
+    disburseMutation.mutate({
+      id: selectedAdvance.id,
+      data: {
+        disbursementMethod: disbursementData.method,
+        referenceNumber: disbursementData.reference || undefined,
+      },
+    });
+  };
+
+  const handleViewAdvance = (request: any) => {
+    setSelectedAdvance(request);
+    setIsAdvanceViewOpen(true);
+  };
+
+  const handleDisburseClick = (request: any) => {
+    setSelectedAdvance(request);
+    setIsDisburseDialogOpen(true);
+  };
+
+  const handleRejectAdvanceClick = (request: any) => {
+    setSelectedAdvance(request);
+    setIsAdvanceRejectOpen(true);
+  };
+
+  // ============= UTILITY FUNCTIONS =============
+
   const getStatusBadge = (status: string) => {
     const variants: Record<string, { color: string; icon: any }> = {
       PENDING: { color: "bg-yellow-500", icon: Clock },
@@ -351,6 +510,7 @@ const Requisitions = () => {
       PARTIALLY_ISSUED: { color: "bg-orange-500", icon: Package },
       FULLY_ISSUED: { color: "bg-green-500", icon: CheckCircle },
       REJECTED: { color: "bg-red-500", icon: XCircle },
+      DISBURSED: { color: "bg-green-500", icon: CheckCircle },
     };
 
     const variant = variants[status];
@@ -365,6 +525,7 @@ const Requisitions = () => {
   };
 
   const requisitions = requisitionsData?.data || [];
+  const advanceRequests = advanceRequestsData?.data || [];
   const jobs = jobsData?.data || [];
   const products = productsData?.data || [];
 
@@ -372,230 +533,482 @@ const Requisitions = () => {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold">Material Requisitions</h1>
+          <h1 className="text-3xl font-bold">Requisitions & Advances</h1>
           <p className="text-muted-foreground">
-            Manage equipment requests and issuance
+            Manage material requisitions and financial advances
           </p>
         </div>
-        <Button onClick={() => setIsAddDialogOpen(true)}>
-          <Plus className="mr-2 h-4 w-4" />
-          New Requisition
-        </Button>
+        {activeTab === "materials" && (
+          <Button onClick={() => setIsAddDialogOpen(true)}>
+            <Plus className="mr-2 h-4 w-4" />
+            New Requisition
+          </Button>
+        )}
       </div>
 
-      {/* Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Pending Approval</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-yellow-600">
-              {statistics?.pending || 0}
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Approved</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-blue-600">
-              {statistics?.approved || 0}
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Partially Issued</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-orange-600">
-              {statistics?.partiallyIssued || 0}
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Fully Issued</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-green-600">
-              {statistics?.fullyIssued || 0}
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Rejected</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-red-600">
-              {statistics?.rejected || 0}
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+      <Tabs value={activeTab} onValueChange={setActiveTab}>
+        <TabsList className="grid w-full max-w-md grid-cols-2">
+          <TabsTrigger value="materials" className="flex items-center gap-2">
+            <Package className="h-4 w-4" />
+            Material Requisitions
+          </TabsTrigger>
+          <TabsTrigger value="advances" className="flex items-center gap-2">
+            <DollarSign className="h-4 w-4" />
+            Financial Advances
+          </TabsTrigger>
+        </TabsList>
 
-      {/* Table */}
-      <Card>
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <CardTitle>Recent Requisitions</CardTitle>
-            <Input
-              placeholder="Search requisitions..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="max-w-sm"
-            />
+        {/* ============= MATERIAL REQUISITIONS TAB ============= */}
+        <TabsContent value="materials" className="space-y-6">
+          {/* Stats */}
+          <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium">
+                  Pending Approval
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold text-yellow-600">
+                  {materialStats?.pending || 0}
+                </div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium">Approved</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold text-blue-600">
+                  {materialStats?.approved || 0}
+                </div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium">
+                  Partially Issued
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold text-orange-600">
+                  {materialStats?.partiallyIssued || 0}
+                </div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium">
+                  Fully Issued
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold text-green-600">
+                  {materialStats?.fullyIssued || 0}
+                </div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium">Rejected</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold text-red-600">
+                  {materialStats?.rejected || 0}
+                </div>
+              </CardContent>
+            </Card>
           </div>
-        </CardHeader>
-        <CardContent>
-          <div className="rounded-md border">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Req Number</TableHead>
-                  <TableHead>Job/Vehicle</TableHead>
-                  <TableHead>Technician</TableHead>
-                  <TableHead>Items</TableHead>
-                  <TableHead>Requested</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {isLoading ? (
-                  <TableRow>
-                    <TableCell colSpan={7} className="text-center py-8">
-                      <Loader2 className="h-6 w-6 animate-spin mx-auto" />
-                    </TableCell>
-                  </TableRow>
-                ) : requisitions.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={7} className="text-center py-8">
-                      <div className="text-muted-foreground">
-                        {searchTerm
-                          ? "No requisitions found."
-                          : "No requisitions created yet."}
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  requisitions.map((req) => (
-                    <TableRow key={req.id}>
-                      <TableCell className="font-mono font-medium">
-                        {req.requisitionNumber}
-                      </TableCell>
-                      <TableCell>
-                        <div>
-                          <div className="font-medium">{req.job.jobNumber}</div>
-                          <div className="text-sm text-muted-foreground">
-                            {req.job.vehicle?.vehicleReg || "No vehicle"}
-                          </div>
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <div className="text-sm">
-                          {req.technician.user.firstName}{" "}
-                          {req.technician.user.lastName}
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <div className="space-y-1">
-                          {req.items.slice(0, 2).map((item, idx) => (
-                            <div key={idx} className="text-sm">
-                              <span className="font-medium">{item.product.name}</span>
-                              <span className="text-muted-foreground ml-2">
-                                ({item.quantityIssued}/{item.quantityRequested})
-                              </span>
-                            </div>
-                          ))}
-                          {req.items.length > 2 && (
-                            <div className="text-xs text-muted-foreground">
-                              +{req.items.length - 2} more
-                            </div>
-                          )}
-                        </div>
-                      </TableCell>
-                      <TableCell className="text-sm">
-                        {new Date(req.requestedDate).toLocaleDateString()}
-                      </TableCell>
-                      <TableCell>{getStatusBadge(req.status)}</TableCell>
-                      <TableCell className="text-right">
-                        <div className="flex justify-end gap-2">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => handleView(req)}
-                          >
-                            <Eye className="h-4 w-4 mr-1" />
-                            View
-                          </Button>
-                          {req.status === RequisitionStatus.PENDING && (
-                            <>
-                              <Button
-                                size="sm"
-                                onClick={() => handleApprove(req)}
-                                disabled={approveMutation.isPending}
-                              >
-                                Approve
-                              </Button>
-                              <Button
-                                size="sm"
-                                variant="destructive"
-                                onClick={() => handleRejectClick(req)}
-                              >
-                                Reject
-                              </Button>
-                            </>
-                          )}
-                          {(req.status === RequisitionStatus.APPROVED ||
-                            req.status === RequisitionStatus.PARTIALLY_ISSUED) && (
-                            <Button
-                              size="sm"
-                              onClick={() => handleIssueClick(req)}
-                            >
-                              Issue Items
-                            </Button>
-                          )}
-                        </div>
-                      </TableCell>
+
+          {/* Table */}
+          <Card>
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <CardTitle>Recent Requisitions</CardTitle>
+                <Input
+                  placeholder="Search requisitions..."
+                  value={materialSearchTerm}
+                  onChange={(e) => setMaterialSearchTerm(e.target.value)}
+                  className="max-w-sm"
+                />
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="rounded-md border">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Req Number</TableHead>
+                      <TableHead>Job/Vehicle</TableHead>
+                      <TableHead>Technician</TableHead>
+                      <TableHead>Items</TableHead>
+                      <TableHead>Requested</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead className="text-right">Actions</TableHead>
                     </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
+                  </TableHeader>
+                  <TableBody>
+                    {isLoadingRequisitions ? (
+                      <TableRow>
+                        <TableCell colSpan={7} className="text-center py-8">
+                          <Loader2 className="h-6 w-6 animate-spin mx-auto" />
+                        </TableCell>
+                      </TableRow>
+                    ) : requisitions.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={7} className="text-center py-8">
+                          <div className="text-muted-foreground">
+                            {materialSearchTerm
+                              ? "No requisitions found."
+                              : "No requisitions created yet."}
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ) : (
+                      requisitions.map((req) => (
+                        <TableRow key={req.id}>
+                          <TableCell className="font-mono font-medium">
+                            {req.requisitionNumber}
+                          </TableCell>
+                          <TableCell>
+                            <div>
+                              <div className="font-medium">
+                                {req.job.jobNumber}
+                              </div>
+                              <div className="text-sm text-muted-foreground">
+                                {req.job.vehicle?.vehicleReg || "No vehicle"}
+                              </div>
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <div className="text-sm">
+                              {req.technician.user.firstName}{" "}
+                              {req.technician.user.lastName}
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <div className="space-y-1">
+                              {req.items
+                                .slice(0, 2)
+                                .map((item: any, idx: number) => (
+                                  <div key={idx} className="text-sm">
+                                    <span className="font-medium">
+                                      {item.product.name}
+                                    </span>
+                                    <span className="text-muted-foreground ml-2">
+                                      ({item.quantityIssued}/
+                                      {item.quantityRequested})
+                                    </span>
+                                  </div>
+                                ))}
+                              {req.items.length > 2 && (
+                                <div className="text-xs text-muted-foreground">
+                                  +{req.items.length - 2} more
+                                </div>
+                              )}
+                            </div>
+                          </TableCell>
+                          <TableCell className="text-sm">
+                            {new Date(req.requestedDate).toLocaleDateString()}
+                          </TableCell>
+                          <TableCell>{getStatusBadge(req.status)}</TableCell>
+                          <TableCell className="text-right">
+                            <div className="flex justify-end gap-2">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleView(req)}
+                              >
+                                <Eye className="h-4 w-4 mr-1" />
+                                View
+                              </Button>
+                              {req.status === RequisitionStatus.PENDING && (
+                                <>
+                                  <Button
+                                    size="sm"
+                                    onClick={() => handleApprove(req)}
+                                    disabled={approveMutation.isPending}
+                                  >
+                                    Approve
+                                  </Button>
+                                  <Button
+                                    size="sm"
+                                    variant="destructive"
+                                    onClick={() => handleRejectClick(req)}
+                                  >
+                                    Reject
+                                  </Button>
+                                </>
+                              )}
+                              {(req.status === RequisitionStatus.APPROVED ||
+                                req.status ===
+                                  RequisitionStatus.PARTIALLY_ISSUED) && (
+                                <Button
+                                  size="sm"
+                                  onClick={() => handleIssueClick(req)}
+                                >
+                                  Issue Items
+                                </Button>
+                              )}
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      ))
+                    )}
+                  </TableBody>
+                </Table>
+              </div>
+
+              {/* Pagination */}
+              {requisitionsData && requisitionsData.meta.totalPages > 1 && (
+                <div className="flex items-center justify-between mt-4">
+                  <div className="text-sm text-muted-foreground">
+                    Showing {requisitions.length} of{" "}
+                    {requisitionsData.meta.total} requisitions
+                  </div>
+                  <div className="flex gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setMaterialPage((p) => Math.max(1, p - 1))}
+                      disabled={materialPage === 1}
+                    >
+                      Previous
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setMaterialPage((p) => p + 1)}
+                      disabled={
+                        materialPage >= requisitionsData.meta.totalPages
+                      }
+                    >
+                      Next
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* ============= FINANCIAL ADVANCES TAB ============= */}
+        <TabsContent value="advances" className="space-y-6">
+          {/* Stats */}
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium">
+                  Pending Approval
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold text-yellow-600">
+                  {advanceStats?.pending || 0}
+                </div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium">Approved</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold text-blue-600">
+                  {advanceStats?.approved || 0}
+                </div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium">Disbursed</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold text-green-600">
+                  {advanceStats?.disbursed || 0}
+                </div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium">
+                  Total Disbursed
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold text-primary">
+                  KES{" "}
+                  {parseFloat(
+                    String(advanceStats?.totalDisbursed || "0")
+                  ).toLocaleString()}
+                </div>
+              </CardContent>
+            </Card>
           </div>
 
-          {/* Pagination */}
-          {requisitionsData && requisitionsData.meta.totalPages > 1 && (
-            <div className="flex items-center justify-between mt-4">
-              <div className="text-sm text-muted-foreground">
-                Showing {requisitions.length} of {requisitionsData.meta.total} requisitions
+          {/* Table */}
+          <Card>
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <CardTitle>Recent Advance Requests</CardTitle>
+                <Input
+                  placeholder="Search advances..."
+                  value={advanceSearchTerm}
+                  onChange={(e) => setAdvanceSearchTerm(e.target.value)}
+                  className="max-w-sm"
+                />
               </div>
-              <div className="flex gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setPage((p) => Math.max(1, p - 1))}
-                  disabled={page === 1}
-                >
-                  Previous
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setPage((p) => p + 1)}
-                  disabled={page >= requisitionsData.meta.totalPages}
-                >
-                  Next
-                </Button>
+            </CardHeader>
+            <CardContent>
+              <div className="rounded-md border">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Request #</TableHead>
+                      <TableHead>Technician</TableHead>
+                      <TableHead>Job</TableHead>
+                      <TableHead>Type</TableHead>
+                      <TableHead>Amount</TableHead>
+                      <TableHead>Requested</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead className="text-right">Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {isLoadingAdvances ? (
+                      <TableRow>
+                        <TableCell colSpan={8} className="text-center py-8">
+                          <Loader2 className="h-6 w-6 animate-spin mx-auto" />
+                        </TableCell>
+                      </TableRow>
+                    ) : advanceRequests.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={8} className="text-center py-8">
+                          <div className="text-muted-foreground">
+                            No advance requests found.
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ) : (
+                      advanceRequests.map((req: any) => (
+                        <TableRow key={req.id}>
+                          <TableCell className="font-mono font-medium">
+                            {req.requestNumber}
+                          </TableCell>
+                          <TableCell>
+                            <div className="text-sm">
+                              {req.technician.user.firstName}{" "}
+                              {req.technician.user.lastName}
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <div>
+                              <div className="font-medium">
+                                {req.job.jobNumber}
+                              </div>
+                              <div className="text-sm text-muted-foreground">
+                                {req.job.vehicle?.vehicleReg || "No vehicle"}
+                              </div>
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <Badge variant="outline">
+                              {req.requestType.replace("_", " ")}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="font-bold text-primary">
+                            KES {parseFloat(req.amount).toLocaleString()}
+                          </TableCell>
+                          <TableCell className="text-sm">
+                            {new Date(req.requestedDate).toLocaleDateString()}
+                          </TableCell>
+                          <TableCell>{getStatusBadge(req.status)}</TableCell>
+                          <TableCell className="text-right">
+                            <div className="flex justify-end gap-2">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleViewAdvance(req)}
+                              >
+                                <Eye className="h-4 w-4 mr-1" />
+                                View
+                              </Button>
+                              {req.status === AdvanceRequestStatus.PENDING && (
+                                <>
+                                  <Button
+                                    size="sm"
+                                    onClick={() => handleApproveAdvance(req)}
+                                    disabled={approveAdvanceMutation.isPending}
+                                  >
+                                    Approve
+                                  </Button>
+                                  <Button
+                                    size="sm"
+                                    variant="destructive"
+                                    onClick={() =>
+                                      handleRejectAdvanceClick(req)
+                                    }
+                                  >
+                                    Reject
+                                  </Button>
+                                </>
+                              )}
+                              {req.status === AdvanceRequestStatus.APPROVED && (
+                                <Button
+                                  size="sm"
+                                  className="bg-green-600 hover:bg-green-700"
+                                  onClick={() => handleDisburseClick(req)}
+                                >
+                                  <Send className="h-4 w-4 mr-1" />
+                                  Disburse
+                                </Button>
+                              )}
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      ))
+                    )}
+                  </TableBody>
+                </Table>
               </div>
-            </div>
-          )}
-        </CardContent>
-      </Card>
+
+              {/* Pagination */}
+              {advanceRequestsData &&
+                advanceRequestsData.meta.totalPages > 1 && (
+                  <div className="flex items-center justify-between mt-4">
+                    <div className="text-sm text-muted-foreground">
+                      Showing {advanceRequests.length} of{" "}
+                      {advanceRequestsData.meta.total} requests
+                    </div>
+                    <div className="flex gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() =>
+                          setAdvancePage((p) => Math.max(1, p - 1))
+                        }
+                        disabled={advancePage === 1}
+                      >
+                        Previous
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setAdvancePage((p) => p + 1)}
+                        disabled={
+                          advancePage >= advanceRequestsData.meta.totalPages
+                        }
+                      >
+                        Next
+                      </Button>
+                    </div>
+                  </div>
+                )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
+
+      {/* ============= MATERIAL REQUISITION DIALOGS ============= */}
 
       {/* Add Requisition Dialog */}
       <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
@@ -624,7 +1037,8 @@ const Requisitions = () => {
                       {job.jobNumber} -{" "}
                       {job.vehicle
                         ? `${job.vehicle.vehicleReg}`
-                        : job.customer.businessName || job.customer.contactPerson}
+                        : job.customer.businessName ||
+                          job.customer.contactPerson}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -648,7 +1062,10 @@ const Requisitions = () => {
                   </div>
                 ) : (
                   requisitionItems.map((item, index) => (
-                    <div key={index} className="grid grid-cols-12 gap-2 items-end">
+                    <div
+                      key={index}
+                      className="grid grid-cols-12 gap-2 items-end"
+                    >
                       <div className="col-span-7">
                         <Label htmlFor={`product-${index}`} className="text-xs">
                           Product
@@ -672,7 +1089,10 @@ const Requisitions = () => {
                         </Select>
                       </div>
                       <div className="col-span-4">
-                        <Label htmlFor={`quantity-${index}`} className="text-xs">
+                        <Label
+                          htmlFor={`quantity-${index}`}
+                          className="text-xs"
+                        >
                           Quantity
                         </Label>
                         <Input
@@ -749,7 +1169,9 @@ const Requisitions = () => {
             <div className="space-y-6 py-4">
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <Label className="text-muted-foreground">Requisition Number</Label>
+                  <Label className="text-muted-foreground">
+                    Requisition Number
+                  </Label>
                   <p className="font-mono font-medium text-lg">
                     {selectedRequisition.requisitionNumber}
                   </p>
@@ -762,12 +1184,15 @@ const Requisitions = () => {
                 </div>
                 <div>
                   <Label className="text-muted-foreground">Job Number</Label>
-                  <p className="font-medium">{selectedRequisition.job.jobNumber}</p>
+                  <p className="font-medium">
+                    {selectedRequisition.job.jobNumber}
+                  </p>
                 </div>
                 <div>
                   <Label className="text-muted-foreground">Vehicle</Label>
                   <p className="font-medium">
-                    {selectedRequisition.job.vehicle?.vehicleReg || "Not assigned"}
+                    {selectedRequisition.job.vehicle?.vehicleReg ||
+                      "Not assigned"}
                   </p>
                 </div>
                 <div>
@@ -778,23 +1203,33 @@ const Requisitions = () => {
                   </p>
                 </div>
                 <div>
-                  <Label className="text-muted-foreground">Requested Date</Label>
+                  <Label className="text-muted-foreground">
+                    Requested Date
+                  </Label>
                   <p className="font-medium">
-                    {new Date(selectedRequisition.requestedDate).toLocaleDateString()}
+                    {new Date(
+                      selectedRequisition.requestedDate
+                    ).toLocaleDateString()}
                   </p>
                 </div>
                 {selectedRequisition.approvedDate && (
                   <div>
-                    <Label className="text-muted-foreground">Approved Date</Label>
+                    <Label className="text-muted-foreground">
+                      Approved Date
+                    </Label>
                     <p className="font-medium">
-                      {new Date(selectedRequisition.approvedDate).toLocaleDateString()}
+                      {new Date(
+                        selectedRequisition.approvedDate
+                      ).toLocaleDateString()}
                     </p>
                   </div>
                 )}
               </div>
 
               <div>
-                <Label className="text-muted-foreground mb-2 block">Items</Label>
+                <Label className="text-muted-foreground mb-2 block">
+                  Items
+                </Label>
                 <div className="border rounded-lg">
                   <Table>
                     <TableHeader>
@@ -806,28 +1241,32 @@ const Requisitions = () => {
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {selectedRequisition.items.map((item: any, idx: number) => (
-                        <TableRow key={idx}>
-                          <TableCell className="font-medium">
-                            {item.product.name}
-                          </TableCell>
-                          <TableCell className="text-center">
-                            {item.quantityRequested}
-                          </TableCell>
-                          <TableCell className="text-center">
-                            <Badge
-                              variant={
-                                item.quantityIssued > 0 ? "default" : "outline"
-                              }
-                            >
-                              {item.quantityIssued}
-                            </Badge>
-                          </TableCell>
-                          <TableCell className="text-center">
-                            {item.quantityRequested - item.quantityIssued}
-                          </TableCell>
-                        </TableRow>
-                      ))}
+                      {selectedRequisition.items.map(
+                        (item: any, idx: number) => (
+                          <TableRow key={idx}>
+                            <TableCell className="font-medium">
+                              {item.product.name}
+                            </TableCell>
+                            <TableCell className="text-center">
+                              {item.quantityRequested}
+                            </TableCell>
+                            <TableCell className="text-center">
+                              <Badge
+                                variant={
+                                  item.quantityIssued > 0
+                                    ? "default"
+                                    : "outline"
+                                }
+                              >
+                                {item.quantityIssued}
+                              </Badge>
+                            </TableCell>
+                            <TableCell className="text-center">
+                              {item.quantityRequested - item.quantityIssued}
+                            </TableCell>
+                          </TableRow>
+                        )
+                      )}
                     </TableBody>
                   </Table>
                 </div>
@@ -842,7 +1281,9 @@ const Requisitions = () => {
 
               {selectedRequisition.rejectionReason && (
                 <div>
-                  <Label className="text-muted-foreground">Rejection Reason</Label>
+                  <Label className="text-muted-foreground">
+                    Rejection Reason
+                  </Label>
                   <p className="text-sm mt-1 text-destructive">
                     {selectedRequisition.rejectionReason}
                   </p>
@@ -851,7 +1292,10 @@ const Requisitions = () => {
             </div>
           )}
           <DialogFooter>
-            <Button variant="outline" onClick={() => setIsViewDialogOpen(false)}>
+            <Button
+              variant="outline"
+              onClick={() => setIsViewDialogOpen(false)}
+            >
               Close
             </Button>
             {selectedRequisition?.status === RequisitionStatus.PENDING && (
@@ -880,7 +1324,8 @@ const Requisitions = () => {
               </>
             )}
             {(selectedRequisition?.status === RequisitionStatus.APPROVED ||
-              selectedRequisition?.status === RequisitionStatus.PARTIALLY_ISSUED) && (
+              selectedRequisition?.status ===
+                RequisitionStatus.PARTIALLY_ISSUED) && (
               <Button
                 onClick={() => {
                   setIsViewDialogOpen(false);
@@ -908,7 +1353,9 @@ const Requisitions = () => {
             {isBatchesLoading ? (
               <div className="text-center py-8">
                 <Loader2 className="h-8 w-8 animate-spin mx-auto mb-2" />
-                <p className="text-sm text-muted-foreground">Loading batches...</p>
+                <p className="text-sm text-muted-foreground">
+                  Loading batches...
+                </p>
               </div>
             ) : (
               <div className="border rounded-lg overflow-hidden">
@@ -925,7 +1372,8 @@ const Requisitions = () => {
                   </TableHeader>
                   <TableBody>
                     {selectedRequisition?.items.map((item: any) => {
-                      const remaining = item.quantityRequested - item.quantityIssued;
+                      const remaining =
+                        item.quantityRequested - item.quantityIssued;
                       const batches = batchesData?.[item.id] || [];
 
                       return (
@@ -946,7 +1394,9 @@ const Requisitions = () => {
                           </TableCell>
                           <TableCell className="text-center">
                             <Badge
-                              variant={remaining > 0 ? "destructive" : "default"}
+                              variant={
+                                remaining > 0 ? "destructive" : "default"
+                              }
                             >
                               {remaining}
                             </Badge>
@@ -955,7 +1405,10 @@ const Requisitions = () => {
                             <Select
                               value={issueBatches[item.id] || ""}
                               onValueChange={(val) =>
-                                setIssueBatches({ ...issueBatches, [item.id]: val })
+                                setIssueBatches({
+                                  ...issueBatches,
+                                  [item.id]: val,
+                                })
                               }
                               disabled={remaining === 0}
                             >
@@ -974,7 +1427,8 @@ const Requisitions = () => {
                                       value={batch.id}
                                       disabled={batch.quantityRemaining === 0}
                                     >
-                                      {batch.batchNumber} • {batch.quantityRemaining} left
+                                      {batch.batchNumber} •{" "}
+                                      {batch.quantityRemaining} left
                                       {batch.expiryDate &&
                                         ` • Exp: ${new Date(
                                           batch.expiryDate
@@ -995,7 +1449,10 @@ const Requisitions = () => {
                                 const value = parseInt(e.target.value) || 0;
                                 setIssueQuantities({
                                   ...issueQuantities,
-                                  [item.id]: Math.min(Math.max(0, value), remaining),
+                                  [item.id]: Math.min(
+                                    Math.max(0, value),
+                                    remaining
+                                  ),
                                 });
                               }}
                               className="w-24 text-center"
@@ -1035,8 +1492,11 @@ const Requisitions = () => {
         </DialogContent>
       </Dialog>
 
-      {/* Reject Dialog */}
-      <AlertDialog open={isRejectDialogOpen} onOpenChange={setIsRejectDialogOpen}>
+      {/* Reject Material Requisition Dialog */}
+      <AlertDialog
+        open={isRejectDialogOpen}
+        onOpenChange={setIsRejectDialogOpen}
+      >
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Reject Requisition</AlertDialogTitle>
@@ -1070,6 +1530,285 @@ const Requisitions = () => {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* ============= ADVANCE REQUEST DIALOGS ============= */}
+
+      {/* View Advance Dialog */}
+      <Dialog open={isAdvanceViewOpen} onOpenChange={setIsAdvanceViewOpen}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Advance Request Details</DialogTitle>
+          </DialogHeader>
+          {selectedAdvance && (
+            <div className="space-y-6 py-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label className="text-muted-foreground">
+                    Request Number
+                  </Label>
+                  <p className="font-mono font-medium text-lg">
+                    {selectedAdvance.requestNumber}
+                  </p>
+                </div>
+                <div>
+                  <Label className="text-muted-foreground">Status</Label>
+                  <div className="mt-1">
+                    {getStatusBadge(selectedAdvance.status)}
+                  </div>
+                </div>
+                <div>
+                  <Label className="text-muted-foreground">Technician</Label>
+                  <p className="font-medium">
+                    {selectedAdvance.technician.user.firstName}{" "}
+                    {selectedAdvance.technician.user.lastName}
+                  </p>
+                </div>
+                <div>
+                  <Label className="text-muted-foreground">Amount</Label>
+                  <p className="font-bold text-primary text-lg">
+                    KES {parseFloat(selectedAdvance.amount).toLocaleString()}
+                  </p>
+                </div>
+                <div>
+                  <Label className="text-muted-foreground">Request Type</Label>
+                  <p className="font-medium">
+                    {selectedAdvance.requestType.replace("_", " ")}
+                  </p>
+                </div>
+                <div>
+                  <Label className="text-muted-foreground">Job Number</Label>
+                  <p className="font-medium">{selectedAdvance.job.jobNumber}</p>
+                </div>
+              </div>
+
+              <div>
+                <Label className="text-muted-foreground">Description</Label>
+                <p className="text-sm mt-1">{selectedAdvance.description}</p>
+              </div>
+
+              {selectedAdvance.justification && (
+                <div>
+                  <Label className="text-muted-foreground">Justification</Label>
+                  <p className="text-sm mt-1">
+                    {selectedAdvance.justification}
+                  </p>
+                </div>
+              )}
+
+              {selectedAdvance.disbursementMethod && (
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label className="text-muted-foreground">
+                      Disbursement Method
+                    </Label>
+                    <p className="font-medium">
+                      {selectedAdvance.disbursementMethod}
+                    </p>
+                  </div>
+                  {selectedAdvance.referenceNumber && (
+                    <div>
+                      <Label className="text-muted-foreground">Reference</Label>
+                      <p className="font-mono">
+                        {selectedAdvance.referenceNumber}
+                      </p>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {selectedAdvance.rejectionReason && (
+                <div>
+                  <Label className="text-muted-foreground">
+                    Rejection Reason
+                  </Label>
+                  <p className="text-sm mt-1 text-destructive">
+                    {selectedAdvance.rejectionReason}
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setIsAdvanceViewOpen(false)}
+            >
+              Close
+            </Button>
+            {selectedAdvance?.status === AdvanceRequestStatus.PENDING && (
+              <>
+                <Button
+                  onClick={() => {
+                    setIsAdvanceViewOpen(false);
+                    handleApproveAdvance(selectedAdvance);
+                  }}
+                  disabled={approveAdvanceMutation.isPending}
+                >
+                  Approve
+                </Button>
+                <Button
+                  variant="destructive"
+                  onClick={() => {
+                    setIsAdvanceViewOpen(false);
+                    handleRejectAdvanceClick(selectedAdvance);
+                  }}
+                >
+                  Reject
+                </Button>
+              </>
+            )}
+            {selectedAdvance?.status === AdvanceRequestStatus.APPROVED && (
+              <Button
+                className="bg-green-600 hover:bg-green-700"
+                onClick={() => {
+                  setIsAdvanceViewOpen(false);
+                  handleDisburseClick(selectedAdvance);
+                }}
+              >
+                Disburse
+              </Button>
+            )}
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Reject Advance Dialog */}
+      <AlertDialog
+        open={isAdvanceRejectOpen}
+        onOpenChange={setIsAdvanceRejectOpen}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Reject Advance Request</AlertDialogTitle>
+            <AlertDialogDescription>
+              Please provide a reason for rejecting{" "}
+              {selectedAdvance?.requestNumber}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="py-4">
+            <Textarea
+              placeholder="Enter rejection reason..."
+              value={advanceRejectionReason}
+              onChange={(e) => setAdvanceRejectionReason(e.target.value)}
+              rows={4}
+            />
+          </div>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setAdvanceRejectionReason("")}>
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleRejectAdvance}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              disabled={
+                rejectAdvanceMutation.isPending ||
+                !advanceRejectionReason.trim()
+              }
+            >
+              {rejectAdvanceMutation.isPending && (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              )}
+              Reject Request
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Disburse Dialog */}
+      <Dialog
+        open={isDisburseDialogOpen}
+        onOpenChange={setIsDisburseDialogOpen}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Disburse Advance</DialogTitle>
+            <DialogDescription>
+              Record disbursement details for {selectedAdvance?.requestNumber}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="method">
+                Disbursement Method <span className="text-destructive">*</span>
+              </Label>
+              <Select
+                value={disbursementData.method}
+                onValueChange={(val) =>
+                  setDisbursementData({
+                    ...disbursementData,
+                    method: val as DisbursementMethod,
+                  })
+                }
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={DisbursementMethod.CASH}>Cash</SelectItem>
+                  <SelectItem value={DisbursementMethod.MPESA}>
+                    M-Pesa
+                  </SelectItem>
+                  <SelectItem value={DisbursementMethod.BANK_TRANSFER}>
+                    Bank Transfer
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="reference">Reference Number (Optional)</Label>
+              <Input
+                id="reference"
+                placeholder="Transaction reference"
+                value={disbursementData.reference}
+                onChange={(e) =>
+                  setDisbursementData({
+                    ...disbursementData,
+                    reference: e.target.value,
+                  })
+                }
+              />
+            </div>
+
+            {selectedAdvance && (
+              <div className="bg-muted p-4 rounded-lg">
+                <div className="flex justify-between items-center">
+                  <span className="text-sm text-muted-foreground">
+                    Amount to Disburse:
+                  </span>
+                  <span className="text-2xl font-bold text-primary">
+                    KES {parseFloat(selectedAdvance.amount).toLocaleString()}
+                  </span>
+                </div>
+              </div>
+            )}
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setIsDisburseDialogOpen(false);
+                setDisbursementData({
+                  method: DisbursementMethod.MPESA,
+                  reference: "",
+                });
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              className="bg-green-600 hover:bg-green-700"
+              onClick={handleDisburse}
+              disabled={disburseMutation.isPending}
+            >
+              {disburseMutation.isPending && (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              )}
+              Confirm Disbursement
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

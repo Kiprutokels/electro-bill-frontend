@@ -84,6 +84,12 @@ export const PERMISSIONS = {
   PROCESSING_FEES_READ: "processing_fees.read",
   PROCESSING_FEES_SETTLE: "processing_fees.settle",
 
+// REQUESTS
+  ADVANCE_REQUESTS_CREATE: 'advance_requests.create',
+  ADVANCE_REQUESTS_READ: 'advance_requests.read',
+  ADVANCE_REQUESTS_APPROVE: 'advance_requests.approve',
+  ADVANCE_REQUESTS_DISBURSE: 'advance_requests.disburse',
+
   
 } as const;
 
@@ -114,6 +120,8 @@ export const ROUTES = {
   TECHNICIANS: "/technicians",
   REQUISITIONS: "/requisitions",
   INSPECTIONS: "/inspections",
+  ADVANCE_REQUESTS: '/advance-requests',
+  PROFILE: '/profile',
 } as const;
 
 export const API_BASE_URL =

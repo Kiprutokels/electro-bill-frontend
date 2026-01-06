@@ -5,6 +5,13 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { toast } from "sonner";
 import {
   Play,
@@ -20,6 +27,7 @@ import {
 } from "lucide-react";
 import { technicianJobsService } from "@/api/services/technician-jobs.service";
 import { jobsService, JobStatus } from "@/api/services/jobs.service";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 import JobInfo from "./components/JobInfo";
 import VehicleForm from "./components/VehicleForm";
@@ -34,6 +42,7 @@ const ActiveJob = () => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const jobId = searchParams.get("jobId");
+  const isMobile = useIsMobile();
 
   const [activeTab, setActiveTab] = useState("info");
   const [currentLocation, setCurrentLocation] = useState<{
@@ -70,7 +79,7 @@ const ActiveJob = () => {
     },
     staleTime: 0,
     gcTime: 0,
-    refetchOnMount: 'always',
+    refetchOnMount: "always",
     refetchOnWindowFocus: true,
   });
 
@@ -125,7 +134,15 @@ const ActiveJob = () => {
 
   const getNextAvailableTab = (status: string): string => {
     const currentTab = getActiveTabFromStatus(status);
-    const tabOrder = ["info", "requisition", "vehicle", "pre-inspection", "installation", "post-inspection", "completion"];
+    const tabOrder = [
+      "info",
+      "requisition",
+      "vehicle",
+      "pre-inspection",
+      "installation",
+      "post-inspection",
+      "completion",
+    ];
     const currentIndex = tabOrder.indexOf(currentTab);
     return tabOrder[Math.min(currentIndex + 1, tabOrder.length - 1)];
   };
@@ -143,67 +160,72 @@ const ActiveJob = () => {
     if (!job) return { enabled: false, completed: false, locked: true };
 
     const hasVehicle = !!job.vehicleId;
-    const hasPreInspection = job.status && [
-      JobStatus.PRE_INSPECTION_APPROVED,
-      JobStatus.IN_PROGRESS,
-      JobStatus.POST_INSPECTION_PENDING,
-      JobStatus.COMPLETED,
-    ].includes(job.status as JobStatus);
-    
-    const hasInstallationData = job.imeiNumbers?.length > 0 && job.photoUrls?.length > 0;
-    const hasPostInspection = job.status && [
-      JobStatus.POST_INSPECTION_PENDING,
-      JobStatus.COMPLETED,
-    ].includes(job.status as JobStatus);
+    const hasPreInspection =
+      job.status &&
+      [
+        JobStatus.PRE_INSPECTION_APPROVED,
+        JobStatus.IN_PROGRESS,
+        JobStatus.POST_INSPECTION_PENDING,
+        JobStatus.COMPLETED,
+      ].includes(job.status as JobStatus);
 
-    const isJobStarted = job.status !== JobStatus.ASSIGNED && job.status !== JobStatus.PENDING;
+    const hasInstallationData =
+      job.imeiNumbers?.length > 0 && job.photoUrls?.length > 0;
+    const hasPostInspection =
+      job.status &&
+      [JobStatus.POST_INSPECTION_PENDING, JobStatus.COMPLETED].includes(
+        job.status as JobStatus
+      );
+
+    const isJobStarted =
+      job.status !== JobStatus.ASSIGNED && job.status !== JobStatus.PENDING;
 
     switch (tabName) {
       case "info":
         return { enabled: true, completed: true, locked: false };
-      
+
       case "requisition":
-        return { 
-          enabled: true, 
+        return {
+          enabled: true,
           completed: job.status !== JobStatus.REQUISITION_PENDING,
-          locked: false 
+          locked: false,
         };
-      
+
       case "vehicle":
-        return { 
-          enabled: isJobStarted, 
+        return {
+          enabled: isJobStarted,
           completed: hasVehicle,
-          locked: !isJobStarted 
+          locked: !isJobStarted,
         };
-      
+
       case "pre-inspection":
-        return { 
-          enabled: hasVehicle, 
+        return {
+          enabled: hasVehicle,
           completed: hasPreInspection,
-          locked: !hasVehicle 
+          locked: !hasVehicle,
         };
-      
+
       case "installation":
-        return { 
-          enabled: hasPreInspection, 
+        return {
+          enabled: hasPreInspection,
           completed: hasInstallationData,
-          locked: !hasPreInspection 
+          locked: !hasPreInspection,
         };
-      
+
       case "post-inspection":
-        return { 
-          enabled: hasInstallationData, 
+        return {
+          enabled: hasInstallationData,
           completed: hasPostInspection,
-          locked: !hasInstallationData 
+          locked: !hasInstallationData,
         };
-      
+
       case "completion":
-        return { 
-          enabled: hasPostInspection, 
+        return {
+          enabled: hasPostInspection,
           completed: job.status === JobStatus.COMPLETED,
-          locked: !hasPostInspection 
+          locked: !hasPostInspection,
         };
-      
+
       default:
         return { enabled: false, completed: false, locked: true };
     }
@@ -220,12 +242,22 @@ const ActiveJob = () => {
 
   // Auto-progress callback for child components
   const handleStepComplete = (completedStep: string) => {
-    queryClient.invalidateQueries({ queryKey: jobId ? ["job-by-id", jobId] : ["active-job"] });
-    
-    const tabOrder = ["info", "requisition", "vehicle", "pre-inspection", "installation", "post-inspection", "completion"];
+    queryClient.invalidateQueries({
+      queryKey: jobId ? ["job-by-id", jobId] : ["active-job"],
+    });
+
+    const tabOrder = [
+      "info",
+      "requisition",
+      "vehicle",
+      "pre-inspection",
+      "installation",
+      "post-inspection",
+      "completion",
+    ];
     const currentIndex = tabOrder.indexOf(completedStep);
     const nextTab = tabOrder[currentIndex + 1];
-    
+
     if (nextTab) {
       setTimeout(() => {
         setActiveTab(nextTab);
@@ -264,38 +296,50 @@ const ActiveJob = () => {
     );
   }
 
-  const showStartButton = (
+  const showStartButton =
     job.status === JobStatus.ASSIGNED ||
     job.status === JobStatus.REQUISITION_APPROVED ||
-    job.status === JobStatus.PRE_INSPECTION_APPROVED
-  );
+    job.status === JobStatus.PRE_INSPECTION_APPROVED;
+
+  const tabs = [
+    { value: "info", icon: Briefcase, label: "Info", shortLabel: "Info" },
+    { value: "requisition", icon: Package, label: "Materials", shortLabel: "Materials" },
+    { value: "vehicle", icon: Car, label: "Vehicle", shortLabel: "Vehicle" },
+    { value: "pre-inspection", icon: ClipboardCheck, label: "Pre-Check", shortLabel: "Pre" },
+    { value: "installation", icon: Play, label: "Install", shortLabel: "Install" },
+    { value: "post-inspection", icon: CheckCircle, label: "Final Check", shortLabel: "Final" },
+    { value: "completion", icon: CheckCircle2, label: "Complete", shortLabel: "Done" },
+  ];
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6">
       {/* Job Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>
-          <h1 className="text-3xl font-bold">Active Job</h1>
-          <p className="text-muted-foreground">Job #{job.jobNumber}</p>
+          <h1 className="text-2xl sm:text-3xl font-bold">Active Job</h1>
+          <p className="text-sm sm:text-base text-muted-foreground">
+            Job #{job.jobNumber}
+          </p>
         </div>
-        <div className="flex items-center gap-3">
-          <Badge className={getStatusColor(job.status)}>
+        <div className="flex items-center gap-2 sm:gap-3">
+          <Badge className={`${getStatusColor(job.status)} text-xs sm:text-sm`}>
             {job.status.replace(/_/g, " ")}
           </Badge>
           {showStartButton && (
             <Button
               onClick={handleStartJob}
               disabled={startMutation.isPending || !currentLocation}
-              size="lg"
+              size={isMobile ? "default" : "lg"}
+              className="text-xs sm:text-sm"
             >
               {startMutation.isPending ? (
                 <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  <Loader2 className="mr-2 h-3 w-3 sm:h-4 sm:w-4 animate-spin" />
                   Starting...
                 </>
               ) : (
                 <>
-                  <Play className="mr-2 h-4 w-4" />
+                  <Play className="mr-2 h-3 w-3 sm:h-4 sm:w-4" />
                   Start Job
                 </>
               )}
@@ -304,8 +348,8 @@ const ActiveJob = () => {
         </div>
       </div>
 
-      {/* Job Progress Indicator */}
-      <Card>
+      {/* Job Progress Indicator - Hidden on small mobile, shown on tablet+ */}
+      <Card className="hidden md:block">
         <CardContent className="pt-6">
           <JobProgressSteps currentStatus={job.status} />
         </CardContent>
@@ -313,57 +357,105 @@ const ActiveJob = () => {
 
       {/* Main Content Tabs */}
       <Tabs value={activeTab} onValueChange={handleTabChange}>
-        <TabsList className="grid w-full grid-cols-7">
-          {[
-            { value: "info", icon: Briefcase, label: "Info" },
-            { value: "requisition", icon: Package, label: "Materials" },
-            { value: "vehicle", icon: Car, label: "Vehicle" },
-            { value: "pre-inspection", icon: ClipboardCheck, label: "Pre-Check" },
-            { value: "installation", icon: Play, label: "Install" },
-            { value: "post-inspection", icon: CheckCircle, label: "Final Check" },
-            { value: "completion", icon: CheckCircle2, label: "Complete" },
-          ].map((tab) => {
-            const { enabled, completed, locked } = getTabAccessibility(tab.value);
-            const Icon = tab.icon;
-            
-            return (
-              <TabsTrigger 
-                key={tab.value} 
-                value={tab.value}
-                disabled={locked}
-                className="relative"
-              >
-                <Icon className="h-4 w-4 mr-2" />
-                {tab.label}
-                {completed && <CheckCircle2 className="h-3 w-3 ml-1 text-green-600" />}
-                {locked && <Lock className="h-3 w-3 ml-1 text-gray-400" />}
-              </TabsTrigger>
-            );
-          })}
-        </TabsList>
+        {/* Mobile: Dropdown Selector */}
+        {isMobile ? (
+          <div className="mb-4">
+            <Select value={activeTab} onValueChange={handleTabChange}>
+              <SelectTrigger className="w-full">
+                <SelectValue>
+                  {tabs.find((t) => t.value === activeTab)?.label || "Select Step"}
+                </SelectValue>
+              </SelectTrigger>
+              <SelectContent>
+                {tabs.map((tab) => {
+                  const { enabled, completed, locked } = getTabAccessibility(tab.value);
+                  const Icon = tab.icon;
+
+                  return (
+                    <SelectItem
+                      key={tab.value}
+                      value={tab.value}
+                      disabled={locked}
+                      className="flex items-center"
+                    >
+                      <div className="flex items-center gap-2 w-full">
+                        <Icon className="h-4 w-4" />
+                        <span>{tab.label}</span>
+                        {completed && (
+                          <CheckCircle2 className="h-3 w-3 ml-auto text-green-600" />
+                        )}
+                        {locked && <Lock className="h-3 w-3 ml-auto text-gray-400" />}
+                      </div>
+                    </SelectItem>
+                  );
+                })}
+              </SelectContent>
+            </Select>
+          </div>
+        ) : (
+          /* Desktop: Horizontal Tabs */
+          <TabsList className="grid w-full grid-cols-7 mb-4">
+            {tabs.map((tab) => {
+              const { enabled, completed, locked } = getTabAccessibility(tab.value);
+              const Icon = tab.icon;
+
+              return (
+                <TabsTrigger
+                  key={tab.value}
+                  value={tab.value}
+                  disabled={locked}
+                  className="relative text-xs lg:text-sm"
+                >
+                  <Icon className="h-3 w-3 lg:h-4 lg:w-4 mr-1 lg:mr-2" />
+                  <span className="hidden lg:inline">{tab.label}</span>
+                  <span className="lg:hidden">{tab.shortLabel}</span>
+                  {completed && (
+                    <CheckCircle2 className="h-3 w-3 ml-1 text-green-600" />
+                  )}
+                  {locked && <Lock className="h-3 w-3 ml-1 text-gray-400" />}
+                </TabsTrigger>
+              );
+            })}
+          </TabsList>
+        )}
 
         <TabsContent value="info">
           <JobInfo job={job} />
         </TabsContent>
 
         <TabsContent value="requisition">
-          <RequisitionForm job={job} onComplete={() => handleStepComplete("requisition")} />
+          <RequisitionForm
+            job={job}
+            onComplete={() => handleStepComplete("requisition")}
+          />
         </TabsContent>
 
         <TabsContent value="vehicle">
-          <VehicleForm job={job} onComplete={() => handleStepComplete("vehicle")} />
+          <VehicleForm
+            job={job}
+            onComplete={() => handleStepComplete("vehicle")}
+          />
         </TabsContent>
 
         <TabsContent value="pre-inspection">
-          <PreInspection job={job} onComplete={() => handleStepComplete("pre-inspection")} />
+          <PreInspection
+            job={job}
+            onComplete={() => handleStepComplete("pre-inspection")}
+          />
         </TabsContent>
 
         <TabsContent value="installation">
-          <InstallationProgress job={job} onComplete={() => handleStepComplete("installation")} />
+          <InstallationProgress
+            job={job}
+            onComplete={() => handleStepComplete("installation")}
+          />
         </TabsContent>
 
         <TabsContent value="post-inspection">
-          <PostInspection job={job} onComplete={() => handleStepComplete("post-inspection")} />
+          <PostInspection
+            job={job}
+            onComplete={() => handleStepComplete("post-inspection")}
+          />
         </TabsContent>
 
         <TabsContent value="completion">
@@ -392,7 +484,11 @@ const getStatusColor = (status: string) => {
 const JobProgressSteps = ({ currentStatus }: { currentStatus: string }) => {
   const steps = [
     { key: "ASSIGNED", label: "Start Job", icon: Play },
-    { key: "PRE_INSPECTION_APPROVED", label: "Pre-Inspection", icon: ClipboardCheck },
+    {
+      key: "PRE_INSPECTION_APPROVED",
+      label: "Pre-Inspection",
+      icon: ClipboardCheck,
+    },
     { key: "IN_PROGRESS", label: "Installation", icon: Briefcase },
     { key: "POST_INSPECTION_PENDING", label: "Final Check", icon: CheckCircle },
     { key: "COMPLETED", label: "Completed", icon: CheckCircle2 },
@@ -401,7 +497,7 @@ const JobProgressSteps = ({ currentStatus }: { currentStatus: string }) => {
   const currentIndex = steps.findIndex((s) => s.key === currentStatus);
 
   return (
-    <div className="flex items-center w-full">
+    <div className="flex items-center w-full overflow-x-auto pb-2">
       {steps.map((step, index) => {
         const Icon = step.icon;
         const isComplete = index < currentIndex;
@@ -412,21 +508,27 @@ const JobProgressSteps = ({ currentStatus }: { currentStatus: string }) => {
             <div className="flex flex-col items-center flex-shrink-0">
               <div
                 className={`
-                  rounded-full p-3 
-                  ${isComplete ? "bg-green-500" : isCurrent ? "bg-blue-500" : "bg-gray-300"}
+                  rounded-full p-2 sm:p-3 
+                  ${
+                    isComplete
+                      ? "bg-green-500"
+                      : isCurrent
+                      ? "bg-blue-500"
+                      : "bg-gray-300"
+                  }
                   text-white transition-all duration-300
                 `}
               >
-                <Icon className="h-5 w-5" />
+                <Icon className="h-4 w-4 sm:h-5 sm:w-5" />
               </div>
-              <p className="text-xs mt-2 text-center whitespace-nowrap font-medium">
+              <p className="text-[10px] sm:text-xs mt-1 sm:mt-2 text-center whitespace-nowrap font-medium max-w-[60px] sm:max-w-none">
                 {step.label}
               </p>
             </div>
             {index < steps.length - 1 && (
               <div
                 className={`
-                  flex-1 h-1 mx-2 min-w-[20px] transition-all duration-300
+                  flex-1 h-1 mx-1 sm:mx-2 min-w-[20px] transition-all duration-300
                   ${isComplete ? "bg-green-500" : "bg-gray-300"}
                 `}
               />

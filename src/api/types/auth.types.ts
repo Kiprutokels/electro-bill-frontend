@@ -30,3 +30,18 @@ export interface ProfileResponse extends User {
   createdAt: string;
   updatedAt: string;
 }
+export interface UpdateProfileRequest {
+  firstName?: string;
+  lastName?: string;
+  phone?: string;
+  photoUrl?: string;
+}
+
+export interface ForgotPasswordRequest {
+  email: string;
+}
+
+export interface ResetPasswordRequest {
+  token: string;
+  newPassword: string;
+}

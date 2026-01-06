@@ -7,6 +7,8 @@ import { AuthProvider, useAuth } from "./contexts/AuthContext";
 import { ThemeProvider } from "./contexts/ThemeContext";
 
 import Login from "./pages/Login";
+import ForgotPassword from "@/pages/ForgotPassword";
+import ResetPassword from "@/pages/ResetPassword";
 import Dashboard from "./pages/Dashboard";
 import Products from "./pages/Products";
 import Customers from "./pages/Customers";
@@ -29,6 +31,8 @@ import Transactions from "./pages/Transactions";
 import Reports from "./pages/Reports";
 import Subscriptions from "./pages/Subscriptions";
 import ProcessingFees from './pages/ProcessingFees';
+import AdvanceRequests from "./pages/AdvanceRequests";
+import Profile from "./pages/Profile";
 
 // Vehicle Tracking
 import Vehicles from "./pages/Vehicles";
@@ -72,6 +76,8 @@ const AppRoutes = () => {
   return (
     <Routes>
       <Route path="/login" element={<Login />} />
+      <Route path="/forgot-password" element={<ForgotPassword />} />
+      <Route path="/reset-password" element={<ResetPassword />} />
 
       {/* Redirect root based on role */}
       <Route
@@ -115,6 +121,8 @@ const AppRoutes = () => {
             <Route path="transactions" element={<Transactions />} />
             <Route path="reports" element={<Reports />} />
             <Route path="processing-fees" element={<ProcessingFees />} />
+            <Route path="advance-requests" element={<AdvanceRequests />} />
+            <Route path="profile" element={<Profile />} />
 
             {/* Vehicle Tracking */}
             <Route path="vehicles" element={<Vehicles />} />
@@ -138,6 +146,7 @@ const AppRoutes = () => {
               path="technician/jobs/:id"
               element={<TechnicianActiveJob />}
             />
+           <Route path="technician/profile" element={<Profile />} />
           </>
         )}
 
