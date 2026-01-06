@@ -29,6 +29,8 @@ import Transactions from "./pages/Transactions";
 import Reports from "./pages/Reports";
 import Subscriptions from "./pages/Subscriptions";
 import ProcessingFees from './pages/ProcessingFees';
+import AdvanceRequests from "./pages/AdvanceRequests";
+import Profile from "./pages/Profile";
 
 // Vehicle Tracking
 import Vehicles from "./pages/Vehicles";
@@ -115,6 +117,8 @@ const AppRoutes = () => {
             <Route path="transactions" element={<Transactions />} />
             <Route path="reports" element={<Reports />} />
             <Route path="processing-fees" element={<ProcessingFees />} />
+            <Route path="advance-requests" element={<AdvanceRequests />} />
+            <Route path="profile" element={<Profile />} />
 
             {/* Vehicle Tracking */}
             <Route path="vehicles" element={<Vehicles />} />
@@ -138,6 +142,7 @@ const AppRoutes = () => {
               path="technician/jobs/:id"
               element={<TechnicianActiveJob />}
             />
+           <Route path="technician/profile" element={<Profile />} />
           </>
         )}
 
