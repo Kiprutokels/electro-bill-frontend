@@ -18,6 +18,7 @@ import {
   PackageSearch,
   MapPin,
   DollarSign,
+  User,
 } from "lucide-react";
 import {
   Sidebar,
@@ -126,6 +127,13 @@ const adminNavigation = [
     permission: null,
     section: "tracking",
   },
+ {
+    name: "Advance Requests",
+    href: "/advance-requests",
+    icon: DollarSign,
+    permission: null,
+    section: "tracking",
+  },
   {
     name: "Inspections",
     href: "/inspections",
@@ -170,6 +178,13 @@ const adminNavigation = [
     permission: null,
     section: "system",
   },
+    {
+    name: "My Profile",
+    href: "/profile",
+    icon: User,
+    permission: null,
+    section: "system",
+  },
 ];
 
 // Technician-specific navigation
@@ -188,34 +203,34 @@ const technicianNavigation = [
     permission: PERMISSIONS.JOBS_UPDATE,
     section: "main",
   },
-  {
-    name: "Requisitions",
-    href: "/technician/requisitions",
-    icon: PackageSearch,
-    permission: null,
-    section: "field",
-  },
-  {
-    name: "Inspections",
-    href: "/technician/inspections",
-    icon: ClipboardCheck,
-    permission: null,
-    section: "field",
-  },
-  {
-    name: "Vehicles",
-    href: "/technician/vehicles",
-    icon: Car,
-    permission: PERMISSIONS.VEHICLES_CREATE,
-    section: "field",
-  },
-  {
-    name: "Location Check-In",
-    href: "/technician/location",
-    icon: MapPin,
-    permission: null,
-    section: "field",
-  },
+  // {
+  //   name: "Requisitions",
+  //   href: "/technician/requisitions",
+  //   icon: PackageSearch,
+  //   permission: null,
+  //   section: "field",
+  // },
+  // {
+  //   name: "Inspections",
+  //   href: "/technician/inspections",
+  //   icon: ClipboardCheck,
+  //   permission: null,
+  //   section: "field",
+  // },
+  // {
+  //   name: "Vehicles",
+  //   href: "/technician/vehicles",
+  //   icon: Car,
+  //   permission: PERMISSIONS.VEHICLES_CREATE,
+  //   section: "field",
+  // },
+  // {
+  //   name: "Location Check-In",
+  //   href: "/technician/location",
+  //   icon: MapPin,
+  //   permission: null,
+  //   section: "field",
+  // },
   {
     name: "Profile",
     href: "/technician/profile",
