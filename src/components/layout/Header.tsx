@@ -52,7 +52,7 @@ export const Header = () => {
   };
 
   return (
-    <header className="sticky top-0 z-40 border-b border-border bg-background backdrop-blur supports-[backdrop-filter]:bg-background/50">
+    <header className="sticky top-0 z-40 border-b border-border bg-muted/50 backdrop-blur supports-[backdrop-filter]:bg-muted/50">
       <div className="flex h-14 items-center justify-between px-4">
         <div className="flex items-center gap-2 flex-1 min-w-0">
           {/* Custom mobile sidebar trigger */}
