@@ -102,10 +102,10 @@ const Login = () => {
             </div>
           </div>
           <CardTitle className="text-xl sm:text-2xl font-bold text-foreground">
-            ElectroBill System
+            Automile System
           </CardTitle>
           <CardDescription className="text-sm sm:text-base text-muted-foreground">
-            Sign in to access your admin dashboard
+            Sign in to access your account
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -200,11 +200,11 @@ const Login = () => {
               {isSubmitting ? "Signing In..." : "Sign In"}
             </Button>
 
-            <div className="text-center text-sm text-muted-foreground mt-4 p-3 bg-muted/50 rounded">
+            {/* <div className="text-center text-sm text-muted-foreground mt-4 p-3 bg-muted/50 rounded">
               <p className="font-medium mb-1">Demo Credentials:</p>
               <p>Email: admin@electrobill.com</p>
               <p>Password: Admin@123</p>
-            </div>
+            </div> */}
           </form>
         </CardContent>
       </Card>
