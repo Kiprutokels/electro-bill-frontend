@@ -226,7 +226,7 @@ const technicianNavigation = [
 ];
 
 export function AppSidebar() {
-  const { state } = useSidebar();
+  const { state, setOpenMobile } = useSidebar();
   const location = useLocation();
   const { hasPermission, logout, user } = useAuth();
   const currentPath = location.pathname;
@@ -270,6 +270,13 @@ export function AppSidebar() {
       ? "bg-sidebar-primary text-sidebar-primary-foreground font-medium"
       : "text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground";
 
+  const handleNavClick = () => {
+    // Close mobile sidebar when navigation item is clicked
+    if (isMobile) {
+      setOpenMobile(false);
+    }
+  };
+
   const renderMenuItems = (items: typeof navigation) => (
     <SidebarMenu>
       {items.map((item) => (
@@ -278,10 +285,11 @@ export function AppSidebar() {
             <NavLink
               to={item.href}
               className={getNavCls({ isActive: isActive(item.href) })}
+              onClick={handleNavClick}
             >
-              <item.icon className="h-4 w-4 sm:h-5 sm:w-5 flex-shrink-0" />
+              <item.icon className="h-4 w-4 flex-shrink-0" />
               {!collapsed && (
-                <span className="truncate text-responsive-sm">{item.name}</span>
+                <span className="truncate text-xs">{item.name}</span>
               )}
             </NavLink>
           </SidebarMenuButton>
@@ -292,7 +300,7 @@ export function AppSidebar() {
 
   return (
     <Sidebar
-      className={`${collapsed ? "w-12" : "w-64"}`}
+      className={`${collapsed ? "w-12" : "w-56"}`}
       collapsible="icon"
       variant="sidebar"
       side={isMobile ? "left" : "left"}
@@ -300,34 +308,34 @@ export function AppSidebar() {
       <SidebarHeader className="border-b border-sidebar-border">
         <div
           className={`flex items-center ${
-            collapsed ? "justify-center p-3" : "space-x-3 p-4"
+            collapsed ? "justify-center p-2" : "space-x-2 p-3"
           }`}
         >
           <div
             className={`${
-              collapsed ? "p-1" : "p-2"
+              collapsed ? "p-1.5" : "p-2"
             } bg-sidebar-primary rounded-lg flex-shrink-0`}
           >
             <Building2
               className={`${
-                collapsed ? "h-4 w-4" : "h-5 w-5 sm:h-6 sm:w-6"
+                collapsed ? "h-4 w-4" : "h-5 w-5"
               } text-sidebar-primary-foreground`}
             />
           </div>
           {!collapsed && (
             <div className="min-w-0">
-              <h1 className="text-responsive-lg font-bold text-sidebar-foreground truncate">
+              <h1 className="text-sm font-bold text-sidebar-foreground truncate">
                 Automile
               </h1>
-              <p className="text-responsive-sm text-sidebar-foreground/70 truncate">
+              <p className="text-xs text-sidebar-foreground/70 truncate">
                 {isTechnician ? "Field Portal" : "Tracking System"}
               </p>
             </div>
           )}
         </div>
         <div
-          className={`flex pb-2 ${
-            collapsed ? "justify-center px-2" : "justify-end px-4"
+          className={`flex pb-1.5 ${
+            collapsed ? "justify-center px-2" : "justify-end px-3"
           }`}
         >
           <SidebarTrigger className="text-sidebar-foreground hover:text-sidebar-accent-foreground hover:bg-sidebar-accent" />
@@ -415,10 +423,8 @@ export function AppSidebar() {
               onClick={logout}
               className="w-full text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
             >
-              <LogOut className="h-4 w-4 sm:h-5 sm:w-5 flex-shrink-0" />
-              {!collapsed && (
-                <span className="truncate text-responsive-sm">Sign Out</span>
-              )}
+              <LogOut className="h-4 w-4 flex-shrink-0" />
+              {!collapsed && <span className="truncate text-xs">Sign Out</span>}
             </SidebarMenuButton>
           </SidebarMenuItem>
         </SidebarMenu>
