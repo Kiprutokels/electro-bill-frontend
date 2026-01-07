@@ -42,34 +42,36 @@ import {
   MoreVertical,
   FileText,
   DollarSign,
+  CalendarClock,
 } from "lucide-react";
 import { jobsService, JobStatus, Job } from "@/api/services/jobs.service";
 import { useAuth } from "@/contexts/AuthContext";
 import { PERMISSIONS } from "@/utils/constants";
 
-// Import modals
+// Dialogs
 import CreateJobDialog from "@/components/jobs/CreateJobDialog";
 import ViewJobDialog from "@/components/jobs/ViewJobDialog";
 import AssignTechnicianDialog from "@/components/jobs/AssignTechnicianDialog";
 import ManageTechniciansDialog from "@/components/jobs/ManageTechniciansDialog";
 import CancelJobDialog from "@/components/jobs/CancelJobDialog";
+import RescheduleJobDialog from "@/components/jobs/RescheduleJobDialog";
 
 const Jobs = () => {
   const navigate = useNavigate();
   const { hasPermission } = useAuth();
+
   const [page, setPage] = useState(1);
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<JobStatus | undefined>();
 
-  // Dialog states
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
   const [isAssignDialogOpen, setIsAssignDialogOpen] = useState(false);
   const [isManageDialogOpen, setIsManageDialogOpen] = useState(false);
   const [isCancelDialogOpen, setIsCancelDialogOpen] = useState(false);
+  const [isRescheduleDialogOpen, setIsRescheduleDialogOpen] = useState(false);
   const [selectedJob, setSelectedJob] = useState<Job | null>(null);
 
-  // Fetch jobs
   const { data: jobsData, isLoading } = useQuery({
     queryKey: ["jobs", page, searchTerm, statusFilter],
     queryFn: () =>
@@ -81,11 +83,12 @@ const Jobs = () => {
       }),
   });
 
-  // Fetch statistics
   const { data: statistics } = useQuery({
     queryKey: ["job-statistics"],
     queryFn: jobsService.getStatistics,
   });
+
+  const jobs = jobsData?.data || [];
 
   const handleView = (job: Job) => {
     setSelectedJob(job);
@@ -111,6 +114,11 @@ const Jobs = () => {
     setIsCancelDialogOpen(true);
   };
 
+  const handleRescheduleClick = (job: Job) => {
+    setSelectedJob(job);
+    setIsRescheduleDialogOpen(true);
+  };
+
   const handleGenerateInvoice = (job: Job) => {
     navigate(`/jobs/${job.id}/workflow`);
   };
@@ -118,6 +126,7 @@ const Jobs = () => {
   const getStatusBadge = (status: string) => {
     const variants: Record<string, { color: string; icon: any }> = {
       PENDING: { color: "bg-gray-500", icon: Clock },
+      SCHEDULED: { color: "bg-indigo-500", icon: CalendarClock },
       ASSIGNED: { color: "bg-blue-500", icon: Briefcase },
       REQUISITION_PENDING: { color: "bg-yellow-500", icon: Clock },
       REQUISITION_APPROVED: { color: "bg-blue-500", icon: CheckCircle },
@@ -157,8 +166,6 @@ const Jobs = () => {
     );
   };
 
-  const jobs = jobsData?.data || [];
-
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -178,7 +185,7 @@ const Jobs = () => {
       </div>
 
       {/* Statistics */}
-      <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-6 gap-4">
         <Card className="border-l-4 border-l-gray-500">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium">Total Jobs</CardTitle>
@@ -187,6 +194,18 @@ const Jobs = () => {
             <div className="text-2xl font-bold">{statistics?.total || 0}</div>
           </CardContent>
         </Card>
+
+        <Card className="border-l-4 border-l-indigo-500">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium">Scheduled</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-indigo-600">
+              {statistics?.scheduled || 0}
+            </div>
+          </CardContent>
+        </Card>
+
         <Card className="border-l-4 border-l-yellow-500">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium">Pending</CardTitle>
@@ -197,6 +216,7 @@ const Jobs = () => {
             </div>
           </CardContent>
         </Card>
+
         <Card className="border-l-4 border-l-purple-500">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium">In Progress</CardTitle>
@@ -207,6 +227,7 @@ const Jobs = () => {
             </div>
           </CardContent>
         </Card>
+
         <Card className="border-l-4 border-l-green-500">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium">Completed</CardTitle>
@@ -217,6 +238,7 @@ const Jobs = () => {
             </div>
           </CardContent>
         </Card>
+
         <Card className="border-l-4 border-l-orange-500">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium">
@@ -235,7 +257,7 @@ const Jobs = () => {
       <Card>
         <CardHeader>
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-            <CardTitle>Active Jobs</CardTitle>
+            <CardTitle>Jobs</CardTitle>
             <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
               <Select
                 value={statusFilter}
@@ -257,6 +279,7 @@ const Jobs = () => {
                   ))}
                 </SelectContent>
               </Select>
+
               <Input
                 placeholder="Search jobs..."
                 value={searchTerm}
@@ -266,6 +289,7 @@ const Jobs = () => {
             </div>
           </div>
         </CardHeader>
+
         <CardContent>
           <div className="rounded-md border overflow-hidden">
             <div className="overflow-x-auto">
@@ -273,18 +297,19 @@ const Jobs = () => {
                 <TableHeader>
                   <TableRow>
                     <TableHead className="min-w-[140px]">Job Number</TableHead>
-                    <TableHead className="min-w-[200px]">
+                    <TableHead className="min-w-[220px]">
                       Customer/Vehicle
                     </TableHead>
                     <TableHead className="min-w-[120px]">Type</TableHead>
                     <TableHead className="min-w-[140px]">Technicians</TableHead>
                     <TableHead className="min-w-[120px]">Scheduled</TableHead>
-                    <TableHead className="min-w-[140px]">Status</TableHead>
+                    <TableHead className="min-w-[160px]">Status</TableHead>
                     <TableHead className="text-right min-w-[100px]">
                       Actions
                     </TableHead>
                   </TableRow>
                 </TableHeader>
+
                 <TableBody>
                   {isLoading ? (
                     <TableRow>
@@ -324,6 +349,7 @@ const Jobs = () => {
                         <TableCell className="font-mono font-medium">
                           {job.jobNumber}
                         </TableCell>
+
                         <TableCell>
                           <div>
                             <div className="font-medium">
@@ -337,7 +363,9 @@ const Jobs = () => {
                             </div>
                           </div>
                         </TableCell>
+
                         <TableCell>{getJobTypeBadge(job.jobType)}</TableCell>
+
                         <TableCell>
                           {job.technicians && job.technicians.length > 0 ? (
                             <div className="flex items-center gap-1">
@@ -356,13 +384,18 @@ const Jobs = () => {
                             <Badge variant="outline">Unassigned</Badge>
                           )}
                         </TableCell>
+
                         <TableCell>
                           <div className="flex items-center text-sm">
                             <Calendar className="h-4 w-4 mr-1 text-muted-foreground" />
-                            {new Date(job.scheduledDate).toLocaleDateString()}
+                            {job.scheduledDate
+                              ? new Date(job.scheduledDate).toLocaleDateString()
+                              : "Not set"}
                           </div>
                         </TableCell>
+
                         <TableCell>{getStatusBadge(job.status)}</TableCell>
+
                         <TableCell className="text-right">
                           <DropdownMenu>
                             <DropdownMenuTrigger asChild>
@@ -375,12 +408,13 @@ const Jobs = () => {
                                 <MoreVertical className="h-4 w-4" />
                               </Button>
                             </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end" className="w-48">
-                              {/* View Actions */}
+
+                            <DropdownMenuContent align="end" className="w-52">
                               <DropdownMenuItem onClick={() => handleView(job)}>
                                 <Eye className="mr-2 h-4 w-4" />
                                 View Details
                               </DropdownMenuItem>
+
                               <DropdownMenuItem
                                 onClick={() => handleViewWorkflow(job)}
                               >
@@ -400,6 +434,7 @@ const Jobs = () => {
                                     Assign Technician
                                   </DropdownMenuItem>
                                 )}
+
                               {job.technicians &&
                                 job.technicians.length > 0 && (
                                   <DropdownMenuItem
@@ -410,7 +445,25 @@ const Jobs = () => {
                                   </DropdownMenuItem>
                                 )}
 
-                              {/* Invoice Action */}
+                              {/* Reschedule */}
+                              {hasPermission(PERMISSIONS.JOBS_UPDATE) &&
+                                ![
+                                  JobStatus.COMPLETED,
+                                  JobStatus.VERIFIED,
+                                  JobStatus.CANCELLED,
+                                ].includes(job.status) && (
+                                  <>
+                                    <DropdownMenuSeparator />
+                                    <DropdownMenuItem
+                                      onClick={() => handleRescheduleClick(job)}
+                                    >
+                                      <CalendarClock className="mr-2 h-4 w-4" />
+                                      Reschedule
+                                    </DropdownMenuItem>
+                                  </>
+                                )}
+
+                              {/* Invoice */}
                               {job.status === JobStatus.COMPLETED &&
                                 hasPermission(PERMISSIONS.SALES_CREATE) && (
                                   <>
@@ -424,10 +477,13 @@ const Jobs = () => {
                                   </>
                                 )}
 
-                              {/* Cancel Action */}
-                              {job.status !== JobStatus.COMPLETED &&
-                                job.status !== JobStatus.VERIFIED &&
-                                job.status !== JobStatus.CANCELLED && (
+                              {/* Cancel */}
+                              {hasPermission(PERMISSIONS.JOBS_UPDATE) &&
+                                ![
+                                  JobStatus.COMPLETED,
+                                  JobStatus.VERIFIED,
+                                  JobStatus.CANCELLED,
+                                ].includes(job.status) && (
                                   <>
                                     <DropdownMenuSeparator />
                                     <DropdownMenuItem
@@ -496,15 +552,12 @@ const Jobs = () => {
         job={selectedJob}
         onManageTechnicians={() => {
           setIsViewDialogOpen(false);
-          if (selectedJob?.technicians?.length) {
-            setIsManageDialogOpen(true);
-          } else {
-            setIsAssignDialogOpen(true);
-          }
+          if (selectedJob?.technicians?.length) setIsManageDialogOpen(true);
+          else setIsAssignDialogOpen(true);
         }}
         onCancel={() => {
           setIsViewDialogOpen(false);
-          handleCancelClick(selectedJob!);
+          if (selectedJob) handleCancelClick(selectedJob);
         }}
       />
 
@@ -523,6 +576,12 @@ const Jobs = () => {
       <CancelJobDialog
         open={isCancelDialogOpen}
         onOpenChange={setIsCancelDialogOpen}
+        job={selectedJob}
+      />
+
+      <RescheduleJobDialog
+        open={isRescheduleDialogOpen}
+        onOpenChange={setIsRescheduleDialogOpen}
         job={selectedJob}
       />
     </div>

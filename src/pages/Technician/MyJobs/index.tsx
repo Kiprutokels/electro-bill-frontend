@@ -27,6 +27,7 @@ import {
   Calendar,
   Loader2,
   AlertCircle,
+  CalendarClock,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { technicianJobsService } from "@/api/services/technician-jobs.service";
@@ -47,8 +48,8 @@ const MyJobs = () => {
         status: statusFilter,
       }),
     staleTime: 0,
-    gcTime: 1000 * 60 * 5, // Keep in cache for 5 minutes
-    refetchOnMount: 'always',
+    gcTime: 1000 * 60 * 5,
+    refetchOnMount: "always",
     refetchOnWindowFocus: true,
   });
 
@@ -58,7 +59,7 @@ const MyJobs = () => {
     queryFn: technicianJobsService.getMyStats,
     staleTime: 0,
     gcTime: 1000 * 60 * 5,
-    refetchOnMount: 'always',
+    refetchOnMount: "always",
     refetchOnWindowFocus: true,
   });
 
@@ -66,6 +67,7 @@ const MyJobs = () => {
 
   const getStatusBadge = (status: string) => {
     const variants: Record<string, { color: string; icon: any }> = {
+      SCHEDULED: { color: "bg-indigo-500", icon: CalendarClock },
       ASSIGNED: { color: "bg-blue-500", icon: Briefcase },
       IN_PROGRESS: { color: "bg-purple-500", icon: Play },
       PRE_INSPECTION_PENDING: { color: "bg-orange-500", icon: Clock },
@@ -87,12 +89,87 @@ const MyJobs = () => {
     );
   };
 
+  const canStartJob = (job: any): boolean => {
+    // Check if status allows starting
+    const validStatuses = [
+      JobStatus.SCHEDULED,
+      JobStatus.ASSIGNED,
+      JobStatus.REQUISITION_APPROVED,
+      JobStatus.PRE_INSPECTION_APPROVED,
+    ];
+
+    if (!validStatuses.includes(job.status as JobStatus)) {
+      return false;
+    }
+
+    // NEW: Check if scheduled date has arrived
+    if (job.scheduledDate) {
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+
+      const scheduledDate = new Date(job.scheduledDate);
+      scheduledDate.setHours(0, 0, 0, 0);
+
+      if (scheduledDate > today) {
+        return false; // Job is scheduled for future date
+      }
+    }
+
+    return true;
+  };
+
+  const getScheduledDateInfo = (
+    job: any
+  ): {
+    canStart: boolean;
+    message?: string;
+    daysUntil?: number;
+  } => {
+    if (!job.scheduledDate) {
+      return { canStart: true };
+    }
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const scheduledDate = new Date(job.scheduledDate);
+    scheduledDate.setHours(0, 0, 0, 0);
+
+    const daysUntil = Math.ceil(
+      (scheduledDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24)
+    );
+
+    if (daysUntil > 0) {
+      return {
+        canStart: false,
+        message: `Starts in ${daysUntil} day${daysUntil > 1 ? "s" : ""}`,
+        daysUntil,
+      };
+    } else if (daysUntil === 0) {
+      return {
+        canStart: true,
+        message: "Starts today",
+        daysUntil: 0,
+      };
+    } else {
+      return {
+        canStart: true,
+        message: "Ready to start",
+        daysUntil: 0,
+      };
+    }
+  };
+
   const handleViewJob = (jobId: string) => {
     navigate(`/technician/jobs/${jobId}`);
   };
 
   const handleStartJob = (jobId: string) => {
-    navigate(`/technician/active-job?jobId=${jobId}`);
+    navigate(`/technician/jobs/${jobId}/work`);
+  };
+
+  const handleViewCompleted = (jobId: string) => {
+    navigate(`/technician/jobs/${jobId}`);
   };
 
   return (
@@ -160,7 +237,7 @@ const MyJobs = () => {
             <Select
               value={statusFilter}
               onValueChange={(val) => {
-                setStatusFilter(val === 'all' ? undefined : val as JobStatus);
+                setStatusFilter(val === "all" ? undefined : (val as JobStatus));
                 setPage(1);
               }}
             >
@@ -169,6 +246,7 @@ const MyJobs = () => {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Statuses</SelectItem>
+                <SelectItem value={JobStatus.SCHEDULED}>Scheduled</SelectItem>
                 <SelectItem value={JobStatus.ASSIGNED}>Assigned</SelectItem>
                 <SelectItem value={JobStatus.IN_PROGRESS}>
                   In Progress
@@ -205,84 +283,128 @@ const MyJobs = () => {
                       <div className="flex flex-col items-center gap-2">
                         <AlertCircle className="h-8 w-8 text-muted-foreground" />
                         <p className="text-muted-foreground">
-                          No jobs found. {statusFilter ? 'Try changing the filter.' : 'Please contact your supervisor.'}
+                          No jobs found.{" "}
+                          {statusFilter
+                            ? "Try changing the filter."
+                            : "Please contact your supervisor."}
                         </p>
                       </div>
                     </TableCell>
                   </TableRow>
                 ) : (
-                  jobs.map((job) => (
-                    <TableRow key={job.id}>
-                      <TableCell className="font-mono font-medium">
-                        {job.jobNumber}
-                      </TableCell>
-                      <TableCell>
-                        <div>
-                          <div className="font-medium">
-                            {job.customer.businessName ||
-                              job.customer.contactPerson}
-                          </div>
-                          <div className="text-sm text-muted-foreground">
-                            {job.customer.phone}
-                          </div>
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        {job.vehicle ? (
+                  jobs.map((job) => {
+                    const scheduleInfo = getScheduledDateInfo(job);
+                    const startable = canStartJob(job);
+                    const isCompleted =
+                      job.status === JobStatus.COMPLETED ||
+                      job.status === JobStatus.VERIFIED;
+
+                    return (
+                      <TableRow key={job.id}>
+                        <TableCell className="font-mono font-medium">
+                          {job.jobNumber}
+                        </TableCell>
+                        <TableCell>
                           <div>
                             <div className="font-medium">
-                              {job.vehicle.vehicleReg}
+                              {job.customer.businessName ||
+                                job.customer.contactPerson}
                             </div>
                             <div className="text-sm text-muted-foreground">
-                              {job.vehicle.make} {job.vehicle.model}
+                              {job.customer.phone}
                             </div>
                           </div>
-                        ) : (
-                          <Badge variant="outline">Not Assigned</Badge>
-                        )}
-                      </TableCell>
-                      <TableCell>{job.jobType.replace("_", " ")}</TableCell>
-                      <TableCell>
-                        <div className="flex items-center text-sm">
-                          <Calendar className="h-4 w-4 mr-1 text-muted-foreground" />
-                          {new Date(job.scheduledDate).toLocaleDateString()}
-                        </div>
-                      </TableCell>
-                      <TableCell>{getStatusBadge(job.status)}</TableCell>
-                      <TableCell className="text-right">
-                        <div className="flex justify-end gap-2">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => handleViewJob(job.id)}
-                          >
-                            <Eye className="h-4 w-4 mr-1" />
-                            View
-                          </Button>
-                          {(job.status === JobStatus.ASSIGNED ||
-                            job.status === JobStatus.REQUISITION_APPROVED ||
-                            job.status ===
-                              JobStatus.PRE_INSPECTION_APPROVED) && (
-                            <Button
-                              size="sm"
-                              onClick={() => handleStartJob(job.id)}
-                            >
-                              <Play className="h-4 w-4 mr-1" />
-                              Start
-                            </Button>
+                        </TableCell>
+                        <TableCell>
+                          {job.vehicle ? (
+                            <div>
+                              <div className="font-medium">
+                                {job.vehicle.vehicleReg}
+                              </div>
+                              <div className="text-sm text-muted-foreground">
+                                {job.vehicle.make} {job.vehicle.model}
+                              </div>
+                            </div>
+                          ) : (
+                            <Badge variant="outline">Not Assigned</Badge>
                           )}
-                          {job.status === JobStatus.IN_PROGRESS && (
-                            <Button
-                              size="sm"
-                              onClick={() => handleStartJob(job.id)}
-                            >
-                              Continue
-                            </Button>
-                          )}
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))
+                        </TableCell>
+                        <TableCell>{job.jobType.replace("_", " ")}</TableCell>
+                        <TableCell>
+                          <div className="flex flex-col gap-1">
+                            <div className="flex items-center text-sm">
+                              <Calendar className="h-4 w-4 mr-1 text-muted-foreground" />
+                              {new Date(job.scheduledDate).toLocaleDateString()}
+                            </div>
+                            {scheduleInfo.message && (
+                              <Badge
+                                variant={
+                                  scheduleInfo.canStart
+                                    ? "default"
+                                    : "secondary"
+                                }
+                                className="text-xs w-fit"
+                              >
+                                {scheduleInfo.message}
+                              </Badge>
+                            )}
+                          </div>
+                        </TableCell>
+                        <TableCell>{getStatusBadge(job.status)}</TableCell>
+                        <TableCell className="text-right">
+                          <div className="flex justify-end gap-2">
+                            {isCompleted ? (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleViewCompleted(job.id)}
+                              >
+                                <Eye className="h-4 w-4 mr-1" />
+                                View Details
+                              </Button>
+                            ) : (
+                              <>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => handleViewJob(job.id)}
+                                >
+                                  <Eye className="h-4 w-4 mr-1" />
+                                  View
+                                </Button>
+                                {startable ? (
+                                  <Button
+                                    size="sm"
+                                    onClick={() => handleStartJob(job.id)}
+                                    className="bg-green-600 hover:bg-green-700"
+                                  >
+                                    <Play className="h-4 w-4 mr-1" />
+                                    {job.status === JobStatus.IN_PROGRESS
+                                      ? "Continue"
+                                      : "Start"}
+                                  </Button>
+                                ) : (
+                                  <Button
+                                    size="sm"
+                                    disabled
+                                    variant="outline"
+                                    title={
+                                      !scheduleInfo.canStart
+                                        ? `Starts in ${scheduleInfo.daysUntil} days`
+                                        : "Cannot start yet"
+                                    }
+                                  >
+                                    <Clock className="h-4 w-4 mr-1" />
+                                    Scheduled
+                                  </Button>
+                                )}
+                              </>
+                            )}
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })
                 )}
               </TableBody>
             </Table>

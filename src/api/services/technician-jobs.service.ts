@@ -32,7 +32,7 @@ export interface CompleteJobRequest {
 }
 
 export const technicianJobsService = {
-  // Get technician's assigned jobs
+  // Get technician's assigned jobs (all statuses)
   getMyJobs: async (params: {
     status?: JobStatus;
     page?: number;
@@ -45,9 +45,32 @@ export const technicianJobsService = {
     return response.data;
   },
 
-  // Get active job (currently in progress)
+  // Get completed jobs for viewing
+  getCompletedJobs: async (params: {
+    page?: number;
+    limit?: number;
+  } = {}): Promise<{ data: Job[]; meta: any }> => {
+    const response = await apiClient.get<{ data: Job[]; meta: any }>(
+      '/technician/jobs',
+      { 
+        params: {
+          ...params,
+          status: JobStatus.COMPLETED,
+        },
+      }
+    );
+    return response.data;
+  },
+
+  // Get active job (currently in progress or assigned)
   getActiveJob: async (): Promise<Job | null> => {
     const response = await apiClient.get<Job | null>('/technician/jobs/active');
+    return response.data;
+  },
+
+  // Get specific job by ID (for viewing completed jobs)
+  getJobById: async (id: string): Promise<Job> => {
+    const response = await apiClient.get<Job>(`/jobs/${id}`);
     return response.data;
   },
 
