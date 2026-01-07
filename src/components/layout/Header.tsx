@@ -14,6 +14,7 @@ import { LogOut, User, Settings, Shield, Menu } from "lucide-react";
 import { useSidebar } from "@/components/ui/sidebar";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { useNavigate } from "react-router-dom";
+import NotificationBell from "@/components/notifications/NotificationBell";
 
 export const Header = () => {
   const { user, logout } = useAuth();
@@ -69,6 +70,7 @@ export const Header = () => {
         </div>
 
         <div className="flex items-center gap-2">
+          <NotificationBell />
           <ThemeToggle />
 
           <DropdownMenu>
