@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { useSearchParams, useNavigate } from "react-router-dom";
+import { useSearchParams, useNavigate, useParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -24,7 +24,9 @@ import {
   Briefcase,
   Lock,
   CheckCircle2,
+  CalendarX,
 } from "lucide-react";
+
 import { technicianJobsService } from "@/api/services/technician-jobs.service";
 import { jobsService, JobStatus } from "@/api/services/jobs.service";
 import { useIsMobile } from "@/hooks/use-mobile";
@@ -37,45 +39,51 @@ import InstallationProgress from "./components/InstallationProgress";
 import PostInspection from "./components/PostInspection";
 import CompletionForm from "./components/CompletionForm";
 
+type LatLng = { lat: number; lng: number };
+
 const ActiveJob = () => {
   const [searchParams] = useSearchParams();
+  const params = useParams<{ id?: string }>();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const jobId = searchParams.get("jobId");
   const isMobile = useIsMobile();
 
+  /**
+   * Supports BOTH routing styles:
+   * 1) /technician/active-job?jobId=xxx
+   * 2) /technician/jobs/:id/work
+   */
+  const jobId = useMemo(() => {
+    return params.id || searchParams.get("jobId") || undefined;
+  }, [params.id, searchParams]);
+
   const [activeTab, setActiveTab] = useState("info");
-  const [currentLocation, setCurrentLocation] = useState<{
-    lat: number;
-    lng: number;
-  } | null>(null);
+  const [currentLocation, setCurrentLocation] = useState<LatLng | null>(null);
 
   // Get current location
   useEffect(() => {
-    if (navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(
-        (position) => {
-          setCurrentLocation({
-            lat: position.coords.latitude,
-            lng: position.coords.longitude,
-          });
-        },
-        (error) => {
-          console.error("Location error:", error);
-          toast.error("Unable to get your location");
-        }
-      );
-    }
+    if (!navigator.geolocation) return;
+
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        setCurrentLocation({
+          lat: position.coords.latitude,
+          lng: position.coords.longitude,
+        });
+      },
+      (error) => {
+        console.error("Location error:", error);
+        toast.error("Unable to get your location");
+      }
+    );
   }, []);
 
   // Fetch job data
   const { data: job, isLoading } = useQuery({
     queryKey: jobId ? ["job-by-id", jobId] : ["active-job"],
     queryFn: async () => {
-      if (jobId) {
-        return await jobsService.getJobById(jobId);
-      }
-      return await technicianJobsService.getActiveJob();
+      if (jobId) return jobsService.getJobById(jobId);
+      return technicianJobsService.getActiveJob();
     },
     staleTime: 0,
     gcTime: 0,
@@ -99,8 +107,8 @@ const ActiveJob = () => {
         queryClient.invalidateQueries({ queryKey: ["job-by-id", job?.id] }),
         queryClient.invalidateQueries({ queryKey: ["technician-stats"] }),
       ]);
+
       toast.success("Job started successfully");
-      // Auto-progress to next step
       setActiveTab(getNextAvailableTab(job!.status));
     },
     onError: (error: any) => {
@@ -113,14 +121,31 @@ const ActiveJob = () => {
       toast.error("Please enable location services");
       return;
     }
+
+    // Validate scheduled date before starting
+    if (job?.scheduledDate) {
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+
+      const scheduledDate = new Date(job.scheduledDate);
+      scheduledDate.setHours(0, 0, 0, 0);
+
+      if (scheduledDate > today) {
+        toast.error(
+          `Job cannot be started before scheduled date: ${scheduledDate.toLocaleDateString()}`
+        );
+        return;
+      }
+    }
+
     startMutation.mutate();
   };
 
-  // Determine active tab based on job status
   const getActiveTabFromStatus = (status: string): string => {
     const statusTabMap: Record<string, string> = {
-      [JobStatus.ASSIGNED]: "info",
       [JobStatus.PENDING]: "info",
+      [JobStatus.SCHEDULED]: "info",
+      [JobStatus.ASSIGNED]: "info",
       [JobStatus.REQUISITION_PENDING]: "requisition",
       [JobStatus.REQUISITION_APPROVED]: "vehicle",
       [JobStatus.PRE_INSPECTION_PENDING]: "pre-inspection",
@@ -128,6 +153,7 @@ const ActiveJob = () => {
       [JobStatus.IN_PROGRESS]: "installation",
       [JobStatus.POST_INSPECTION_PENDING]: "post-inspection",
       [JobStatus.COMPLETED]: "completion",
+      [JobStatus.VERIFIED]: "completion",
     };
     return statusTabMap[status] || "info";
   };
@@ -149,36 +175,35 @@ const ActiveJob = () => {
 
   // Auto-switch tab based on job status
   useEffect(() => {
-    if (job) {
-      const suggestedTab = getActiveTabFromStatus(job.status);
-      setActiveTab(suggestedTab);
-    }
+    if (!job) return;
+    setActiveTab(getActiveTabFromStatus(job.status));
   }, [job?.status]);
 
-  // Tab accessibility logic
+  // Tab accessibility logic (vehicle & requisition unlocked after assignment)
   const getTabAccessibility = (tabName: string) => {
     if (!job) return { enabled: false, completed: false, locked: true };
 
+    const isJobAssigned =
+      job.status !== JobStatus.PENDING && job.status !== JobStatus.SCHEDULED;
+
     const hasVehicle = !!job.vehicleId;
-    const hasPreInspection =
-      job.status &&
-      [
-        JobStatus.PRE_INSPECTION_APPROVED,
-        JobStatus.IN_PROGRESS,
-        JobStatus.POST_INSPECTION_PENDING,
-        JobStatus.COMPLETED,
-      ].includes(job.status as JobStatus);
+
+    const hasPreInspection = [
+      JobStatus.PRE_INSPECTION_APPROVED,
+      JobStatus.IN_PROGRESS,
+      JobStatus.POST_INSPECTION_PENDING,
+      JobStatus.COMPLETED,
+      JobStatus.VERIFIED,
+    ].includes(job.status as JobStatus);
 
     const hasInstallationData =
-      job.imeiNumbers?.length > 0 && job.photoUrls?.length > 0;
-    const hasPostInspection =
-      job.status &&
-      [JobStatus.POST_INSPECTION_PENDING, JobStatus.COMPLETED].includes(
-        job.status as JobStatus
-      );
+      (job.imeiNumbers?.length || 0) > 0 && (job.photoUrls?.length || 0) > 0;
 
-    const isJobStarted =
-      job.status !== JobStatus.ASSIGNED && job.status !== JobStatus.PENDING;
+    const hasPostInspection = [
+      JobStatus.POST_INSPECTION_PENDING,
+      JobStatus.COMPLETED,
+      JobStatus.VERIFIED,
+    ].includes(job.status as JobStatus);
 
     switch (tabName) {
       case "info":
@@ -186,16 +211,16 @@ const ActiveJob = () => {
 
       case "requisition":
         return {
-          enabled: true,
+          enabled: isJobAssigned,
           completed: job.status !== JobStatus.REQUISITION_PENDING,
-          locked: false,
+          locked: !isJobAssigned,
         };
 
       case "vehicle":
         return {
-          enabled: isJobStarted,
+          enabled: isJobAssigned,
           completed: hasVehicle,
-          locked: !isJobStarted,
+          locked: !isJobAssigned,
         };
 
       case "pre-inspection":
@@ -222,7 +247,8 @@ const ActiveJob = () => {
       case "completion":
         return {
           enabled: hasPostInspection,
-          completed: job.status === JobStatus.COMPLETED,
+          completed:
+            job.status === JobStatus.COMPLETED || job.status === JobStatus.VERIFIED,
           locked: !hasPostInspection,
         };
 
@@ -232,7 +258,7 @@ const ActiveJob = () => {
   };
 
   const handleTabChange = (tabName: string) => {
-    const { enabled, locked } = getTabAccessibility(tabName);
+    const { locked } = getTabAccessibility(tabName);
     if (locked) {
       toast.error("Complete previous steps first");
       return;
@@ -240,7 +266,6 @@ const ActiveJob = () => {
     setActiveTab(tabName);
   };
 
-  // Auto-progress callback for child components
   const handleStepComplete = (completedStep: string) => {
     queryClient.invalidateQueries({
       queryKey: jobId ? ["job-by-id", jobId] : ["active-job"],
@@ -255,6 +280,7 @@ const ActiveJob = () => {
       "post-inspection",
       "completion",
     ];
+
     const currentIndex = tabOrder.indexOf(completedStep);
     const nextTab = tabOrder[currentIndex + 1];
 
@@ -282,11 +308,11 @@ const ActiveJob = () => {
       <Card>
         <CardContent className="py-12 text-center">
           <AlertCircle className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
-          <h3 className="text-lg font-semibold mb-2">No Active Job</h3>
+          <h3 className="text-lg font-semibold mb-2">Job not available</h3>
           <p className="text-muted-foreground mb-4">
             {jobId
               ? "Job not found or you don't have access to this job."
-              : "You don't have an active job at the moment"}
+              : "You don't have an active job at the moment."}
           </p>
           <Button onClick={() => navigate("/technician/jobs")}>
             View My Jobs
@@ -296,10 +322,40 @@ const ActiveJob = () => {
     );
   }
 
+  // Scheduled-date start eligibility message
+  const canStartNow = (): { allowed: boolean; message?: string } => {
+    if (!job.scheduledDate) return { allowed: true };
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const scheduledDate = new Date(job.scheduledDate);
+    scheduledDate.setHours(0, 0, 0, 0);
+
+    if (scheduledDate > today) {
+      const daysUntil = Math.ceil(
+        (scheduledDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24)
+      );
+      return {
+        allowed: false,
+        message: `Job is scheduled for ${scheduledDate.toLocaleDateString()}. You can start it in ${daysUntil} day${
+          daysUntil > 1 ? "s" : ""
+        }.`,
+      };
+    }
+
+    return { allowed: true };
+  };
+
+  const startValidation = canStartNow();
+
   const showStartButton =
-    job.status === JobStatus.ASSIGNED ||
-    job.status === JobStatus.REQUISITION_APPROVED ||
-    job.status === JobStatus.PRE_INSPECTION_APPROVED;
+    [
+      JobStatus.SCHEDULED,
+      JobStatus.ASSIGNED,
+      JobStatus.REQUISITION_APPROVED,
+      JobStatus.PRE_INSPECTION_APPROVED,
+    ].includes(job.status as JobStatus) && startValidation.allowed;
 
   const tabs = [
     { value: "info", icon: Briefcase, label: "Info", shortLabel: "Info" },
@@ -311,26 +367,33 @@ const ActiveJob = () => {
     { value: "completion", icon: CheckCircle2, label: "Complete", shortLabel: "Done" },
   ];
 
+  const isCompleted =
+    job.status === JobStatus.COMPLETED || job.status === JobStatus.VERIFIED;
+
   return (
     <div className="space-y-4 sm:space-y-6">
-      {/* Job Header */}
+      {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>
-          <h1 className="text-2xl sm:text-3xl font-bold">Active Job</h1>
+          <h1 className="text-2xl sm:text-3xl font-bold">
+            {isCompleted ? "Completed Job" : "Active Job"}
+          </h1>
           <p className="text-sm sm:text-base text-muted-foreground">
             Job #{job.jobNumber}
           </p>
         </div>
+
         <div className="flex items-center gap-2 sm:gap-3">
           <Badge className={`${getStatusColor(job.status)} text-xs sm:text-sm`}>
             {job.status.replace(/_/g, " ")}
           </Badge>
+
           {showStartButton && (
             <Button
               onClick={handleStartJob}
               disabled={startMutation.isPending || !currentLocation}
               size={isMobile ? "default" : "lg"}
-              className="text-xs sm:text-sm"
+              className="text-xs sm:text-sm bg-green-600 hover:bg-green-700"
             >
               {startMutation.isPending ? (
                 <>
@@ -345,17 +408,42 @@ const ActiveJob = () => {
               )}
             </Button>
           )}
+
+          {!showStartButton && !startValidation.allowed && (
+            <Badge variant="outline" className="flex items-center gap-1">
+              <CalendarX className="h-3 w-3" />
+              Scheduled for {new Date(job.scheduledDate).toLocaleDateString()}
+            </Badge>
+          )}
         </div>
       </div>
 
-      {/* Job Progress Indicator - Hidden on small mobile, shown on tablet+ */}
+      {!startValidation.allowed && (
+        <Card className="border-orange-200 bg-orange-50">
+          <CardContent className="pt-4">
+            <div className="flex items-start gap-2">
+              <CalendarX className="h-5 w-5 text-orange-600 flex-shrink-0 mt-0.5" />
+              <div>
+                <p className="text-sm font-medium text-orange-900">
+                  Job Not Yet Available
+                </p>
+                <p className="text-sm text-orange-700 mt-1">
+                  {startValidation.message}
+                </p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Progress Steps */}
       <Card className="hidden md:block">
         <CardContent className="pt-6">
           <JobProgressSteps currentStatus={job.status} />
         </CardContent>
       </Card>
 
-      {/* Main Content Tabs */}
+      {/* Tabs */}
       <Tabs value={activeTab} onValueChange={handleTabChange}>
         {/* Mobile: Dropdown Selector */}
         {isMobile ? (
@@ -363,28 +451,26 @@ const ActiveJob = () => {
             <Select value={activeTab} onValueChange={handleTabChange}>
               <SelectTrigger className="w-full">
                 <SelectValue>
-                  {tabs.find((t) => t.value === activeTab)?.label || "Select Step"}
+                  {tabs.find((t) => t.value === activeTab)?.label ||
+                    "Select Step"}
                 </SelectValue>
               </SelectTrigger>
               <SelectContent>
                 {tabs.map((tab) => {
-                  const { enabled, completed, locked } = getTabAccessibility(tab.value);
+                  const { completed, locked } = getTabAccessibility(tab.value);
                   const Icon = tab.icon;
 
                   return (
-                    <SelectItem
-                      key={tab.value}
-                      value={tab.value}
-                      disabled={locked}
-                      className="flex items-center"
-                    >
+                    <SelectItem key={tab.value} value={tab.value} disabled={locked}>
                       <div className="flex items-center gap-2 w-full">
                         <Icon className="h-4 w-4" />
                         <span>{tab.label}</span>
                         {completed && (
                           <CheckCircle2 className="h-3 w-3 ml-auto text-green-600" />
                         )}
-                        {locked && <Lock className="h-3 w-3 ml-auto text-gray-400" />}
+                        {locked && (
+                          <Lock className="h-3 w-3 ml-auto text-gray-400" />
+                        )}
                       </div>
                     </SelectItem>
                   );
@@ -393,10 +479,9 @@ const ActiveJob = () => {
             </Select>
           </div>
         ) : (
-          /* Desktop: Horizontal Tabs */
           <TabsList className="grid w-full grid-cols-7 mb-4">
             {tabs.map((tab) => {
-              const { enabled, completed, locked } = getTabAccessibility(tab.value);
+              const { completed, locked } = getTabAccessibility(tab.value);
               const Icon = tab.icon;
 
               return (
@@ -424,38 +509,23 @@ const ActiveJob = () => {
         </TabsContent>
 
         <TabsContent value="requisition">
-          <RequisitionForm
-            job={job}
-            onComplete={() => handleStepComplete("requisition")}
-          />
+          <RequisitionForm job={job} onComplete={() => handleStepComplete("requisition")} />
         </TabsContent>
 
         <TabsContent value="vehicle">
-          <VehicleForm
-            job={job}
-            onComplete={() => handleStepComplete("vehicle")}
-          />
+          <VehicleForm job={job} onComplete={() => handleStepComplete("vehicle")} />
         </TabsContent>
 
         <TabsContent value="pre-inspection">
-          <PreInspection
-            job={job}
-            onComplete={() => handleStepComplete("pre-inspection")}
-          />
+          <PreInspection job={job} onComplete={() => handleStepComplete("pre-inspection")} />
         </TabsContent>
 
         <TabsContent value="installation">
-          <InstallationProgress
-            job={job}
-            onComplete={() => handleStepComplete("installation")}
-          />
+          <InstallationProgress job={job} onComplete={() => handleStepComplete("installation")} />
         </TabsContent>
 
         <TabsContent value="post-inspection">
-          <PostInspection
-            job={job}
-            onComplete={() => handleStepComplete("post-inspection")}
-          />
+          <PostInspection job={job} onComplete={() => handleStepComplete("post-inspection")} />
         </TabsContent>
 
         <TabsContent value="completion">
@@ -469,12 +539,14 @@ const ActiveJob = () => {
 const getStatusColor = (status: string) => {
   const colors: Record<string, string> = {
     PENDING: "bg-gray-500",
+    SCHEDULED: "bg-indigo-500",
     ASSIGNED: "bg-blue-500",
     IN_PROGRESS: "bg-purple-500",
     PRE_INSPECTION_PENDING: "bg-orange-500",
     PRE_INSPECTION_APPROVED: "bg-blue-500",
     POST_INSPECTION_PENDING: "bg-orange-500",
     COMPLETED: "bg-green-500",
+    VERIFIED: "bg-green-600",
     REQUISITION_PENDING: "bg-yellow-500",
     REQUISITION_APPROVED: "bg-blue-500",
   };
@@ -484,11 +556,7 @@ const getStatusColor = (status: string) => {
 const JobProgressSteps = ({ currentStatus }: { currentStatus: string }) => {
   const steps = [
     { key: "ASSIGNED", label: "Start Job", icon: Play },
-    {
-      key: "PRE_INSPECTION_APPROVED",
-      label: "Pre-Inspection",
-      icon: ClipboardCheck,
-    },
+    { key: "PRE_INSPECTION_APPROVED", label: "Pre-Inspection", icon: ClipboardCheck },
     { key: "IN_PROGRESS", label: "Installation", icon: Briefcase },
     { key: "POST_INSPECTION_PENDING", label: "Final Check", icon: CheckCircle },
     { key: "COMPLETED", label: "Completed", icon: CheckCircle2 },
@@ -508,14 +576,8 @@ const JobProgressSteps = ({ currentStatus }: { currentStatus: string }) => {
             <div className="flex flex-col items-center flex-shrink-0">
               <div
                 className={`
-                  rounded-full p-2 sm:p-3 
-                  ${
-                    isComplete
-                      ? "bg-green-500"
-                      : isCurrent
-                      ? "bg-blue-500"
-                      : "bg-gray-300"
-                  }
+                  rounded-full p-2 sm:p-3
+                  ${isComplete ? "bg-green-500" : isCurrent ? "bg-blue-500" : "bg-gray-300"}
                   text-white transition-all duration-300
                 `}
               >
@@ -525,6 +587,7 @@ const JobProgressSteps = ({ currentStatus }: { currentStatus: string }) => {
                 {step.label}
               </p>
             </div>
+
             {index < steps.length - 1 && (
               <div
                 className={`
