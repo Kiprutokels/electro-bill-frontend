@@ -2,10 +2,10 @@ export const API_ENDPOINTS = {
   // Authentication
   AUTH: {
     LOGIN: "/auth/login",
-    PROFILE: '/auth/profile',
-    CHANGE_PASSWORD: '/auth/change-password',
-    FORGOT_PASSWORD: '/auth/forgot-password',
-    RESET_PASSWORD: '/auth/reset-password',
+    PROFILE: "/auth/profile",
+    CHANGE_PASSWORD: "/auth/change-password",
+    FORGOT_PASSWORD: "/auth/forgot-password",
+    RESET_PASSWORD: "/auth/reset-password",
   },
 
   // Users
@@ -144,9 +144,16 @@ export const API_ENDPOINTS = {
   },
 
   SUBSCRIPTIONS: {
-    BASE: '/subscriptions',
+    BASE: "/subscriptions",
     BY_ID: (id: string) => `/subscriptions/${id}`,
-    BY_CUSTOMER: (customerId: string) => `/subscriptions/customer/${customerId}`,
-    STATS: '/subscriptions/dashboard-stats',
+    BY_CUSTOMER: (customerId: string) =>
+      `/subscriptions/customer/${customerId}`,
+    STATS: "/subscriptions/dashboard-stats",
+  },
+
+  NOTIFICATIONS: {
+    UNREAD: "/notifications/unread",
+    MARK_READ: (id: string) => `/notifications/${id}/read`,
+    MARK_ALL_READ: "/notifications/mark-all-read",
   },
 } as const;
