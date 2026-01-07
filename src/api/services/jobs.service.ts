@@ -11,6 +11,7 @@ export enum JobType {
 
 export enum JobStatus {
   PENDING = 'PENDING',
+  SCHEDULED = 'SCHEDULED',
   ASSIGNED = 'ASSIGNED',
   REQUISITION_PENDING = 'REQUISITION_PENDING',
   REQUISITION_APPROVED = 'REQUISITION_APPROVED',
@@ -36,6 +37,14 @@ export interface JobTechnician {
   notes?: string;
 }
 
+export interface RescheduleHistory {
+  oldDate: string;
+  newDate: string;
+  reason: string;
+  rescheduledBy: string;
+  rescheduledAt: string;
+}
+
 export interface Job {
   id: string;
   jobNumber: string;
@@ -46,6 +55,8 @@ export interface Job {
   productIds: string[];
   serviceDescription: string;
   scheduledDate: string;
+  originalScheduledDate?: string;
+  rescheduleHistory?: RescheduleHistory[];
   startTime?: string;
   endTime?: string;
   installationNotes?: string;
@@ -127,6 +138,13 @@ export interface UpdateJobRequest {
   macAddress?: string;
 }
 
+export interface RescheduleJobRequest {
+  newScheduledDate: string;
+  reason: string;
+  notifyTechnician?: boolean;
+  notifyCustomer?: boolean;
+}
+
 export const jobsService = {
   getJobs: async (params: any = {}): Promise<PaginatedResponse<Job>> => {
     const response = await apiClient.get<PaginatedResponse<Job>>('/jobs', { params });
@@ -150,6 +168,11 @@ export const jobsService = {
 
   updateJob: async (id: string, data: Partial<Job>): Promise<Job> => {
     const response = await apiClient.patch<Job>(`/jobs/${id}`, data);
+    return response.data;
+  },
+
+  rescheduleJob: async (id: string, data: RescheduleJobRequest): Promise<Job> => {
+    const response = await apiClient.patch<Job>(`/jobs/${id}/reschedule`, data);
     return response.data;
   },
 
