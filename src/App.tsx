@@ -30,7 +30,7 @@ import Settings from "./pages/Settings";
 import Transactions from "./pages/Transactions";
 import Reports from "./pages/Reports";
 import Subscriptions from "./pages/Subscriptions";
-import ProcessingFees from './pages/ProcessingFees';
+import ProcessingFees from "./pages/ProcessingFees";
 import AdvanceRequests from "./pages/AdvanceRequests";
 import Profile from "./pages/Profile";
 
@@ -44,7 +44,10 @@ import InspectionChecklist from "./pages/InspectionChecklist";
 // Technician Views
 import TechnicianJobs from "./pages/Technician/MyJobs";
 import TechnicianActiveJob from "./pages/Technician/ActiveJob";
+import TechnicianJobDetails from "./pages/Technician/JobDetails";
+import TechnicianJobWork from "./pages/Technician/JobWork";
 import JobWorkflow from "./pages/JobWorkflow";
+import NotificationsPage from "./pages/Notifications";
 
 const queryClient = new QueryClient();
 
@@ -131,6 +134,7 @@ const AppRoutes = () => {
             <Route path="requisitions" element={<Requisitions />} />
             <Route path="inspections" element={<InspectionChecklist />} />
             <Route path="jobs/:id/workflow" element={<JobWorkflow />} />
+            <Route path="notifications" element={<NotificationsPage />} />
           </>
         )}
 
@@ -138,15 +142,27 @@ const AppRoutes = () => {
         {isTechnician && (
           <>
             <Route path="technician/jobs" element={<TechnicianJobs />} />
+
+            {/* Read-only details page (works for completed/in-progress) */}
+            <Route
+              path="technician/jobs/:id"
+              element={<TechnicianJobDetails />}
+            />
+
+            {/* Work page (tabs + mutations + start/continue) */}
+            <Route
+              path="technician/jobs/:id/work"
+              element={<TechnicianJobWork />}
+            />
+
+            {/* Keep legacy route, but it should open WORK page using query param jobId */}
             <Route
               path="technician/active-job"
               element={<TechnicianActiveJob />}
             />
-            <Route
-              path="technician/jobs/:id"
-              element={<TechnicianActiveJob />}
-            />
-           <Route path="technician/profile" element={<Profile />} />
+
+            <Route path="technician/profile" element={<Profile />} />
+            <Route path="notifications" element={<NotificationsPage />} />
           </>
         )}
 
