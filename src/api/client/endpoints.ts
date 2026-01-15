@@ -24,6 +24,7 @@ export const API_ENDPOINTS = {
     STATEMENT: (id: string) => `/customers/${id}/statement`,
     OUTSTANDING_BALANCE: "/customers/outstanding-balance",
     TOP_CUSTOMERS: "/customers/top-customers",
+    CUSTOMER_DETAIL: (customerId: string) => `/customer-detail/${customerId}`,
   },
 
   // Products
@@ -149,6 +150,7 @@ export const API_ENDPOINTS = {
     BY_CUSTOMER: (customerId: string) =>
       `/subscriptions/customer/${customerId}`,
     STATS: "/subscriptions/dashboard-stats",
+      GENERATE_RENEWAL_INVOICE: (id: string) => `/subscriptions/${id}/generate-renewal-invoice`,
   },
 
   NOTIFICATIONS: {
