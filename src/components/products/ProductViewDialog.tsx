@@ -55,9 +55,13 @@ const ProductViewDialog: React.FC<ProductViewDialogProps> = ({
     if (totalQuantity === 0) {
       return <Badge variant="destructive">Out of Stock</Badge>;
     } else if (totalQuantity <= reorderLevel && reorderLevel > 0) {
-      return <Badge className="bg-yellow-500 hover:bg-yellow-600">Low Stock</Badge>;
+      return (
+        <Badge className="bg-yellow-500 hover:bg-yellow-600">Low Stock</Badge>
+      );
     } else {
-      return <Badge className="bg-green-500 hover:bg-green-600">In Stock</Badge>;
+      return (
+        <Badge className="bg-green-500 hover:bg-green-600">In Stock</Badge>
+      );
     }
   };
 
@@ -96,7 +100,9 @@ const ProductViewDialog: React.FC<ProductViewDialogProps> = ({
                   </p>
                 </div>
                 <div>
-                  <p className="text-sm text-muted-foreground">Unit of Measure</p>
+                  <p className="text-sm text-muted-foreground">
+                    Unit of Measure
+                  </p>
                   <p>{product.unitOfMeasure}</p>
                 </div>
                 {product.description && (
@@ -117,16 +123,26 @@ const ProductViewDialog: React.FC<ProductViewDialogProps> = ({
               </CardHeader>
               <CardContent className="space-y-4">
                 <div>
-                  <p className="text-sm text-muted-foreground">Available Stock</p>
-                  <p className="text-2xl font-bold">{product.totalQuantity || 0}</p>
+                  <p className="text-sm text-muted-foreground">
+                    Available Stock
+                  </p>
+                  <p className="text-2xl font-bold">
+                    {product.totalQuantity || 0}
+                  </p>
                 </div>
                 <div>
-                  <p className="text-sm text-muted-foreground">Reserved Stock</p>
+                  <p className="text-sm text-muted-foreground">
+                    Reserved Stock
+                  </p>
                   <p className="text-lg">{product.totalReserved || 0}</p>
                 </div>
                 <div>
-                  <p className="text-sm text-muted-foreground">Total in Stock</p>
-                  <p className="text-lg font-medium">{product.totalInStock || 0}</p>
+                  <p className="text-sm text-muted-foreground">
+                    Total in Stock
+                  </p>
+                  <p className="text-lg font-medium">
+                    {product.totalInStock || 0}
+                  </p>
                 </div>
                 <div>
                   <p className="text-sm text-muted-foreground">Reorder Level</p>
@@ -177,18 +193,32 @@ const ProductViewDialog: React.FC<ProductViewDialogProps> = ({
                     {formatCurrency(product.sellingPrice)}
                   </p>
                 </div>
+                <div>
+                  <p className="text-sm text-muted-foreground">
+                    Subscription Fee
+                  </p>
+                  <p className="font-medium">
+                    {formatCurrency(product.subscriptionFee)}
+                  </p>
+                </div>
                 {product.wholesalePrice && product.wholesalePrice > 0 && (
                   <div>
-                    <p className="text-sm text-muted-foreground">Wholesale Price</p>
+                    <p className="text-sm text-muted-foreground">
+                      Wholesale Price
+                    </p>
                     <p className="font-medium">
                       {formatCurrency(product.wholesalePrice)}
                     </p>
                   </div>
                 )}
                 <div>
-                  <p className="text-sm text-muted-foreground">Total Stock Value</p>
+                  <p className="text-sm text-muted-foreground">
+                    Total Stock Value
+                  </p>
                   <p className="font-semibold text-green-600">
-                    {formatCurrency(product.sellingPrice * (product.totalQuantity || 0))}
+                    {formatCurrency(
+                      product.sellingPrice * (product.totalQuantity || 0)
+                    )}
                   </p>
                 </div>
               </CardContent>
@@ -196,7 +226,9 @@ const ProductViewDialog: React.FC<ProductViewDialogProps> = ({
           </div>
 
           {/* Physical Properties */}
-          {(product.weight || product.dimensions || product.warrantyPeriodMonths > 0) && (
+          {(product.weight ||
+            product.dimensions ||
+            product.warrantyPeriodMonths > 0) && (
             <Card>
               <CardHeader>
                 <CardTitle>Physical Properties</CardTitle>
@@ -211,13 +243,17 @@ const ProductViewDialog: React.FC<ProductViewDialogProps> = ({
                   )}
                   {product.dimensions && (
                     <div>
-                      <p className="text-sm text-muted-foreground">Dimensions</p>
+                      <p className="text-sm text-muted-foreground">
+                        Dimensions
+                      </p>
                       <p>{product.dimensions}</p>
                     </div>
                   )}
                   {product.warrantyPeriodMonths > 0 && (
                     <div>
-                      <p className="text-sm text-muted-foreground">Warranty Period</p>
+                      <p className="text-sm text-muted-foreground">
+                        Warranty Period
+                      </p>
                       <p>{product.warrantyPeriodMonths} months</p>
                     </div>
                   )}
@@ -241,17 +277,27 @@ const ProductViewDialog: React.FC<ProductViewDialogProps> = ({
                     >
                       <div>
                         <p className="font-medium">{inventory.location}</p>
-                        <p className="text-sm text-muted-foreground">Storage location</p>
+                        <p className="text-sm text-muted-foreground">
+                          Storage location
+                        </p>
                       </div>
                       <div className="text-right">
                         <div className="flex gap-4">
                           <div>
-                            <p className="text-sm text-muted-foreground">Available</p>
-                            <p className="font-medium">{inventory.quantityAvailable}</p>
+                            <p className="text-sm text-muted-foreground">
+                              Available
+                            </p>
+                            <p className="font-medium">
+                              {inventory.quantityAvailable}
+                            </p>
                           </div>
                           <div>
-                            <p className="text-sm text-muted-foreground">Reserved</p>
-                            <p className="font-medium">{inventory.quantityReserved}</p>
+                            <p className="text-sm text-muted-foreground">
+                              Reserved
+                            </p>
+                            <p className="font-medium">
+                              {inventory.quantityReserved}
+                            </p>
                           </div>
                         </div>
                       </div>
@@ -274,16 +320,26 @@ const ProductViewDialog: React.FC<ProductViewDialogProps> = ({
                   <p className="font-medium">{product._count?.batches || 0}</p>
                 </div>
                 <div>
-                  <p className="text-sm text-muted-foreground">Inventory Records</p>
-                  <p className="font-medium">{product._count?.inventory || 0}</p>
+                  <p className="text-sm text-muted-foreground">
+                    Inventory Records
+                  </p>
+                  <p className="font-medium">
+                    {product._count?.inventory || 0}
+                  </p>
                 </div>
                 <div>
                   <p className="text-sm text-muted-foreground">Invoice Items</p>
-                  <p className="font-medium">{product._count?.invoiceItems || 0}</p>
+                  <p className="font-medium">
+                    {product._count?.invoiceItems || 0}
+                  </p>
                 </div>
                 <div>
-                  <p className="text-sm text-muted-foreground">Quotation Items</p>
-                  <p className="font-medium">{product._count?.quotationItems || 0}</p>
+                  <p className="text-sm text-muted-foreground">
+                    Quotation Items
+                  </p>
+                  <p className="font-medium">
+                    {product._count?.quotationItems || 0}
+                  </p>
                 </div>
               </div>
             </CardContent>
