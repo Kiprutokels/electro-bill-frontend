@@ -24,6 +24,7 @@ export interface Product {
   unitOfMeasure: string;
   sellingPrice: number;
   wholesalePrice?: number;
+  subscriptionFee: number;
   weight?: number;
   dimensions?: string;
   warrantyPeriodMonths: number;
@@ -54,6 +55,7 @@ export interface CreateProductRequest {
   unitOfMeasure?: string;
   sellingPrice: number;
   wholesalePrice?: number;
+  subscriptionFee: number;
   weight?: number;
   dimensions?: string;
   warrantyPeriodMonths?: number;
@@ -70,6 +72,7 @@ export interface UpdateProductRequest {
   unitOfMeasure?: string;
   sellingPrice?: number;
   wholesalePrice?: number;
+  subscriptionFee?: number;
   weight?: number;
   dimensions?: string;
   warrantyPeriodMonths?: number;
