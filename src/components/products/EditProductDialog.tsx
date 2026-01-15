@@ -56,10 +56,13 @@ const EditProductDialog: React.FC<EditProductDialogProps> = ({
         name: product.name,
         description: product.description || "",
         categoryId: product.categoryId,
-        brandId: product.brandId || "no-brand", 
+        brandId: product.brandId || "no-brand",
         unitOfMeasure: product.unitOfMeasure,
         sellingPrice: product.sellingPrice,
         wholesalePrice: product.wholesalePrice || 0,
+
+        subscriptionFee: product.subscriptionFee,
+
         weight: product.weight || 0,
         dimensions: product.dimensions || "",
         warrantyPeriodMonths: product.warrantyPeriodMonths,
@@ -79,11 +82,18 @@ const EditProductDialog: React.FC<EditProductDialogProps> = ({
     const nameError = validateRequired(formData.name || "", "Product name");
     if (nameError) newErrors.name = nameError;
 
-    const categoryError = validateRequired(formData.categoryId || "", "Category");
+    const categoryError = validateRequired(
+      formData.categoryId || "",
+      "Category"
+    );
     if (categoryError) newErrors.categoryId = categoryError;
 
     if ((formData.sellingPrice || 0) <= 0) {
       newErrors.sellingPrice = "Selling price must be greater than 0";
+    }
+
+    if ((formData.subscriptionFee ?? 0) < 0) {
+      newErrors.subscriptionFee = "Subscription fee cannot be negative";
     }
 
     setErrors(newErrors);
@@ -93,9 +103,7 @@ const EditProductDialog: React.FC<EditProductDialogProps> = ({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!validateForm() || !product) {
-      return;
-    }
+    if (!validateForm() || !product) return;
 
     setLoading(true);
     try {
@@ -108,12 +116,16 @@ const EditProductDialog: React.FC<EditProductDialogProps> = ({
         dimensions: formData.dimensions || undefined,
       };
 
-      const updatedProduct = await productsService.update(product.id, requestData);
+      const updatedProduct = await productsService.update(
+        product.id,
+        requestData
+      );
       onProductUpdated(updatedProduct);
       onOpenChange(false);
       toast.success("Product updated successfully");
     } catch (err: any) {
-      const errorMessage = err.response?.data?.message || "Failed to update product";
+      const errorMessage =
+        err.response?.data?.message || "Failed to update product";
       toast.error(errorMessage);
     } finally {
       setLoading(false);
@@ -148,7 +160,9 @@ const EditProductDialog: React.FC<EditProductDialogProps> = ({
                 placeholder="e.g., SKU-TP-WR841N"
                 className={errors.sku ? "border-destructive" : ""}
               />
-              {errors.sku && <p className="text-sm text-destructive">{errors.sku}</p>}
+              {errors.sku && (
+                <p className="text-sm text-destructive">{errors.sku}</p>
+              )}
             </div>
 
             {/* Product Name */}
@@ -165,7 +179,9 @@ const EditProductDialog: React.FC<EditProductDialogProps> = ({
                 placeholder="Product name"
                 className={errors.name ? "border-destructive" : ""}
               />
-              {errors.name && <p className="text-sm text-destructive">{errors.name}</p>}
+              {errors.name && (
+                <p className="text-sm text-destructive">{errors.name}</p>
+              )}
             </div>
           </div>
 
@@ -176,7 +192,10 @@ const EditProductDialog: React.FC<EditProductDialogProps> = ({
               id="description"
               value={formData.description || ""}
               onChange={(e) =>
-                setFormData((prev) => ({ ...prev, description: e.target.value }))
+                setFormData((prev) => ({
+                  ...prev,
+                  description: e.target.value,
+                }))
               }
               placeholder="Product description (optional)"
               rows={3}
@@ -195,7 +214,9 @@ const EditProductDialog: React.FC<EditProductDialogProps> = ({
                   setFormData((prev) => ({ ...prev, categoryId: value }))
                 }
               >
-                <SelectTrigger className={errors.categoryId ? "border-destructive" : ""}>
+                <SelectTrigger
+                  className={errors.categoryId ? "border-destructive" : ""}
+                >
                   <SelectValue placeholder="Select category" />
                 </SelectTrigger>
                 <SelectContent>
@@ -239,20 +260,8 @@ const EditProductDialog: React.FC<EditProductDialogProps> = ({
             </div>
           </div>
 
+          {/* ✅ Pricing row incl Subscription Fee */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {/* Unit of Measure */}
-            <div className="space-y-2">
-              <Label htmlFor="unitOfMeasure">Unit of Measure</Label>
-              <Input
-                id="unitOfMeasure"
-                value={formData.unitOfMeasure || ""}
-                onChange={(e) =>
-                  setFormData((prev) => ({ ...prev, unitOfMeasure: e.target.value }))
-                }
-                placeholder="PCS"
-              />
-            </div>
-
             {/* Selling Price */}
             <div className="space-y-2">
               <Label htmlFor="sellingPrice">
@@ -274,7 +283,36 @@ const EditProductDialog: React.FC<EditProductDialogProps> = ({
                 className={errors.sellingPrice ? "border-destructive" : ""}
               />
               {errors.sellingPrice && (
-                <p className="text-sm text-destructive">{errors.sellingPrice}</p>
+                <p className="text-sm text-destructive">
+                  {errors.sellingPrice}
+                </p>
+              )}
+            </div>
+
+            {/* Subscription Fee */}
+            <div className="space-y-2">
+              <Label htmlFor="subscriptionFee">
+                Subscription Fee <span className="text-destructive">*</span>
+              </Label>
+              <Input
+                id="subscriptionFee"
+                type="number"
+                min="0"
+                step="0.01"
+                value={(formData.subscriptionFee as number) ?? ""}
+                onChange={(e) =>
+                  setFormData((prev) => ({
+                    ...prev,
+                    subscriptionFee: parseFloat(e.target.value) || 0,
+                  }))
+                }
+                placeholder="0.00"
+                className={errors.subscriptionFee ? "border-destructive" : ""}
+              />
+              {errors.subscriptionFee && (
+                <p className="text-sm text-destructive">
+                  {errors.subscriptionFee}
+                </p>
               )}
             </div>
 
@@ -298,7 +336,24 @@ const EditProductDialog: React.FC<EditProductDialogProps> = ({
             </div>
           </div>
 
+          {/* Physical & stock fields */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {/* Unit of Measure */}
+            <div className="space-y-2">
+              <Label htmlFor="unitOfMeasure">Unit of Measure</Label>
+              <Input
+                id="unitOfMeasure"
+                value={formData.unitOfMeasure || ""}
+                onChange={(e) =>
+                  setFormData((prev) => ({
+                    ...prev,
+                    unitOfMeasure: e.target.value,
+                  }))
+                }
+                placeholder="PCS"
+              />
+            </div>
+
             {/* Weight */}
             <div className="space-y-2">
               <Label htmlFor="weight">Weight (KG)</Label>
@@ -335,24 +390,24 @@ const EditProductDialog: React.FC<EditProductDialogProps> = ({
                 placeholder="0"
               />
             </div>
+          </div>
 
-            {/* Reorder Level */}
-            <div className="space-y-2">
-              <Label htmlFor="reorderLevel">Reorder Level</Label>
-              <Input
-                id="reorderLevel"
-                type="number"
-                min="0"
-                value={formData.reorderLevel || ""}
-                onChange={(e) =>
-                  setFormData((prev) => ({
-                    ...prev,
-                    reorderLevel: parseInt(e.target.value) || 0,
-                  }))
-                }
-                placeholder="0"
-              />
-            </div>
+          {/* Reorder Level */}
+          <div className="space-y-2">
+            <Label htmlFor="reorderLevel">Reorder Level</Label>
+            <Input
+              id="reorderLevel"
+              type="number"
+              min="0"
+              value={formData.reorderLevel || ""}
+              onChange={(e) =>
+                setFormData((prev) => ({
+                  ...prev,
+                  reorderLevel: parseInt(e.target.value) || 0,
+                }))
+              }
+              placeholder="0"
+            />
           </div>
 
           {/* Dimensions */}
