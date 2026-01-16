@@ -48,6 +48,8 @@ import TechnicianJobDetails from "./pages/Technician/JobDetails";
 import TechnicianJobWork from "./pages/Technician/JobWork";
 import JobWorkflow from "./pages/JobWorkflow";
 import NotificationsPage from "./pages/Notifications";
+import CustomerDetail from "./pages/CustomerDetail";
+import MigrationUpload from "./pages/MigrationUpload";
 
 const queryClient = new QueryClient();
 
@@ -109,6 +111,7 @@ const AppRoutes = () => {
             <Route path="roles" element={<Roles />} />
             <Route path="products" element={<Products />} />
             <Route path="customers" element={<Customers />} />
+            <Route path="customers/:customerId/detail" element={<CustomerDetail />} />
             <Route path="users" element={<Users />} />
             <Route path="categories" element={<Categories />} />
             <Route path="brands" element={<Brands />} />
@@ -135,6 +138,7 @@ const AppRoutes = () => {
             <Route path="inspections" element={<InspectionChecklist />} />
             <Route path="jobs/:id/workflow" element={<JobWorkflow />} />
             <Route path="notifications" element={<NotificationsPage />} />
+            <Route path="migration-upload" element={<MigrationUpload />} />
           </>
         )}
 
