@@ -149,13 +149,20 @@ export const API_ENDPOINTS = {
     BY_ID: (id: string) => `/subscriptions/${id}`,
     BY_CUSTOMER: (customerId: string) =>
       `/subscriptions/customer/${customerId}`,
+    CHECK_EXPIRY: "/subscriptions/check-expiry",
     STATS: "/subscriptions/dashboard-stats",
-      GENERATE_RENEWAL_INVOICE: (id: string) => `/subscriptions/${id}/generate-renewal-invoice`,
+    GENERATE_RENEWAL_INVOICE: (id: string) =>
+      `/subscriptions/${id}/generate-renewal-invoice`,
   },
 
   NOTIFICATIONS: {
     UNREAD: "/notifications/unread",
     MARK_READ: (id: string) => `/notifications/${id}/read`,
     MARK_ALL_READ: "/notifications/mark-all-read",
+  },
+  MIGRATION_UPLOAD: {
+    BASE: "/migration-upload",
+    VALIDATE_JOBS: "/migration-upload/jobs/validate",
+    IMPORT_JOBS: "/migration-upload/jobs/import",
   },
 } as const;
