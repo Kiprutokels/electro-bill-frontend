@@ -38,13 +38,16 @@ export interface Subscription {
     name: string;
     sku: string;
     sellingPrice: number;
+    subscriptionFee?: number;
   };
   invoice?: {
     id: string;
     invoiceNumber: string;
     totalAmount: number;
+    jobId?: string;
   };
   notifications?: SubscriptionNotification[];
+  renewals?: SubscriptionRenewal[];
   cancelledByUser?: {
     id: string;
     firstName: string;
@@ -61,6 +64,24 @@ export interface SubscriptionNotification {
   success: boolean;
   errorMessage?: string;
   createdAt: string;
+}
+
+export interface SubscriptionRenewal {
+  id: string;
+  subscriptionId: string;
+  invoiceId: string;
+  startDate: string;
+  expiryDate: string;
+  amount: number;
+  paidAt: string;
+  createdBy?: string;
+  createdAt: string;
+  invoice?: {
+    id: string;
+    invoiceNumber: string;
+    status: string;
+    totalAmount: number;
+  };
 }
 
 export interface CreateSubscriptionRequest {

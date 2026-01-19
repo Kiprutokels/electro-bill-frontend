@@ -1,19 +1,23 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from "react";
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
   DialogDescription,
-} from '@/components/ui/dialog';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
-import { Loader2, Edit } from 'lucide-react';
-import { subscriptionsService, UpdateSubscriptionRequest, Subscription } from '@/api/services/subscriptions.service';
-import { toast } from 'sonner';
-import { Checkbox } from '@/components/ui/checkbox';
+} from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Loader2, Edit } from "lucide-react";
+import {
+  subscriptionsService,
+  UpdateSubscriptionRequest,
+  Subscription,
+} from "@/api/services/subscriptions.service";
+import { toast } from "sonner";
+import { Checkbox } from "@/components/ui/checkbox";
 
 interface EditSubscriptionDialogProps {
   open: boolean;
@@ -32,21 +36,27 @@ const EditSubscriptionDialog: React.FC<EditSubscriptionDialogProps> = ({
   const [errors, setErrors] = useState<Record<string, string>>({});
 
   const [formData, setFormData] = useState<UpdateSubscriptionRequest>({
-    startDate: '',
-    expiryDate: '',
+    startDate: "",
+    expiryDate: "",
     autoRenew: false,
     renewalPrice: undefined,
-    notes: '',
+    notes: "",
   });
 
   useEffect(() => {
     if (subscription && open) {
       setFormData({
-        startDate: subscription.startDate ? new Date(subscription.startDate).toISOString().split('T')[0] : '',
-        expiryDate: subscription.expiryDate ? new Date(subscription.expiryDate).toISOString().split('T')[0] : '',
+        startDate: subscription.startDate
+          ? new Date(subscription.startDate).toISOString().split("T")[0]
+          : "",
+        expiryDate: subscription.expiryDate
+          ? new Date(subscription.expiryDate).toISOString().split("T")[0]
+          : "",
         autoRenew: subscription.autoRenew,
-        renewalPrice: subscription.renewalPrice ? Number(subscription.renewalPrice) : undefined,
-        notes: subscription.notes || '',
+        renewalPrice: subscription.renewalPrice
+          ? Number(subscription.renewalPrice)
+          : undefined,
+        notes: subscription.notes || "",
       });
       setErrors({});
     }
@@ -57,10 +67,17 @@ const EditSubscriptionDialog: React.FC<EditSubscriptionDialogProps> = ({
 
     if (formData.startDate && formData.expiryDate) {
       const start = new Date(formData.startDate);
+      start.setHours(0, 0, 0, 0);
       const expiry = new Date(formData.expiryDate);
+      expiry.setHours(0, 0, 0, 0);
+
       if (expiry <= start) {
-        newErrors.expiryDate = 'Expiry date must be after start date';
+        newErrors.expiryDate = "Expiry date must be after start date";
       }
+    }
+
+    if (formData.renewalPrice !== undefined && formData.renewalPrice < 0) {
+      newErrors.renewalPrice = "Renewal price cannot be negative";
     }
 
     setErrors(newErrors);
@@ -76,12 +93,16 @@ const EditSubscriptionDialog: React.FC<EditSubscriptionDialogProps> = ({
 
     setLoading(true);
     try {
-      const updated = await subscriptionsService.update(subscription.id, formData);
+      const updated = await subscriptionsService.update(
+        subscription.id,
+        formData
+      );
       onSubscriptionUpdated(updated);
       onOpenChange(false);
-      toast.success('Subscription updated successfully');
+      toast.success("Subscription updated successfully");
     } catch (err: any) {
-      const errorMessage = err.response?.data?.message || 'Failed to update subscription';
+      const errorMessage =
+        err.response?.data?.message || "Failed to update subscription";
       toast.error(errorMessage);
     } finally {
       setLoading(false);
@@ -98,9 +119,7 @@ const EditSubscriptionDialog: React.FC<EditSubscriptionDialogProps> = ({
             <Edit className="h-5 w-5" />
             Edit Subscription - {subscription.subscriptionNumber}
           </DialogTitle>
-          <DialogDescription>
-            Update subscription details
-          </DialogDescription>
+          <DialogDescription>Update subscription details</DialogDescription>
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-4">
@@ -110,14 +129,21 @@ const EditSubscriptionDialog: React.FC<EditSubscriptionDialogProps> = ({
               <Label>Customer</Label>
               <div className="p-3 bg-muted rounded-md">
                 <p className="font-medium">
-                  {subscription.customer?.businessName || subscription.customer?.contactPerson || 'N/A'}
+                  {subscription.customer?.businessName ||
+                    subscription.customer?.contactPerson ||
+                    "N/A"}
                 </p>
               </div>
             </div>
             <div>
               <Label>Product</Label>
               <div className="p-3 bg-muted rounded-md">
-                <p className="font-medium">{subscription.product?.name || 'N/A'}</p>
+                <p className="font-medium">
+                  {subscription.product?.name || "N/A"}
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  {subscription.product?.sku || ""}
+                </p>
               </div>
             </div>
           </div>
@@ -131,9 +157,18 @@ const EditSubscriptionDialog: React.FC<EditSubscriptionDialogProps> = ({
                 type="date"
                 value={formData.startDate}
                 onChange={(e) =>
-                  setFormData(prev => ({ ...prev, startDate: e.target.value }))
+                  setFormData((prev) => ({
+                    ...prev,
+                    startDate: e.target.value,
+                  }))
                 }
+                className={errors.startDate ? "border-destructive" : ""}
               />
+              {errors.startDate && (
+                <p className="text-sm text-destructive mt-1">
+                  {errors.startDate}
+                </p>
+              )}
             </div>
 
             {/* Expiry Date */}
@@ -144,12 +179,17 @@ const EditSubscriptionDialog: React.FC<EditSubscriptionDialogProps> = ({
                 type="date"
                 value={formData.expiryDate}
                 onChange={(e) =>
-                  setFormData(prev => ({ ...prev, expiryDate: e.target.value }))
+                  setFormData((prev) => ({
+                    ...prev,
+                    expiryDate: e.target.value,
+                  }))
                 }
-                className={errors.expiryDate ? 'border-destructive' : ''}
+                className={errors.expiryDate ? "border-destructive" : ""}
               />
               {errors.expiryDate && (
-                <p className="text-sm text-destructive mt-1">{errors.expiryDate}</p>
+                <p className="text-sm text-destructive mt-1">
+                  {errors.expiryDate}
+                </p>
               )}
             </div>
 
@@ -161,14 +201,23 @@ const EditSubscriptionDialog: React.FC<EditSubscriptionDialogProps> = ({
                 type="number"
                 min="0"
                 step="0.01"
-                value={formData.renewalPrice || ''}
+                value={formData.renewalPrice || ""}
                 onChange={(e) =>
-                  setFormData(prev => ({
+                  setFormData((prev) => ({
                     ...prev,
-                    renewalPrice: parseFloat(e.target.value) || undefined
+                    renewalPrice: e.target.value
+                      ? parseFloat(e.target.value)
+                      : undefined,
                   }))
                 }
+                placeholder="Enter renewal price"
+                className={errors.renewalPrice ? "border-destructive" : ""}
               />
+              {errors.renewalPrice && (
+                <p className="text-sm text-destructive mt-1">
+                  {errors.renewalPrice}
+                </p>
+              )}
             </div>
 
             {/* Auto Renew */}
@@ -177,7 +226,7 @@ const EditSubscriptionDialog: React.FC<EditSubscriptionDialogProps> = ({
                 id="autoRenew"
                 checked={formData.autoRenew}
                 onCheckedChange={(checked) =>
-                  setFormData(prev => ({ ...prev, autoRenew: !!checked }))
+                  setFormData((prev) => ({ ...prev, autoRenew: !!checked }))
                 }
               />
               <Label htmlFor="autoRenew" className="cursor-pointer">
@@ -193,8 +242,9 @@ const EditSubscriptionDialog: React.FC<EditSubscriptionDialogProps> = ({
               id="notes"
               value={formData.notes}
               onChange={(e) =>
-                setFormData(prev => ({ ...prev, notes: e.target.value }))
+                setFormData((prev) => ({ ...prev, notes: e.target.value }))
               }
+              placeholder="Additional notes (optional)"
               rows={3}
             />
           </div>
@@ -203,13 +253,14 @@ const EditSubscriptionDialog: React.FC<EditSubscriptionDialogProps> = ({
           <div className="flex gap-2 pt-4">
             <Button type="submit" disabled={loading} className="flex-1">
               {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              {loading ? 'Updating...' : 'Update Subscription'}
+              {loading ? "Updating..." : "Update Subscription"}
             </Button>
             <Button
               type="button"
               variant="outline"
               onClick={() => onOpenChange(false)}
               className="flex-1"
+              disabled={loading}
             >
               Cancel
             </Button>

@@ -16,9 +16,9 @@ import {
   ClipboardCheck,
   Briefcase,
   PackageSearch,
-  MapPin,
   DollarSign,
   User,
+  Upload,
 } from "lucide-react";
 import {
   Sidebar,
@@ -127,7 +127,7 @@ const adminNavigation = [
     permission: null,
     section: "tracking",
   },
- {
+  {
     name: "Advance Requests",
     href: "/advance-requests",
     icon: DollarSign,
@@ -178,12 +178,19 @@ const adminNavigation = [
     permission: null,
     section: "system",
   },
-    {
+  {
     name: "My Profile",
     href: "/profile",
     icon: User,
     permission: null,
     section: "system",
+  },
+  {
+    name: "Migrations",
+    href: "/migration-upload",
+    icon: Upload,
+    section: "system",
+    permission: PERMISSIONS.CUSTOMERS_CREATE,
   },
 ];
 

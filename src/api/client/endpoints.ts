@@ -24,6 +24,7 @@ export const API_ENDPOINTS = {
     STATEMENT: (id: string) => `/customers/${id}/statement`,
     OUTSTANDING_BALANCE: "/customers/outstanding-balance",
     TOP_CUSTOMERS: "/customers/top-customers",
+    CUSTOMER_DETAIL: (customerId: string) => `/customer-detail/${customerId}`,
   },
 
   // Products
@@ -148,12 +149,20 @@ export const API_ENDPOINTS = {
     BY_ID: (id: string) => `/subscriptions/${id}`,
     BY_CUSTOMER: (customerId: string) =>
       `/subscriptions/customer/${customerId}`,
+    CHECK_EXPIRY: "/subscriptions/check-expiry",
     STATS: "/subscriptions/dashboard-stats",
+    GENERATE_RENEWAL_INVOICE: (id: string) =>
+      `/subscriptions/${id}/generate-renewal-invoice`,
   },
 
   NOTIFICATIONS: {
     UNREAD: "/notifications/unread",
     MARK_READ: (id: string) => `/notifications/${id}/read`,
     MARK_ALL_READ: "/notifications/mark-all-read",
+  },
+  MIGRATION_UPLOAD: {
+    BASE: "/migration-upload",
+    VALIDATE_JOBS: "/migration-upload/jobs/validate",
+    IMPORT_JOBS: "/migration-upload/jobs/import",
   },
 } as const;
