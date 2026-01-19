@@ -1,6 +1,5 @@
 import { Link, useParams } from "react-router-dom";
-import { useState } from "react";
-import { useCustomerDetail } from "@/hooks/UseCustomerDetail";
+import { useCustomerDetail } from "@/hooks/useCustomerDetail";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -15,6 +14,7 @@ import {
   Wallet,
 } from "lucide-react";
 import { formatCurrency, formatDate } from "@/utils/format.utils";
+import { useState } from "react";
 
 const CustomerDetail = () => {
   const { customerId } = useParams<{ customerId: string }>();
