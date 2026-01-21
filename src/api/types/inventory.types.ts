@@ -1,3 +1,5 @@
+import { ImeiNumberInput } from "./imei.types";
+
 export interface InventoryProduct {
   id: string;
   name: string;
@@ -134,6 +136,7 @@ export interface ManualInventoryAdjustment {
   quantity: number;
   type: InventoryAdjustmentType;
   reason: string;
+  imeiNumbers?: ImeiNumberInput[];
 }
 
 export interface InventoryValuation {

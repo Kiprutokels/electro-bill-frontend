@@ -80,6 +80,7 @@ export interface IssueItemRequest {
   requisitionItemId: string;
   quantityIssued: number;
   batchId: string;
+  imeiNumbers?: string[];
 }
 
 export interface RequisitionStatistics {
