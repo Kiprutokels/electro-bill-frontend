@@ -51,6 +51,7 @@ import {
   Loader2,
   DollarSign,
   Send,
+  Smartphone,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -70,6 +71,7 @@ import {
   AdvanceRequestStatus,
   DisbursementMethod,
 } from "@/api/services/advance-requests.service";
+import ImeiSelectionDialog from "@/components/inventory/ImeiSelectionDialog";
 
 interface RequisitionItemForm {
   productId: string;
@@ -117,6 +119,11 @@ const Requisitions = () => {
     method: DisbursementMethod.MPESA,
     reference: "",
   });
+  const [showImeiDialog, setShowImeiDialog] = useState(false);
+  const [currentIssuingItem, setCurrentIssuingItem] = useState<any>(null);
+  const [selectedItemImeis, setSelectedItemImeis] = useState<
+    Record<string, string[]>
+  >({});
 
   // Fetch Material Requisitions
   const { data: requisitionsData, isLoading: isLoadingRequisitions } = useQuery(
@@ -128,7 +135,7 @@ const Requisitions = () => {
           limit: 10,
           search: materialSearchTerm,
         }),
-    }
+    },
   );
 
   // Fetch Material Statistics
@@ -184,17 +191,17 @@ const Requisitions = () => {
         selectedRequisition.items.map(async (item: any) => {
           try {
             const batches = await productBatchesService.getAvailableBatches(
-              item.productId
+              item.productId,
             );
             result[item.id] = batches;
           } catch (error) {
             console.error(
               `Failed to fetch batches for product ${item.productId}:`,
-              error
+              error,
             );
             result[item.id] = [];
           }
-        })
+        }),
       );
 
       return result;
@@ -215,7 +222,7 @@ const Requisitions = () => {
     },
     onError: (error: any) => {
       toast.error(
-        error.response?.data?.message || "Failed to create requisition"
+        error.response?.data?.message || "Failed to create requisition",
       );
     },
   });
@@ -229,7 +236,7 @@ const Requisitions = () => {
     },
     onError: (error: any) => {
       toast.error(
-        error.response?.data?.message || "Failed to approve requisition"
+        error.response?.data?.message || "Failed to approve requisition",
       );
     },
   });
@@ -247,7 +254,7 @@ const Requisitions = () => {
     },
     onError: (error: any) => {
       toast.error(
-        error.response?.data?.message || "Failed to reject requisition"
+        error.response?.data?.message || "Failed to reject requisition",
       );
     },
   });
@@ -319,7 +326,7 @@ const Requisitions = () => {
     },
     onError: (error: any) => {
       toast.error(
-        error.response?.data?.message || "Failed to disburse advance"
+        error.response?.data?.message || "Failed to disburse advance",
       );
     },
   });
@@ -345,7 +352,7 @@ const Requisitions = () => {
   const handleItemChange = (
     index: number,
     field: keyof RequisitionItemForm,
-    value: any
+    value: any,
   ) => {
     const updated = [...requisitionItems];
     if (field === "productId") {
@@ -365,7 +372,7 @@ const Requisitions = () => {
     }
 
     const hasInvalidItems = requisitionItems.some(
-      (item) => !item.productId || item.quantityRequested <= 0
+      (item) => !item.productId || item.quantityRequested <= 0,
     );
     if (hasInvalidItems) {
       toast.error("Please fill all item details correctly");
@@ -418,6 +425,7 @@ const Requisitions = () => {
           requisitionItemId: item.id,
           quantityIssued: quantity,
           batchId: issueBatches[item.id],
+          imeiNumbers: selectedItemImeis[item.id] || undefined,
         });
       }
     }
@@ -443,7 +451,7 @@ const Requisitions = () => {
     requisition.items.forEach((item: any) => {
       initialQuantities[item.id] = Math.max(
         0,
-        item.quantityRequested - item.quantityIssued
+        item.quantityRequested - item.quantityIssued,
       );
     });
 
@@ -838,7 +846,7 @@ const Requisitions = () => {
                 <div className="text-2xl font-bold text-primary">
                   KES{" "}
                   {parseFloat(
-                    String(advanceStats?.totalDisbursed || "0")
+                    String(advanceStats?.totalDisbursed || "0"),
                   ).toLocaleString()}
                 </div>
               </CardContent>
@@ -1104,7 +1112,7 @@ const Requisitions = () => {
                             handleItemChange(
                               index,
                               "quantityRequested",
-                              parseInt(e.target.value) || 1
+                              parseInt(e.target.value) || 1,
                             )
                           }
                         />
@@ -1208,7 +1216,7 @@ const Requisitions = () => {
                   </Label>
                   <p className="font-medium">
                     {new Date(
-                      selectedRequisition.requestedDate
+                      selectedRequisition.requestedDate,
                     ).toLocaleDateString()}
                   </p>
                 </div>
@@ -1219,7 +1227,7 @@ const Requisitions = () => {
                     </Label>
                     <p className="font-medium">
                       {new Date(
-                        selectedRequisition.approvedDate
+                        selectedRequisition.approvedDate,
                       ).toLocaleDateString()}
                     </p>
                   </div>
@@ -1265,7 +1273,7 @@ const Requisitions = () => {
                               {item.quantityRequested - item.quantityIssued}
                             </TableCell>
                           </TableRow>
-                        )
+                        ),
                       )}
                     </TableBody>
                   </Table>
@@ -1402,6 +1410,33 @@ const Requisitions = () => {
                             </Badge>
                           </TableCell>
                           <TableCell className="text-center">
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="outline"
+                              onClick={async () => {
+                                // Check if product has IMEI numbers
+                                const qty = issueQuantities[item.id] || 0;
+                                if (qty === 0) {
+                                  toast.error("Please enter quantity first");
+                                  return;
+                                }
+
+                                setCurrentIssuingItem(item);
+                                setShowImeiDialog(true);
+                              }}
+                              disabled={
+                                !issueBatches[item.id] ||
+                                (issueQuantities[item.id] || 0) === 0
+                              }
+                            >
+                              <Smartphone className="h-4 w-4 mr-1" />
+                              {selectedItemImeis[item.id]?.length > 0
+                                ? `${selectedItemImeis[item.id].length} Selected`
+                                : "Select IMEI"}
+                            </Button>
+                          </TableCell>
+                          <TableCell className="text-center">
                             <Select
                               value={issueBatches[item.id] || ""}
                               onValueChange={(val) =>
@@ -1431,7 +1466,7 @@ const Requisitions = () => {
                                       {batch.quantityRemaining} left
                                       {batch.expiryDate &&
                                         ` • Exp: ${new Date(
-                                          batch.expiryDate
+                                          batch.expiryDate,
                                         ).toLocaleDateString()}`}
                                     </SelectItem>
                                   ))
@@ -1451,7 +1486,7 @@ const Requisitions = () => {
                                   ...issueQuantities,
                                   [item.id]: Math.min(
                                     Math.max(0, value),
-                                    remaining
+                                    remaining,
                                   ),
                                 });
                               }}
@@ -1713,6 +1748,24 @@ const Requisitions = () => {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {currentIssuingItem && (
+        <ImeiSelectionDialog
+          open={showImeiDialog}
+          onOpenChange={setShowImeiDialog}
+          productId={currentIssuingItem.productId}
+          productName={currentIssuingItem.product.name}
+          batchId={issueBatches[currentIssuingItem.id]}
+          requiredCount={issueQuantities[currentIssuingItem.id] || 0}
+          onConfirm={(imeis) => {
+            setSelectedItemImeis({
+              ...selectedItemImeis,
+              [currentIssuingItem.id]: imeis,
+            });
+            setCurrentIssuingItem(null);
+          }}
+        />
+      )}
 
       {/* Disburse Dialog */}
       <Dialog
