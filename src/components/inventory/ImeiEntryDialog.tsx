@@ -12,7 +12,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
-import { Trash2, Smartphone } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Smartphone } from "lucide-react";
 import { ImeiNumberInput } from "@/api/types/imei.types";
 import { toast } from "sonner";
 
@@ -23,11 +24,11 @@ interface ImeiEntryDialogProps {
   onConfirm: (imeiNumbers: ImeiNumberInput[]) => void;
   productName: string;
 
-
   allowSkip?: boolean;
 
   resetOnOpen?: boolean;
 
+  // Auto-generate exactly requiredCount rows on open
   autoGenerateRows?: boolean;
 }
 
@@ -42,28 +43,29 @@ const ImeiEntryDialog: React.FC<ImeiEntryDialogProps> = ({
   autoGenerateRows = true,
 }) => {
   const [imeiEntries, setImeiEntries] = useState<ImeiNumberInput[]>([]);
+  const [bulkText, setBulkText] = useState("");
+  const [entryMode, setEntryMode] = useState<"manual" | "paste">("manual");
 
-  // Create exactly N rows
   const buildRows = (count: number): ImeiNumberInput[] =>
     Array.from({ length: Math.max(0, count) }, () => ({
       imeiNumber: "",
       notes: "",
     }));
 
-  /**
-   * ✅ Auto-generate rows when dialog opens:
-   * - If resetOnOpen: always rebuild
-   * - Also rebuild if requiredCount changes while open (rare but safe)
-   */
+  //  Auto-generate rows when dialog opens
   useEffect(() => {
     if (!open) return;
+
+    if (resetOnOpen) {
+      setBulkText("");
+      setEntryMode("manual");
+    }
 
     if (!autoGenerateRows) {
       if (resetOnOpen) setImeiEntries([]);
       return;
     }
 
-    // Always ensure we have exactly requiredCount rows
     setImeiEntries((prev) => {
       if (!resetOnOpen && prev.length === requiredCount) return prev;
       return buildRows(requiredCount);
@@ -72,21 +74,61 @@ const ImeiEntryDialog: React.FC<ImeiEntryDialogProps> = ({
 
   const filledCount = useMemo(
     () => imeiEntries.filter((e) => e.imeiNumber.trim().length > 0).length,
-    [imeiEntries]
+    [imeiEntries],
   );
 
-  const handleRemoveImei = (index: number) => {
-    // If autoGenerateRows is ON, we shouldn't allow removing rows,
-    // because we must keep exactly requiredCount rows.
-    if (autoGenerateRows) return;
+  const extractImeisFromText = (text: string): string[] => {
+    // Extract any 15-digit sequences from the text
+    const matches = text.match(/\d{15}/g) || [];
+    return matches.map((m) => m.trim());
+  };
 
-    setImeiEntries(imeiEntries.filter((_, i) => i !== index));
+  const applyBulkImeis = () => {
+    if (requiredCount <= 0) {
+      toast.error("Quantity must be greater than 0 to add IMEIs");
+      return;
+    }
+
+    const imeis = extractImeisFromText(bulkText);
+
+    if (imeis.length === 0) {
+      toast.error("No valid 15-digit IMEI numbers found in pasted text");
+      return;
+    }
+
+    // Validate duplicates in pasted set
+    const unique = new Set(imeis);
+    if (unique.size !== imeis.length) {
+      toast.error("Duplicate IMEI numbers found in pasted text");
+      return;
+    }
+
+    // Enforce exact count
+    if (imeis.length !== requiredCount) {
+      toast.error(
+        `You pasted ${imeis.length} IMEIs. Please paste exactly ${requiredCount}.`,
+      );
+      return;
+    }
+
+    // Fill rows
+    setImeiEntries((prev) => {
+      const rows =
+        prev.length === requiredCount ? [...prev] : buildRows(requiredCount);
+      for (let i = 0; i < requiredCount; i++) {
+        rows[i] = { ...rows[i], imeiNumber: imeis[i] };
+      }
+      return rows;
+    });
+
+    toast.success(`Filled ${requiredCount} IMEI rows from paste`);
+    setEntryMode("manual");
   };
 
   const handleImeiChange = (
     index: number,
     field: keyof ImeiNumberInput,
-    value: string
+    value: string,
   ) => {
     setImeiEntries((prev) => {
       const updated = [...prev];
@@ -97,7 +139,9 @@ const ImeiEntryDialog: React.FC<ImeiEntryDialogProps> = ({
 
   const validateBeforeConfirm = (): boolean => {
     if (imeiEntries.length !== requiredCount) {
-      toast.error(`Expected ${requiredCount} rows but got ${imeiEntries.length}`);
+      toast.error(
+        `Expected ${requiredCount} rows but got ${imeiEntries.length}`,
+      );
       return false;
     }
 
@@ -110,14 +154,13 @@ const ImeiEntryDialog: React.FC<ImeiEntryDialogProps> = ({
 
     // Validate 15 digits
     const invalidImeis = imeiEntries.filter(
-      (entry) => !/^\d{15}$/.test(entry.imeiNumber.trim())
+      (entry) => !/^\d{15}$/.test(entry.imeiNumber.trim()),
     );
     if (invalidImeis.length > 0) {
       toast.error("IMEI numbers must be exactly 15 digits");
       return false;
     }
 
-    // Check duplicates
     const imeiNumbers = imeiEntries.map((e) => e.imeiNumber.trim());
     const uniqueImeis = new Set(imeiNumbers);
     if (uniqueImeis.size !== imeiNumbers.length) {
@@ -135,13 +178,12 @@ const ImeiEntryDialog: React.FC<ImeiEntryDialogProps> = ({
       imeiEntries.map((e) => ({
         imeiNumber: e.imeiNumber.trim(),
         notes: e.notes?.trim() || undefined,
-      }))
+      })),
     );
 
     onOpenChange(false);
-
-    // Clear after closing (optional)
     setImeiEntries([]);
+    setBulkText("");
   };
 
   const handleSkip = () => {
@@ -152,6 +194,7 @@ const ImeiEntryDialog: React.FC<ImeiEntryDialogProps> = ({
     onConfirm([]);
     onOpenChange(false);
     setImeiEntries([]);
+    setBulkText("");
   };
 
   return (
@@ -169,7 +212,6 @@ const ImeiEntryDialog: React.FC<ImeiEntryDialogProps> = ({
             <span className="text-xs text-muted-foreground">
               IMEI must be 15 digits.
               {!allowSkip && " This is required for this batch."}
-              {autoGenerateRows && " Rows are auto-generated for you."}
             </span>
           </DialogDescription>
         </DialogHeader>
@@ -179,66 +221,96 @@ const ImeiEntryDialog: React.FC<ImeiEntryDialogProps> = ({
             <Badge variant="outline">
               {filledCount} / {requiredCount} filled
             </Badge>
-
-            <Badge variant={filledCount === requiredCount ? "default" : "secondary"}>
-              {autoGenerateRows ? "Auto Rows" : "Manual Rows"}
+            <Badge
+              variant={filledCount === requiredCount ? "default" : "secondary"}
+            >
+              {filledCount === requiredCount ? "Ready" : "In Progress"}
             </Badge>
           </div>
 
-          <div className="border rounded-lg p-4 space-y-3 max-h-96 overflow-y-auto">
-            {requiredCount === 0 ? (
-              <div className="text-center text-sm text-muted-foreground py-8">
-                No IMEIs required (quantity is 0).
+          {/* Optional speed workflow */}
+          <Tabs value={entryMode} onValueChange={(v) => setEntryMode(v as any)}>
+            <TabsList className="grid w-full grid-cols-2">
+              <TabsTrigger value="manual">Manual Entry</TabsTrigger>
+              <TabsTrigger value="paste">Paste All</TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="paste" className="space-y-3 pt-3">
+              <div className="space-y-2">
+                <Label>Paste IMEIs (exactly {requiredCount})</Label>
+                <Textarea
+                  value={bulkText}
+                  onChange={(e) => setBulkText(e.target.value)}
+                  placeholder={`Paste ${requiredCount} IMEIs here (new lines, spaces or commas supported).`}
+                  rows={6}
+                  className="font-mono"
+                />
+                <p className="text-xs text-muted-foreground">
+                  Tip: you can paste from Excel/Sheets (one per line) or
+                  comma-separated. We detect any 15-digit sequences
+                  automatically.
+                </p>
               </div>
-            ) : (
-              imeiEntries.map((entry, index) => (
-                <div key={index} className="border rounded-lg p-3 space-y-2">
-                  <div className="flex items-center justify-between">
-                    <Label className="text-sm font-medium">
-                      IMEI #{index + 1}
-                    </Label>
 
-                    {/* Only show remove if manual mode */}
-                    {!autoGenerateRows && (
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => handleRemoveImei(index)}
-                        className="text-destructive h-6 w-6 p-0"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    )}
+              <div className="flex gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setBulkText("")}
+                >
+                  Clear
+                </Button>
+                <Button type="button" onClick={applyBulkImeis}>
+                  Apply to Rows
+                </Button>
+              </div>
+            </TabsContent>
+
+            <TabsContent value="manual" className="pt-3">
+              <div className="border rounded-lg p-4 space-y-3 max-h-96 overflow-y-auto">
+                {requiredCount === 0 ? (
+                  <div className="text-center text-sm text-muted-foreground py-8">
+                    No IMEIs required (quantity is 0).
                   </div>
+                ) : (
+                  imeiEntries.map((entry, index) => (
+                    <div
+                      key={index}
+                      className="border rounded-lg p-3 space-y-2"
+                    >
+                      <Label className="text-sm font-medium">
+                        IMEI #{index + 1}
+                      </Label>
 
-                  <Input
-                    placeholder="Enter 15-digit IMEI number"
-                    value={entry.imeiNumber}
-                    onChange={(e) =>
-                      handleImeiChange(
-                        index,
-                        "imeiNumber",
-                        e.target.value.replace(/\D/g, "").slice(0, 15)
-                      )
-                    }
-                    maxLength={15}
-                    className="font-mono"
-                  />
+                      <Input
+                        placeholder="Enter 15-digit IMEI number"
+                        value={entry.imeiNumber}
+                        onChange={(e) =>
+                          handleImeiChange(
+                            index,
+                            "imeiNumber",
+                            e.target.value.replace(/\D/g, "").slice(0, 15),
+                          )
+                        }
+                        maxLength={15}
+                        className="font-mono"
+                      />
 
-                  <Textarea
-                    placeholder="Optional notes about this device"
-                    value={entry.notes || ""}
-                    onChange={(e) =>
-                      handleImeiChange(index, "notes", e.target.value)
-                    }
-                    rows={2}
-                    className="text-sm"
-                  />
-                </div>
-              ))
-            )}
-          </div>
+                      <Textarea
+                        placeholder="Optional notes about this device"
+                        value={entry.notes || ""}
+                        onChange={(e) =>
+                          handleImeiChange(index, "notes", e.target.value)
+                        }
+                        rows={2}
+                        className="text-sm"
+                      />
+                    </div>
+                  ))
+                )}
+              </div>
+            </TabsContent>
+          </Tabs>
         </div>
 
         <DialogFooter className="gap-2">
