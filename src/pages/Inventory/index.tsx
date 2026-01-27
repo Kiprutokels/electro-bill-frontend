@@ -48,6 +48,14 @@ import InventoryViewDialog from "@/components/inventory/InventoryViewDialog";
 import InventoryAdjustmentDialog from "@/components/inventory/InventoryAdjustmentDialog";
 import { toast } from "sonner";
 
+const PAGE_SIZE_OPTIONS = [
+  { label: "10", value: 10 },
+  { label: "25", value: 25 },
+  { label: "50", value: 50 },
+  { label: "100", value: 100 },
+  { label: "All", value: -1 },
+];
+
 const Inventory = () => {
   const navigate = useNavigate();
   const { hasPermission } = useAuth();
@@ -62,14 +70,14 @@ const Inventory = () => {
     totalItems,
     searchTerm,
     filters,
+    pageSize,
     fetchInventory,
     refresh,
     updateSearch,
     updateFilters,
-    setCurrentPage,
+    updatePageSize,
   } = useInventory();
 
-  // Dialog states
   const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
   const [isAdjustmentDialogOpen, setIsAdjustmentDialogOpen] = useState(false);
   const [selectedItem, setSelectedItem] = useState<InventoryItem | null>(null);
@@ -95,7 +103,7 @@ const Inventory = () => {
 
   const handleStockFilterChange = (value: string) => {
     const newFilters = { ...filters };
-    
+
     if (value === "all") {
       delete newFilters.lowStock;
       delete newFilters.includeZeroStock;
@@ -106,7 +114,7 @@ const Inventory = () => {
       newFilters.includeZeroStock = true;
       delete newFilters.lowStock;
     }
-    
+
     updateFilters(newFilters);
   };
 
@@ -156,6 +164,10 @@ const Inventory = () => {
     };
   }, [summary]);
 
+  const pageLimitForDisplay = pageSize < 0 ? totalItems : pageSize;
+  const from = totalItems === 0 ? 0 : (pageSize < 0 ? 1 : (currentPage - 1) * pageLimitForDisplay + 1);
+  const to = totalItems === 0 ? 0 : (pageSize < 0 ? totalItems : Math.min(currentPage * pageLimitForDisplay, totalItems));
+
   if (loading && inventory.length === 0) {
     return (
       <div className="flex items-center justify-center h-96">
@@ -169,7 +181,6 @@ const Inventory = () => {
 
   return (
     <div className="space-y-4 sm:space-y-6 p-4 sm:p-6">
-      {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h1 className="text-2xl sm:text-3xl font-bold text-foreground">
@@ -181,19 +192,13 @@ const Inventory = () => {
         </div>
         <div className="flex gap-2">
           {hasPermission(PERMISSIONS.INVENTORY_READ) && (
-            <Button
-              variant="outline"
-              onClick={() => navigate("/inventory/batches")}
-            >
+            <Button variant="outline" onClick={() => navigate("/inventory/batches")}>
               <PackageOpen className="mr-2 h-4 w-4" />
               View Batches
             </Button>
           )}
           {hasPermission(PERMISSIONS.INVENTORY_READ) && (
-            <Button
-              variant="outline"
-              onClick={() => navigate("/inventory/reports")}
-            >
+            <Button variant="outline" onClick={() => navigate("/inventory/reports")}>
               <FileBarChart className="mr-2 h-4 w-4" />
               Reports
             </Button>
@@ -279,6 +284,7 @@ const Inventory = () => {
         <CardHeader>
           <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
             <CardTitle>Inventory Items</CardTitle>
+
             <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
               <div className="relative flex-1 sm:w-64">
                 <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
@@ -289,7 +295,7 @@ const Inventory = () => {
                   className="pl-10"
                 />
               </div>
-              
+
               <Select
                 value={filters.location || "all"}
                 onValueChange={handleLocationFilterChange}
@@ -320,6 +326,22 @@ const Inventory = () => {
                 </SelectContent>
               </Select>
 
+              <Select
+                value={String(pageSize)}
+                onValueChange={(v) => updatePageSize(Number(v))}
+              >
+                <SelectTrigger className="w-full sm:w-28">
+                  <SelectValue placeholder="Page size" />
+                </SelectTrigger>
+                <SelectContent>
+                  {PAGE_SIZE_OPTIONS.map((opt) => (
+                    <SelectItem key={opt.value} value={String(opt.value)}>
+                      {opt.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+
               <Button
                 variant="outline"
                 size="icon"
@@ -327,23 +349,17 @@ const Inventory = () => {
                 disabled={refreshing}
                 title="Refresh"
               >
-                <RefreshCw
-                  className={`h-4 w-4 ${refreshing ? "animate-spin" : ""}`}
-                />
+                <RefreshCw className={`h-4 w-4 ${refreshing ? "animate-spin" : ""}`} />
               </Button>
             </div>
           </div>
         </CardHeader>
+
         <CardContent className="p-0 sm:p-6">
           {error && (
             <div className="mb-4 mx-4 sm:mx-0 p-4 border border-destructive/20 rounded-lg bg-destructive/5">
               <p className="text-sm text-destructive">{error}</p>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={refresh}
-                className="mt-2"
-              >
+              <Button variant="outline" size="sm" onClick={refresh} className="mt-2">
                 Try Again
               </Button>
             </div>
@@ -364,6 +380,7 @@ const Inventory = () => {
                     <TableHead className="text-right min-w-[60px]">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
+
                 <TableBody>
                   {inventory.length === 0 ? (
                     <TableRow>
@@ -425,7 +442,6 @@ const Inventory = () => {
                                 <Eye className="mr-2 h-4 w-4" />
                                 View Details
                               </DropdownMenuItem>
-
                               {hasPermission(PERMISSIONS.INVENTORY_UPDATE) && (
                                 <DropdownMenuItem onClick={() => handleAdjustment(item)}>
                                   <Settings className="mr-2 h-4 w-4" />
@@ -443,31 +459,32 @@ const Inventory = () => {
             </div>
           </div>
 
-          {/* Pagination */}
-          {totalPages > 1 && (
+          {totalItems > 0 && (
             <div className="flex flex-col sm:flex-row items-center justify-between pt-4 px-4 sm:px-0 gap-4">
               <p className="text-sm text-muted-foreground">
-                Showing {(currentPage - 1) * 10 + 1} to{" "}
-                {Math.min(currentPage * 10, totalItems)} of {totalItems} entries
+                Showing {from} to {to} of {totalItems} entries
               </p>
-              <div className="flex gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => fetchInventory(currentPage - 1)}
-                  disabled={currentPage === 1 || loading}
-                >
-                  Previous
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => fetchInventory(currentPage + 1)}
-                  disabled={currentPage === totalPages || loading}
-                >
-                  Next
-                </Button>
-              </div>
+
+              {pageSize >= 0 && totalPages > 1 && (
+                <div className="flex gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => fetchInventory(currentPage - 1)}
+                    disabled={currentPage === 1 || loading}
+                  >
+                    Previous
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => fetchInventory(currentPage + 1)}
+                    disabled={currentPage === totalPages || loading}
+                  >
+                    Next
+                  </Button>
+                </div>
+              )}
             </div>
           )}
         </CardContent>
