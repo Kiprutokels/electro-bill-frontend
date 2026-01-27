@@ -1,27 +1,27 @@
-import React, { useState } from 'react';
+import React, { useState } from "react";
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
-} from '@/components/ui/dialog';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
-import { Checkbox } from '@/components/ui/checkbox';
-import { Loader2, Package, Smartphone } from 'lucide-react';
-import { Product } from '@/api/services/products.service';
+} from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Loader2, Package, Smartphone } from "lucide-react";
+import { Product } from "@/api/services/products.service";
 import {
   productBatchesService,
   CreateProductBatchRequest,
   ProductBatch,
-} from '@/api/services/product-batches.service';
-import { imeiService } from '@/api/services/imei.service';
-import { validateNumber, validateDecimal } from '@/utils/validation.utils';
-import { toast } from 'sonner';
-import ImeiEntryDialog from '@/components/inventory/ImeiEntryDialog';
-import { ImeiNumberInput } from '@/api/types/imei.types';
+} from "@/api/services/productBatches.service";
+import { validateNumber, validateDecimal } from "@/utils/validation.utils";
+import { toast } from "sonner";
+import ImeiEntryDialog from "@/components/inventory/ImeiEntryDialog";
+import { DeviceImeiInput } from "@/api/types/device.types";
+import { devicesService } from "@/api/services/devices.service";
 
 interface RestockDialogProps {
   open: boolean;
@@ -38,19 +38,19 @@ const RestockDialog: React.FC<RestockDialogProps> = ({
 }) => {
   const [loading, setLoading] = useState(false);
 
-  // ✅ NEW: after batch created, we might open IMEI dialog
   const [showImeiDialog, setShowImeiDialog] = useState(false);
   const [createdBatch, setCreatedBatch] = useState<ProductBatch | null>(null);
 
-  // ✅ NEW: checkbox toggle (tick item)
   const [trackImeis, setTrackImeis] = useState(false);
 
-  const [formData, setFormData] = useState<Omit<CreateProductBatchRequest, 'productId'>>({
-    supplierBatchRef: '',
+  const [formData, setFormData] = useState<
+    Omit<CreateProductBatchRequest, "productId">
+  >({
+    supplierBatchRef: "",
     buyingPrice: 0,
     quantityReceived: 0,
-    expiryDate: '',
-    notes: '',
+    expiryDate: "",
+    notes: "",
   });
 
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -58,10 +58,18 @@ const RestockDialog: React.FC<RestockDialogProps> = ({
   const validateForm = (): boolean => {
     const newErrors: Record<string, string> = {};
 
-    const buyingPriceError = validateDecimal(formData.buyingPrice, 'Buying price', { min: 0 });
+    const buyingPriceError = validateDecimal(
+      formData.buyingPrice,
+      "Buying price",
+      { min: 0 },
+    );
     if (buyingPriceError) newErrors.buyingPrice = buyingPriceError;
 
-    const quantityError = validateNumber(formData.quantityReceived, 'Quantity received', { min: 1 });
+    const quantityError = validateNumber(
+      formData.quantityReceived,
+      "Quantity received",
+      { min: 1 },
+    );
     if (quantityError) newErrors.quantityReceived = quantityError;
 
     setErrors(newErrors);
@@ -70,11 +78,11 @@ const RestockDialog: React.FC<RestockDialogProps> = ({
 
   const resetForm = () => {
     setFormData({
-      supplierBatchRef: '',
+      supplierBatchRef: "",
       buyingPrice: 0,
       quantityReceived: 0,
-      expiryDate: '',
-      notes: '',
+      expiryDate: "",
+      notes: "",
     });
     setErrors({});
     setTrackImeis(false);
@@ -83,9 +91,9 @@ const RestockDialog: React.FC<RestockDialogProps> = ({
   };
 
   const handleInputChange = (field: keyof typeof formData, value: any) => {
-    setFormData(prev => ({ ...prev, [field]: value }));
+    setFormData((prev) => ({ ...prev, [field]: value }));
     if (errors[field]) {
-      setErrors(prev => ({ ...prev, [field]: '' }));
+      setErrors((prev) => ({ ...prev, [field]: "" }));
     }
   };
 
@@ -104,45 +112,41 @@ const RestockDialog: React.FC<RestockDialogProps> = ({
         notes: formData.notes || undefined,
       };
 
-      // Capture created batch (needs id for IMEI attachment)
-      const batch = await productBatchesService.createBatch(batchData);
+      const batch = await productBatchesService.create(batchData);
 
-      toast.success('Batch created successfully');
-
-      // Refresh parent list now (so UI reflects new stock)
+      toast.success("Batch created successfully");
       onRestockComplete();
 
-      // If admin ticked “track IMEIs”, immediately open IMEI dialog
       if (trackImeis && formData.quantityReceived > 0) {
         setCreatedBatch(batch);
         setShowImeiDialog(true);
-        // keep restock dialog open behind
         return;
       }
 
-      // otherwise finish normally
       onOpenChange(false);
       resetForm();
     } catch (err: any) {
-      const errorMessage = err.response?.data?.message || 'Failed to add stock';
+      const errorMessage = err.response?.data?.message || "Failed to add stock";
       toast.error(errorMessage);
     } finally {
       setLoading(false);
     }
   };
 
-  const handleConfirmImeis = async (imeis: ImeiNumberInput[]) => {
+  const handleConfirmImeis = async (
+    imeis: { imeiNumber: string; notes?: string }[],
+  ) => {
     if (!product || !createdBatch) return;
 
-    // If tracking is ON, enforce exact match and no skipping
     if (trackImeis && imeis.length !== formData.quantityReceived) {
-      toast.error(`Please add exactly ${formData.quantityReceived} IMEI numbers`);
+      toast.error(
+        `Please add exactly ${formData.quantityReceived} IMEI numbers`,
+      );
       return;
     }
 
     if (imeis.length === 0) {
-      // allowed only when trackImeis is false (UI already hides skip when false)
-      toast.success('Stock saved without IMEIs');
+      toast.success("Stock saved without IMEIs");
       setShowImeiDialog(false);
       setCreatedBatch(null);
       onOpenChange(false);
@@ -152,21 +156,30 @@ const RestockDialog: React.FC<RestockDialogProps> = ({
 
     setLoading(true);
     try {
-      await imeiService.addImeisToBatch(product.id, createdBatch.id, imeis);
+      const devices: DeviceImeiInput[] = imeis.map((i) => ({
+        imeiNumber: i.imeiNumber,
+        notes: i.notes,
+      }));
 
-      toast.success(`Saved ${imeis.length} IMEI numbers for batch ${createdBatch.batchNumber}`);
+      await devicesService.bulkCreateForBatch(createdBatch.id, {
+        productId: product.id,
+        devices,
+      });
+
+      toast.success(
+        `Saved ${devices.length} device IMEIs for batch ${createdBatch.batchNumber}`,
+      );
 
       setShowImeiDialog(false);
       setCreatedBatch(null);
 
-      // close restock dialog and reset
       onOpenChange(false);
       resetForm();
 
-      // refresh again (optional) to reflect any IMEI-related indicators if you add them later
       onRestockComplete();
     } catch (err: any) {
-      const errorMessage = err.response?.data?.message || 'Failed to save IMEIs';
+      const errorMessage =
+        err.response?.data?.message || "Failed to save devices";
       toast.error(errorMessage);
     } finally {
       setLoading(false);
@@ -178,9 +191,8 @@ const RestockDialog: React.FC<RestockDialogProps> = ({
       <Dialog
         open={open}
         onOpenChange={(nextOpen) => {
-          // If closing while IMEI dialog is open and tracking is ON, block accidental closure
           if (!nextOpen && showImeiDialog && trackImeis) {
-            toast.error('Please finish IMEI entry before closing');
+            toast.error("Please finish IMEI entry before closing");
             return;
           }
           onOpenChange(nextOpen);
@@ -201,22 +213,23 @@ const RestockDialog: React.FC<RestockDialogProps> = ({
                 <span className="font-medium">SKU:</span> {product?.sku}
               </p>
               <p className="text-sm text-muted-foreground">
-                <span className="font-medium">Current Stock:</span> {product?.totalQuantity || 0} units
+                <span className="font-medium">Current Stock:</span>{" "}
+                {product?.totalQuantity || 0} units
               </p>
             </div>
 
-            {/* Supplier Batch Reference */}
             <div>
               <Label htmlFor="supplierBatchRef">Supplier Batch Reference</Label>
               <Input
                 id="supplierBatchRef"
                 value={formData.supplierBatchRef}
-                onChange={(e) => handleInputChange('supplierBatchRef', e.target.value)}
+                onChange={(e) =>
+                  handleInputChange("supplierBatchRef", e.target.value)
+                }
                 placeholder="e.g., SUP-REF-001"
               />
             </div>
 
-            {/* Buying Price */}
             <div>
               <Label htmlFor="buyingPrice">
                 Buying Price <span className="text-destructive">*</span>
@@ -227,15 +240,21 @@ const RestockDialog: React.FC<RestockDialogProps> = ({
                 min="0"
                 step="0.01"
                 value={formData.buyingPrice}
-                onChange={(e) => handleInputChange('buyingPrice', parseFloat(e.target.value) || 0)}
-                className={errors.buyingPrice ? 'border-destructive' : ''}
+                onChange={(e) =>
+                  handleInputChange(
+                    "buyingPrice",
+                    parseFloat(e.target.value) || 0,
+                  )
+                }
+                className={errors.buyingPrice ? "border-destructive" : ""}
               />
               {errors.buyingPrice && (
-                <p className="text-sm text-destructive mt-1">{errors.buyingPrice}</p>
+                <p className="text-sm text-destructive mt-1">
+                  {errors.buyingPrice}
+                </p>
               )}
             </div>
 
-            {/* Quantity Received */}
             <div>
               <Label htmlFor="quantityReceived">
                 Quantity Received <span className="text-destructive">*</span>
@@ -245,15 +264,21 @@ const RestockDialog: React.FC<RestockDialogProps> = ({
                 type="number"
                 min="1"
                 value={formData.quantityReceived}
-                onChange={(e) => handleInputChange('quantityReceived', parseInt(e.target.value) || 0)}
-                className={errors.quantityReceived ? 'border-destructive' : ''}
+                onChange={(e) =>
+                  handleInputChange(
+                    "quantityReceived",
+                    parseInt(e.target.value) || 0,
+                  )
+                }
+                className={errors.quantityReceived ? "border-destructive" : ""}
               />
               {errors.quantityReceived && (
-                <p className="text-sm text-destructive mt-1">{errors.quantityReceived}</p>
+                <p className="text-sm text-destructive mt-1">
+                  {errors.quantityReceived}
+                </p>
               )}
             </div>
 
-            {/* Track IMEIs tick */}
             <div className="flex items-start gap-3 p-3 border rounded-lg">
               <Checkbox
                 checked={trackImeis}
@@ -261,47 +286,59 @@ const RestockDialog: React.FC<RestockDialogProps> = ({
                 id="trackImeis"
               />
               <div className="space-y-1">
-                <Label htmlFor="trackImeis" className="flex items-center gap-2 cursor-pointer">
+                <Label
+                  htmlFor="trackImeis"
+                  className="flex items-center gap-2 cursor-pointer"
+                >
                   <Smartphone className="h-4 w-4" />
                   Track IMEIs for this batch
                 </Label>
                 <p className="text-xs text-muted-foreground">
-                  If enabled, IMEI entry will open immediately after saving, and you must enter exactly
-                  the same number of IMEIs as the quantity received.
+                  If enabled, IMEI entry will open immediately after saving, and
+                  you must enter exactly the same number of IMEIs as the
+                  quantity received.
                 </p>
               </div>
             </div>
 
-            {/* Expiry Date */}
             <div>
               <Label htmlFor="expiryDate">Expiry Date</Label>
               <Input
                 id="expiryDate"
                 type="date"
                 value={formData.expiryDate}
-                onChange={(e) => handleInputChange('expiryDate', e.target.value)}
+                onChange={(e) =>
+                  handleInputChange("expiryDate", e.target.value)
+                }
               />
             </div>
 
-            {/* Notes */}
             <div>
               <Label htmlFor="notes">Notes</Label>
               <Textarea
                 id="notes"
                 value={formData.notes}
-                onChange={(e) => handleInputChange('notes', e.target.value)}
+                onChange={(e) => handleInputChange("notes", e.target.value)}
                 placeholder="Additional notes (optional)"
                 rows={2}
               />
             </div>
 
-            {/* Form Actions */}
             <div className="flex gap-2 pt-4">
               <Button type="submit" disabled={loading} className="flex-1">
                 {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                {loading ? 'Saving...' : trackImeis ? 'Save & Add IMEIs' : 'Add Stock'}
+                {loading
+                  ? "Saving..."
+                  : trackImeis
+                    ? "Save & Add IMEIs"
+                    : "Add Stock"}
               </Button>
-              <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={loading}>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => onOpenChange(false)}
+                disabled={loading}
+              >
                 Cancel
               </Button>
             </div>
@@ -309,11 +346,9 @@ const RestockDialog: React.FC<RestockDialogProps> = ({
         </DialogContent>
       </Dialog>
 
-      {/* IMEI Entry opens automatically after batch creation */}
       <ImeiEntryDialog
         open={showImeiDialog}
         onOpenChange={(v) => {
-          // if tracking is on, prevent closing without completing
           if (!v && trackImeis) {
             toast.error("IMEI entry is required for this batch");
             return;
