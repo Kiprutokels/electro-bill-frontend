@@ -16,88 +16,101 @@ export const useProductBatches = (options: UseProductBatchesOptions = {}) => {
     initialLimit = 10,
     initialSearch = '',
     includeExpired = false,
-    productId
+    productId,
   } = options;
 
   const [batches, setBatches] = useState<ProductBatch[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
+
   const [currentPage, setCurrentPage] = useState(initialPage);
+  const [pageSize, setPageSize] = useState<number>(initialLimit);
+
   const [totalPages, setTotalPages] = useState(1);
   const [totalItems, setTotalItems] = useState(0);
+
   const [searchTerm, setSearchTerm] = useState(initialSearch);
 
-  const fetchBatches = useCallback(async (
-    page = currentPage,
-    search = searchTerm,
-    showRefreshing = false
-  ) => {
-    try {
-      if (showRefreshing) {
-        setRefreshing(true);
-      } else {
-        setLoading(true);
+  const fetchBatches = useCallback(
+    async (
+      page = currentPage,
+      limit = pageSize,
+      search = searchTerm,
+      showRefreshing = false,
+    ) => {
+      try {
+        if (showRefreshing) setRefreshing(true);
+        else setLoading(true);
+
+        setError(null);
+
+        const effectiveLimit = limit;
+        const effectivePage = effectiveLimit < 0 ? 1 : page;
+
+        const response = await productBatchesService.getAll(
+          effectivePage,
+          effectiveLimit,
+          search,
+          includeExpired,
+          productId,
+        );
+
+        setBatches(response.data || []);
+        setTotalPages(response.meta?.totalPages || 1);
+        setTotalItems(response.meta?.total || 0);
+        setCurrentPage(effectivePage);
+      } catch (err: any) {
+        const errorMessage = err.response?.data?.message || 'Failed to fetch batches';
+        setError(errorMessage);
+        toast.error(errorMessage);
+      } finally {
+        setLoading(false);
+        setRefreshing(false);
       }
-      setError(null);
-
-      const response = await productBatchesService.getAll(
-        page,
-        initialLimit,
-        search,
-        includeExpired,
-        productId
-      );
-
-      setBatches(response.data || []);
-      setTotalPages(response.meta?.totalPages || 1);
-      setTotalItems(response.meta?.total || 0);
-      setCurrentPage(page);
-    } catch (err: any) {
-      const errorMessage = err.response?.data?.message || 'Failed to fetch batches';
-      setError(errorMessage);
-      toast.error(errorMessage);
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
-    }
-  }, [currentPage, searchTerm, initialLimit, includeExpired, productId]);
+    },
+    [currentPage, pageSize, searchTerm, includeExpired, productId],
+  );
 
   const refresh = useCallback(() => {
-    fetchBatches(currentPage, searchTerm, true);
-  }, [fetchBatches, currentPage, searchTerm]);
+    fetchBatches(currentPage, pageSize, searchTerm, true);
+  }, [fetchBatches, currentPage, pageSize, searchTerm]);
 
   const updateSearch = useCallback((search: string) => {
     setSearchTerm(search);
     setCurrentPage(1);
   }, []);
 
+  const updatePageSize = useCallback((newSize: number) => {
+    setPageSize(newSize);
+    setCurrentPage(1);
+  }, []);
+
   const addBatchToList = useCallback((newBatch: ProductBatch) => {
-    setBatches(prev => [newBatch, ...prev]);
-    setTotalItems(prev => prev + 1);
+    setBatches((prev) => [newBatch, ...prev]);
+    setTotalItems((prev) => prev + 1);
   }, []);
 
   const updateBatchInList = useCallback((updatedBatch: ProductBatch) => {
-    setBatches(prev =>
-      prev.map(batch => batch.id === updatedBatch.id ? updatedBatch : batch)
+    setBatches((prev) =>
+      prev.map((batch) => (batch.id === updatedBatch.id ? updatedBatch : batch)),
     );
   }, []);
 
   const removeBatchFromList = useCallback((batchId: string) => {
-    setBatches(prev => prev.filter(batch => batch.id !== batchId));
-    setTotalItems(prev => prev - 1);
+    setBatches((prev) => prev.filter((batch) => batch.id !== batchId));
+    setTotalItems((prev) => Math.max(0, prev - 1));
   }, []);
 
   useEffect(() => {
     const timeoutId = setTimeout(() => {
-      fetchBatches(1, searchTerm);
+      fetchBatches(1, pageSize, searchTerm);
     }, 300);
 
     return () => clearTimeout(timeoutId);
-  }, [searchTerm]);
+  }, [searchTerm, pageSize, fetchBatches]);
 
   return {
-    // State
     batches,
     loading,
     error,
@@ -106,11 +119,12 @@ export const useProductBatches = (options: UseProductBatchesOptions = {}) => {
     totalPages,
     totalItems,
     searchTerm,
-    
-    // Actions
+    pageSize,
+
     fetchBatches,
     refresh,
     updateSearch,
+    updatePageSize,
     addBatchToList,
     updateBatchInList,
     removeBatchFromList,
