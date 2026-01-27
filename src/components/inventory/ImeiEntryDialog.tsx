@@ -14,21 +14,18 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Smartphone } from "lucide-react";
-import { ImeiNumberInput } from "@/api/types/imei.types";
 import { toast } from "sonner";
+import { DeviceImeiInput } from "@/api/types/device.types";
 
 interface ImeiEntryDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   requiredCount: number;
-  onConfirm: (imeiNumbers: ImeiNumberInput[]) => void;
+  onConfirm: (imeiNumbers: DeviceImeiInput[]) => void;
   productName: string;
 
   allowSkip?: boolean;
-
   resetOnOpen?: boolean;
-
-  // Auto-generate exactly requiredCount rows on open
   autoGenerateRows?: boolean;
 }
 
@@ -42,17 +39,16 @@ const ImeiEntryDialog: React.FC<ImeiEntryDialogProps> = ({
   resetOnOpen = true,
   autoGenerateRows = true,
 }) => {
-  const [imeiEntries, setImeiEntries] = useState<ImeiNumberInput[]>([]);
+  const [imeiEntries, setImeiEntries] = useState<DeviceImeiInput[]>([]);
   const [bulkText, setBulkText] = useState("");
   const [entryMode, setEntryMode] = useState<"manual" | "paste">("manual");
 
-  const buildRows = (count: number): ImeiNumberInput[] =>
+  const buildRows = (count: number): DeviceImeiInput[] =>
     Array.from({ length: Math.max(0, count) }, () => ({
       imeiNumber: "",
       notes: "",
     }));
 
-  //  Auto-generate rows when dialog opens
   useEffect(() => {
     if (!open) return;
 
@@ -96,7 +92,6 @@ const ImeiEntryDialog: React.FC<ImeiEntryDialogProps> = ({
       return;
     }
 
-    // Validate duplicates in pasted set
     const unique = new Set(imeis);
     if (unique.size !== imeis.length) {
       toast.error("Duplicate IMEI numbers found in pasted text");
@@ -105,16 +100,13 @@ const ImeiEntryDialog: React.FC<ImeiEntryDialogProps> = ({
 
     // Enforce exact count
     if (imeis.length !== requiredCount) {
-      toast.error(
-        `You pasted ${imeis.length} IMEIs. Please paste exactly ${requiredCount}.`,
-      );
+      toast.error(`You pasted ${imeis.length} IMEIs. Please paste exactly ${requiredCount}.`);
       return;
     }
 
     // Fill rows
     setImeiEntries((prev) => {
-      const rows =
-        prev.length === requiredCount ? [...prev] : buildRows(requiredCount);
+      const rows = prev.length === requiredCount ? [...prev] : buildRows(requiredCount);
       for (let i = 0; i < requiredCount; i++) {
         rows[i] = { ...rows[i], imeiNumber: imeis[i] };
       }
@@ -125,11 +117,7 @@ const ImeiEntryDialog: React.FC<ImeiEntryDialogProps> = ({
     setEntryMode("manual");
   };
 
-  const handleImeiChange = (
-    index: number,
-    field: keyof ImeiNumberInput,
-    value: string,
-  ) => {
+  const handleImeiChange = (index: number, field: keyof DeviceImeiInput, value: string) => {
     setImeiEntries((prev) => {
       const updated = [...prev];
       updated[index] = { ...updated[index], [field]: value };
@@ -139,9 +127,7 @@ const ImeiEntryDialog: React.FC<ImeiEntryDialogProps> = ({
 
   const validateBeforeConfirm = (): boolean => {
     if (imeiEntries.length !== requiredCount) {
-      toast.error(
-        `Expected ${requiredCount} rows but got ${imeiEntries.length}`,
-      );
+      toast.error(`Expected ${requiredCount} rows but got ${imeiEntries.length}`);
       return false;
     }
 
@@ -203,10 +189,10 @@ const ImeiEntryDialog: React.FC<ImeiEntryDialogProps> = ({
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Smartphone className="h-5 w-5" />
-            Add IMEI Numbers
+            Add Device IMEIs
           </DialogTitle>
           <DialogDescription>
-            Enter IMEI numbers for <strong>{requiredCount}</strong> unit(s) of{" "}
+            Enter IMEIs for <strong>{requiredCount}</strong> unit(s) of{" "}
             <strong>{productName}</strong>.
             <br />
             <span className="text-xs text-muted-foreground">
@@ -221,9 +207,7 @@ const ImeiEntryDialog: React.FC<ImeiEntryDialogProps> = ({
             <Badge variant="outline">
               {filledCount} / {requiredCount} filled
             </Badge>
-            <Badge
-              variant={filledCount === requiredCount ? "default" : "secondary"}
-            >
+            <Badge variant={filledCount === requiredCount ? "default" : "secondary"}>
               {filledCount === requiredCount ? "Ready" : "In Progress"}
             </Badge>
           </div>
@@ -246,18 +230,12 @@ const ImeiEntryDialog: React.FC<ImeiEntryDialogProps> = ({
                   className="font-mono"
                 />
                 <p className="text-xs text-muted-foreground">
-                  Tip: you can paste from Excel/Sheets (one per line) or
-                  comma-separated. We detect any 15-digit sequences
-                  automatically.
+                  Tip: paste from Excel/Sheets. We detect any 15-digit sequences automatically.
                 </p>
               </div>
 
               <div className="flex gap-2">
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => setBulkText("")}
-                >
+                <Button type="button" variant="outline" onClick={() => setBulkText("")}>
                   Clear
                 </Button>
                 <Button type="button" onClick={applyBulkImeis}>
@@ -274,13 +252,8 @@ const ImeiEntryDialog: React.FC<ImeiEntryDialogProps> = ({
                   </div>
                 ) : (
                   imeiEntries.map((entry, index) => (
-                    <div
-                      key={index}
-                      className="border rounded-lg p-3 space-y-2"
-                    >
-                      <Label className="text-sm font-medium">
-                        IMEI #{index + 1}
-                      </Label>
+                    <div key={index} className="border rounded-lg p-3 space-y-2">
+                      <Label className="text-sm font-medium">IMEI #{index + 1}</Label>
 
                       <Input
                         placeholder="Enter 15-digit IMEI number"
@@ -299,9 +272,7 @@ const ImeiEntryDialog: React.FC<ImeiEntryDialogProps> = ({
                       <Textarea
                         placeholder="Optional notes about this device"
                         value={entry.notes || ""}
-                        onChange={(e) =>
-                          handleImeiChange(index, "notes", e.target.value)
-                        }
+                        onChange={(e) => handleImeiChange(index, "notes", e.target.value)}
                         rows={2}
                         className="text-sm"
                       />

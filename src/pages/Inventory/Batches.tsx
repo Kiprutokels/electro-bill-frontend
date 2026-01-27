@@ -18,6 +18,13 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
   AlertDialog,
   AlertDialogAction,
   AlertDialogCancel,
@@ -52,6 +59,14 @@ import EditProductBatchDialog from "@/components/inventory/EditProductBatchDialo
 import ProductBatchViewDialog from "@/components/inventory/ProductBatchViewDialog";
 import { toast } from "sonner";
 
+const PAGE_SIZE_OPTIONS = [
+  { label: "10", value: 10 },
+  { label: "25", value: 25 },
+  { label: "50", value: 50 },
+  { label: "100", value: 100 },
+  { label: "All", value: -1 },
+];
+
 const ProductBatches = () => {
   const navigate = useNavigate();
   const { hasPermission } = useAuth();
@@ -64,16 +79,16 @@ const ProductBatches = () => {
     totalPages,
     totalItems,
     searchTerm,
+    pageSize,
     fetchBatches,
     refresh,
     updateSearch,
+    updatePageSize,
     addBatchToList,
     updateBatchInList,
     removeBatchFromList,
-    setCurrentPage,
   } = useProductBatches();
 
-  // Dialog states
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
@@ -108,13 +123,8 @@ const ProductBatches = () => {
     }
   };
 
-  const handleBatchAdded = (newBatch: ProductBatch) => {
-    addBatchToList(newBatch);
-  };
-
-  const handleBatchUpdated = (updatedBatch: ProductBatch) => {
-    updateBatchInList(updatedBatch);
-  };
+  const handleBatchAdded = (newBatch: ProductBatch) => addBatchToList(newBatch);
+  const handleBatchUpdated = (updatedBatch: ProductBatch) => updateBatchInList(updatedBatch);
 
   const getBatchStatusBadge = (batch: ProductBatch) => {
     const now = new Date();
@@ -140,7 +150,9 @@ const ProductBatches = () => {
     }
 
     if (expiryDate) {
-      const daysUntilExpiry = Math.ceil((expiryDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+      const daysUntilExpiry = Math.ceil(
+        (expiryDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)
+      );
       if (daysUntilExpiry <= 30) {
         return (
           <Badge variant="default" className="bg-yellow-500 hover:bg-yellow-600">
@@ -162,25 +174,26 @@ const ProductBatches = () => {
   // Calculate stats
   const stats = useMemo(() => {
     const totalBatches = totalItems;
-    const activeBatches = batches.filter(batch => 
+    const activeBatches = batches.filter(batch =>
       batch.inventory.some(inv => inv.quantityAvailable > 0)
     ).length;
+
     const expiredBatches = batches.filter(batch => {
       const expiryDate = batch.expiryDate ? new Date(batch.expiryDate) : null;
       return expiryDate && expiryDate < new Date();
     }).length;
+
     const totalValue = batches.reduce((sum, batch) => {
       const totalQuantity = batch.inventory.reduce((invSum, inv) => invSum + inv.quantityAvailable, 0);
       return sum + (totalQuantity * Number(batch.buyingPrice));
     }, 0);
 
-    return {
-      totalBatches,
-      activeBatches,
-      expiredBatches,
-      totalValue,
-    };
+    return { totalBatches, activeBatches, expiredBatches, totalValue };
   }, [batches, totalItems]);
+
+  const pageLimitForDisplay = pageSize < 0 ? totalItems : pageSize;
+  const from = totalItems === 0 ? 0 : (pageSize < 0 ? 1 : (currentPage - 1) * pageLimitForDisplay + 1);
+  const to = totalItems === 0 ? 0 : (pageSize < 0 ? totalItems : Math.min(currentPage * pageLimitForDisplay, totalItems));
 
   if (loading && batches.length === 0) {
     return (
@@ -195,14 +208,9 @@ const ProductBatches = () => {
 
   return (
     <div className="space-y-4 sm:space-y-6 p-4 sm:p-6">
-      {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div className="flex items-center gap-2">
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => navigate("/inventory")}
-          >
+          <Button variant="ghost" size="sm" onClick={() => navigate("/inventory")}>
             <ArrowLeft className="h-4 w-4 mr-1" />
             Back to Inventory
           </Button>
@@ -296,6 +304,23 @@ const ProductBatches = () => {
                   className="pl-10"
                 />
               </div>
+
+              <Select
+                value={String(pageSize)}
+                onValueChange={(v) => updatePageSize(Number(v))}
+              >
+                <SelectTrigger className="w-full sm:w-28">
+                  <SelectValue placeholder="Page size" />
+                </SelectTrigger>
+                <SelectContent>
+                  {PAGE_SIZE_OPTIONS.map((opt) => (
+                    <SelectItem key={opt.value} value={String(opt.value)}>
+                      {opt.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+
               <Button
                 variant="outline"
                 size="icon"
@@ -303,23 +328,17 @@ const ProductBatches = () => {
                 disabled={refreshing}
                 title="Refresh"
               >
-                <RefreshCw
-                  className={`h-4 w-4 ${refreshing ? "animate-spin" : ""}`}
-                />
+                <RefreshCw className={`h-4 w-4 ${refreshing ? "animate-spin" : ""}`} />
               </Button>
             </div>
           </div>
         </CardHeader>
+
         <CardContent className="p-0 sm:p-6">
           {error && (
             <div className="mb-4 mx-4 sm:mx-0 p-4 border border-destructive/20 rounded-lg bg-destructive/5">
               <p className="text-sm text-destructive">{error}</p>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={refresh}
-                className="mt-2"
-              >
+              <Button variant="outline" size="sm" onClick={refresh} className="mt-2">
                 Try Again
               </Button>
             </div>
@@ -340,6 +359,7 @@ const ProductBatches = () => {
                     <TableHead className="text-right min-w-[60px]">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
+
                 <TableBody>
                   {batches.length === 0 ? (
                     <TableRow>
@@ -387,9 +407,7 @@ const ProductBatches = () => {
                             {formatDate(batch.receivedDate)}
                           </TableCell>
                           <TableCell className="hidden md:table-cell">
-                            {batch.expiryDate
-                              ? formatDate(batch.expiryDate)
-                              : "No expiry"}
+                            {batch.expiryDate ? formatDate(batch.expiryDate) : "No expiry"}
                           </TableCell>
                           <TableCell className="text-right font-medium">
                             {totalAvailable} / {batch.quantityReceived}
@@ -397,9 +415,7 @@ const ProductBatches = () => {
                           <TableCell className="text-right hidden lg:table-cell">
                             {formatCurrency(Number(batch.buyingPrice))}
                           </TableCell>
-                          <TableCell>
-                            {getBatchStatusBadge(batch)}
-                          </TableCell>
+                          <TableCell>{getBatchStatusBadge(batch)}</TableCell>
                           <TableCell className="text-right">
                             <DropdownMenu>
                               <DropdownMenuTrigger asChild>
@@ -443,37 +459,37 @@ const ProductBatches = () => {
             </div>
           </div>
 
-          {/* Pagination */}
-          {totalPages > 1 && (
+          {totalItems > 0 && (
             <div className="flex flex-col sm:flex-row items-center justify-between pt-4 px-4 sm:px-0 gap-4">
               <p className="text-sm text-muted-foreground">
-                Showing {(currentPage - 1) * 10 + 1} to{" "}
-                {Math.min(currentPage * 10, totalItems)} of {totalItems} entries
+                Showing {from} to {to} of {totalItems} entries
               </p>
-              <div className="flex gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => fetchBatches(currentPage - 1)}
-                  disabled={currentPage === 1 || loading}
-                >
-                  Previous
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => fetchBatches(currentPage + 1)}
-                  disabled={currentPage === totalPages || loading}
-                >
-                  Next
-                </Button>
-              </div>
+
+              {pageSize >= 0 && totalPages > 1 && (
+                <div className="flex gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => fetchBatches(currentPage - 1)}
+                    disabled={currentPage === 1 || loading}
+                  >
+                    Previous
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => fetchBatches(currentPage + 1)}
+                    disabled={currentPage === totalPages || loading}
+                  >
+                    Next
+                  </Button>
+                </div>
+              )}
             </div>
           )}
         </CardContent>
       </Card>
 
-      {/* Dialogs */}
       <AddProductBatchDialog
         open={isAddDialogOpen}
         onOpenChange={setIsAddDialogOpen}
@@ -501,11 +517,7 @@ const ProductBatches = () => {
         </>
       )}
 
-      {/* Delete Confirmation Dialog */}
-      <AlertDialog
-        open={!!batchToDelete}
-        onOpenChange={() => setBatchToDelete(null)}
-      >
+      <AlertDialog open={!!batchToDelete} onOpenChange={() => setBatchToDelete(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Delete Product Batch</AlertDialogTitle>

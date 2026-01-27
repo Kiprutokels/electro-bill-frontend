@@ -71,7 +71,7 @@ import {
   AdvanceRequestStatus,
   DisbursementMethod,
 } from "@/api/services/advance-requests.service";
-import ImeiSelectionDialog from "@/components/inventory/ImeiSelectionDialog";
+import DeviceSelectionDialog from "@/components/inventory/DeviceSelectionDialog";
 
 interface RequisitionItemForm {
   productId: string;
@@ -1750,7 +1750,7 @@ const Requisitions = () => {
       </AlertDialog>
 
       {currentIssuingItem && (
-        <ImeiSelectionDialog
+        <DeviceSelectionDialog
           open={showImeiDialog}
           onOpenChange={setShowImeiDialog}
           productId={currentIssuingItem.productId}

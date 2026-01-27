@@ -1,10 +1,15 @@
 import { useState, useEffect, useCallback } from 'react';
 import { toast } from 'sonner';
-import { inventoryService, InventoryItem, InventoryFilters, InventorySummary } from '@/api/services/inventory.service';
+import {
+  inventoryService,
+  InventoryItem,
+  InventoryFilters,
+  InventorySummary,
+} from '@/api/services/inventory.service';
 
 interface UseInventoryOptions {
   initialPage?: number;
-  initialLimit?: number;
+  initialLimit?: number; // page size
   initialSearch?: string;
   initialFilters?: InventoryFilters;
 }
@@ -14,7 +19,7 @@ export const useInventory = (options: UseInventoryOptions = {}) => {
     initialPage = 1,
     initialLimit = 10,
     initialSearch = '',
-    initialFilters = {}
+    initialFilters = {},
   } = options;
 
   const [inventory, setInventory] = useState<InventoryItem[]>([]);
@@ -22,49 +27,58 @@ export const useInventory = (options: UseInventoryOptions = {}) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
+
   const [currentPage, setCurrentPage] = useState(initialPage);
+  const [pageSize, setPageSize] = useState<number>(initialLimit);
+
   const [totalPages, setTotalPages] = useState(1);
   const [totalItems, setTotalItems] = useState(0);
+
   const [searchTerm, setSearchTerm] = useState(initialSearch);
   const [filters, setFilters] = useState<InventoryFilters>(initialFilters);
 
-  const fetchInventory = useCallback(async (
-    page = currentPage,
-    search = searchTerm,
-    currentFilters = filters,
-    showRefreshing = false
-  ) => {
-    try {
-      if (showRefreshing) {
-        setRefreshing(true);
-      } else {
-        setLoading(true);
+  const fetchInventory = useCallback(
+    async (
+      page = currentPage,
+      limit = pageSize,
+      search = searchTerm,
+      currentFilters = filters,
+      showRefreshing = false,
+    ) => {
+      try {
+        if (showRefreshing) setRefreshing(true);
+        else setLoading(true);
+
+        setError(null);
+
+        const effectiveLimit = limit;
+        const effectivePage = effectiveLimit < 0 ? 1 : page;
+
+        const [inventoryData, summaryData] = await Promise.all([
+          inventoryService.getAll(effectivePage, effectiveLimit, search, currentFilters),
+          inventoryService.getSummary(),
+        ]);
+
+        setInventory(inventoryData.data || []);
+        setTotalPages(inventoryData.meta?.totalPages || 1);
+        setTotalItems(inventoryData.meta?.total || 0);
+        setCurrentPage(effectivePage);
+        setSummary(summaryData);
+      } catch (err: any) {
+        const errorMessage = err.response?.data?.message || 'Failed to fetch inventory';
+        setError(errorMessage);
+        toast.error(errorMessage);
+      } finally {
+        setLoading(false);
+        setRefreshing(false);
       }
-      setError(null);
-
-      const [inventoryData, summaryData] = await Promise.all([
-        inventoryService.getAll(page, initialLimit, search, currentFilters),
-        inventoryService.getSummary(),
-      ]);
-
-      setInventory(inventoryData.data || []);
-      setTotalPages(inventoryData.meta?.totalPages || 1);
-      setTotalItems(inventoryData.meta?.total || 0);
-      setCurrentPage(page);
-      setSummary(summaryData);
-    } catch (err: any) {
-      const errorMessage = err.response?.data?.message || 'Failed to fetch inventory';
-      setError(errorMessage);
-      toast.error(errorMessage);
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
-    }
-  }, [currentPage, searchTerm, filters, initialLimit]);
+    },
+    [currentPage, pageSize, searchTerm, filters],
+  );
 
   const refresh = useCallback(() => {
-    fetchInventory(currentPage, searchTerm, filters, true);
-  }, [fetchInventory, currentPage, searchTerm, filters]);
+    fetchInventory(currentPage, pageSize, searchTerm, filters, true);
+  }, [fetchInventory, currentPage, pageSize, searchTerm, filters]);
 
   const updateSearch = useCallback((search: string) => {
     setSearchTerm(search);
@@ -76,16 +90,20 @@ export const useInventory = (options: UseInventoryOptions = {}) => {
     setCurrentPage(1);
   }, []);
 
+  const updatePageSize = useCallback((newSize: number) => {
+    setPageSize(newSize);
+    setCurrentPage(1);
+  }, []);
+
   useEffect(() => {
     const timeoutId = setTimeout(() => {
-      fetchInventory(1, searchTerm, filters);
+      fetchInventory(1, pageSize, searchTerm, filters);
     }, 300);
 
     return () => clearTimeout(timeoutId);
-  }, [searchTerm, filters]);
+  }, [searchTerm, filters, pageSize, fetchInventory]);
 
   return {
-    // State
     inventory,
     summary,
     loading,
@@ -96,12 +114,13 @@ export const useInventory = (options: UseInventoryOptions = {}) => {
     totalItems,
     searchTerm,
     filters,
-    
-    // Actions
+    pageSize,
+
     fetchInventory,
     refresh,
     updateSearch,
     updateFilters,
+    updatePageSize,
     setCurrentPage,
   };
 };
