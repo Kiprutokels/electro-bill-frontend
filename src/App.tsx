@@ -50,6 +50,7 @@ import JobWorkflow from "./pages/JobWorkflow";
 import NotificationsPage from "./pages/Notifications";
 import CustomerDetail from "./pages/CustomerDetail";
 import MigrationUpload from "./pages/MigrationUpload";
+import Devices from "./pages/Inventory/Devices";
 
 const queryClient = new QueryClient();
 
@@ -117,6 +118,7 @@ const AppRoutes = () => {
             <Route path="brands" element={<Brands />} />
             <Route path="inventory" element={<Inventory />} />
             <Route path="inventory/batches" element={<ProductBatches />} />
+            <Route path="inventory/devices" element={<Devices />} />
             <Route path="quotations" element={<Quotations />} />
             <Route path="invoices" element={<Invoices />} />
             <Route path="invoices/:id" element={<InvoiceView />} />
