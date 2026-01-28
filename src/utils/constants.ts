@@ -90,6 +90,9 @@ export const PERMISSIONS = {
   ADVANCE_REQUESTS_APPROVE: 'advance_requests.approve',
   ADVANCE_REQUESTS_DISBURSE: 'advance_requests.disburse',
 
+  SMS_SEND: "sms.send",
+  SMS_READ: "sms.read",
+
   
 } as const;
 
