@@ -95,7 +95,7 @@ const AddSubscriptionDialog: React.FC<AddSubscriptionDialogProps> = ({
   const fetchProducts = async () => {
     try {
       const response = await productsService.getAll();
-      const productsData = Array.isArray(response) ? response : response.data;
+      const productsData = Array.isArray(response) ? response : (response as any).data;
       setProducts(productsData.filter((p: any) => p.isActive));
     } catch (error) {
       console.error("Failed to fetch products:", error);
