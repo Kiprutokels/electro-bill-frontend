@@ -19,6 +19,7 @@ import {
   DollarSign,
   User,
   Upload,
+  MessageSquare,
 } from "lucide-react";
 import {
   Sidebar,
@@ -192,6 +193,13 @@ const adminNavigation = [
     section: "system",
     permission: PERMISSIONS.CUSTOMERS_CREATE,
   },
+  {
+  name: "SMS Management",
+  icon: MessageSquare,
+  href: "/sms",
+  section: "system",
+  permission: PERMISSIONS.SMS_READ,
+},
 ];
 
 // Technician-specific navigation
