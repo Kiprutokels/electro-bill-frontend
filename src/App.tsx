@@ -51,6 +51,7 @@ import NotificationsPage from "./pages/Notifications";
 import CustomerDetail from "./pages/CustomerDetail";
 import MigrationUpload from "./pages/MigrationUpload";
 import Devices from "./pages/Inventory/Devices";
+import SmsManagement from "./pages/SmsManagement";
 
 const queryClient = new QueryClient();
 
@@ -129,6 +130,7 @@ const AppRoutes = () => {
             <Route path="transactions" element={<Transactions />} />
             <Route path="reports" element={<Reports />} />
             <Route path="processing-fees" element={<ProcessingFees />} />
+            <Route path="sms" element={<SmsManagement />} />
             <Route path="advance-requests" element={<AdvanceRequests />} />
             <Route path="profile" element={<Profile />} />
 
