@@ -36,7 +36,6 @@ import {
 } from "@/components/ui/alert-dialog";
 import {
   Plus,
-  Search,
   Calendar,
   CheckCircle,
   XCircle,
@@ -46,7 +45,6 @@ import {
   Edit,
   Trash2,
   MoreHorizontal,
-  RefreshCw,
   Loader2,
   PlayCircle,
 } from "lucide-react";
@@ -63,6 +61,15 @@ import AddSubscriptionDialog from "@/components/subscriptions/AddSubscriptionDia
 import EditSubscriptionDialog from "@/components/subscriptions/EditSubscriptionDialog";
 import SubscriptionViewDialog from "@/components/subscriptions/SubscriptionViewDialog";
 import { toast } from "sonner";
+import TableToolbar from "@/components/shared/TableToolbar";
+import PaginationFooter from "@/components/shared/PaginationFooter";
+
+const PAGE_SIZE_OPTIONS = [
+  { label: "10", value: 10 },
+  { label: "25", value: 25 },
+  { label: "50", value: 50 },
+  { label: "100", value: 100 },
+];
 
 const Subscriptions = () => {
   const { hasPermission } = useAuth();
@@ -77,10 +84,12 @@ const Subscriptions = () => {
     searchTerm,
     filters,
     stats,
+    pageSize,
     fetchSubscriptions,
     refresh,
     updateSearch,
     updateFilters,
+    updatePageSize,
     updateSubscriptionInList,
     removeSubscriptionFromList,
   } = useSubscriptions();
@@ -95,10 +104,12 @@ const Subscriptions = () => {
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
+
   const [subscriptionToDelete, setSubscriptionToDelete] =
     useState<Subscription | null>(null);
   const [selectedSubscription, setSelectedSubscription] =
     useState<Subscription | null>(null);
+
   const [expiryCheckLoading, setExpiryCheckLoading] = useState(false);
 
   const handleView = (subscription: Subscription) => {
@@ -121,8 +132,8 @@ const Subscriptions = () => {
       await deleteSubscription(subscriptionToDelete.id);
       removeSubscriptionFromList(subscriptionToDelete.id);
       setSubscriptionToDelete(null);
-    } catch (err) {
-      // Error handled in hook
+    } catch {
+      // handled in hook
     }
   };
 
@@ -130,8 +141,8 @@ const Subscriptions = () => {
     try {
       const updated = await cancelSubscription(subscription.id);
       updateSubscriptionInList(updated);
-    } catch (err) {
-      // Error handled in hook
+    } catch {
+      // handled in hook
     }
   };
 
@@ -145,25 +156,33 @@ const Subscriptions = () => {
 
   const handleStatusFilterChange = (value: string) => {
     if (value === "all") {
-      const { status, ...restFilters } = filters;
+      const { status, ...restFilters } = filters as any;
       updateFilters(restFilters);
     } else {
       updateFilters({ ...filters, status: value as SubscriptionStatus });
     }
   };
 
-  // ✅ Manual Expiry Check
+  const handleDeviceImeiFilterChange = (v: string) => {
+    const t = v.trim();
+    if (!t) {
+      const { deviceImei, ...rest } = filters as any;
+      updateFilters(rest);
+      return;
+    }
+    updateFilters({ ...filters, deviceImei: t });
+  };
+
   const handleManualExpiryCheck = async () => {
     setExpiryCheckLoading(true);
     try {
-      const result = await checkExpiry();
+      await checkExpiry();
       toast.success("Expiry check completed successfully", {
         description: "All subscription statuses have been updated.",
       });
       refresh();
     } catch (err: any) {
-      const msg = err.response?.data?.message || "Failed to run expiry check";
-      toast.error(msg);
+      toast.error(err.response?.data?.message || "Failed to run expiry check");
     } finally {
       setExpiryCheckLoading(false);
     }
@@ -215,8 +234,7 @@ const Subscriptions = () => {
     const expiry = new Date(expiryDate);
     expiry.setHours(0, 0, 0, 0);
     const diffTime = expiry.getTime() - today.getTime();
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-    return diffDays;
+    return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
   };
 
   if (loading && subscriptions.length === 0) {
@@ -234,7 +252,6 @@ const Subscriptions = () => {
 
   return (
     <div className="space-y-4 sm:space-y-6 p-4 sm:p-6">
-      {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h1 className="text-2xl sm:text-3xl font-bold text-foreground">
@@ -245,7 +262,6 @@ const Subscriptions = () => {
           </p>
         </div>
         <div className="flex gap-2">
-          {/* ✅ Manual Expiry Check Button (Admin Only) */}
           {hasPermission(PERMISSIONS.SUBSCRIPTIONS_UPDATE) && (
             <Button
               onClick={handleManualExpiryCheck}
@@ -277,7 +293,6 @@ const Subscriptions = () => {
         </div>
       </div>
 
-      {/* Stats Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <Card className="border-l-4 border-l-primary">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -336,51 +351,51 @@ const Subscriptions = () => {
         </Card>
       </div>
 
-      {/* Search and Filters */}
       <Card>
         <CardHeader>
-          <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
-            <CardTitle>Subscription Management</CardTitle>
-            <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
-              <div className="relative flex-1 sm:w-64">
-                <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                <Input
-                  placeholder="Search subscriptions..."
-                  value={searchTerm}
-                  onChange={(e) => updateSearch(e.target.value)}
-                  className="pl-10"
-                />
-              </div>
-              <Select
-                value={filters.status || "all"}
-                onValueChange={handleStatusFilterChange}
-              >
-                <SelectTrigger className="w-full sm:w-40">
-                  <SelectValue placeholder="Status" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Status</SelectItem>
-                  {Object.values(SubscriptionStatus).map((status) => (
-                    <SelectItem key={status} value={status}>
-                      {status.replace(/_/g, " ")}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <Button
-                variant="outline"
-                size="icon"
-                onClick={refresh}
-                disabled={refreshing}
-                title="Refresh"
-              >
-                <RefreshCw
-                  className={`h-4 w-4 ${refreshing ? "animate-spin" : ""}`}
-                />
-              </Button>
-            </div>
-          </div>
+          <TableToolbar
+            title="Subscription Management"
+            searchPlaceholder="Search subscriptions, customer, product, IMEI..."
+            searchValue={searchTerm}
+            onSearchChange={updateSearch}
+            pageSize={pageSize}
+            pageSizeOptions={PAGE_SIZE_OPTIONS}
+            onPageSizeChange={updatePageSize}
+            refreshing={refreshing}
+            onRefresh={refresh}
+            rightSlot={
+              <>
+                <Select
+                  value={filters.status || "all"}
+                  onValueChange={handleStatusFilterChange}
+                >
+                  <SelectTrigger className="w-full sm:w-40">
+                    <SelectValue placeholder="Status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Status</SelectItem>
+                    {Object.values(SubscriptionStatus).map((status) => (
+                      <SelectItem key={status} value={status}>
+                        {status.replace(/_/g, " ")}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+
+                <div className="w-full sm:w-56">
+                  <Input
+                    placeholder="Filter by Device IMEI..."
+                    defaultValue={(filters as any).deviceImei || ""}
+                    onChange={(e) =>
+                      handleDeviceImeiFilterChange(e.target.value)
+                    }
+                  />
+                </div>
+              </>
+            }
+          />
         </CardHeader>
+
         <CardContent className="p-0 sm:p-6">
           {error && (
             <div className="mb-4 mx-4 sm:mx-0 p-4 border border-destructive/20 rounded-lg bg-destructive/5">
@@ -401,26 +416,28 @@ const Subscriptions = () => {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead className="min-w-[120px]">
+                    <TableHead className="min-w-[140px]">
                       Subscription #
                     </TableHead>
                     <TableHead className="min-w-[200px]">Customer</TableHead>
                     <TableHead className="min-w-[200px]">Product</TableHead>
+                    <TableHead className="min-w-[160px]">Device IMEI</TableHead>
                     <TableHead className="hidden sm:table-cell">
                       Start Date
                     </TableHead>
                     <TableHead>Expiry Date</TableHead>
                     <TableHead className="text-center">Days Left</TableHead>
-                    <TableHead className="min-w-[100px]">Status</TableHead>
+                    <TableHead className="min-w-[110px]">Status</TableHead>
                     <TableHead className="text-right min-w-[60px]">
                       Actions
                     </TableHead>
                   </TableRow>
                 </TableHeader>
+
                 <TableBody>
                   {subscriptions.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={8} className="text-center py-8">
+                      <TableCell colSpan={9} className="text-center py-8">
                         <div className="text-muted-foreground">
                           {searchTerm
                             ? "No subscriptions found matching your search."
@@ -442,13 +459,14 @@ const Subscriptions = () => {
                   ) : (
                     subscriptions.map((subscription) => {
                       const daysLeft = getDaysUntilExpiry(
-                        subscription.expiryDate
+                        subscription.expiryDate,
                       );
                       return (
                         <TableRow key={subscription.id}>
                           <TableCell className="font-medium font-mono">
                             {subscription.subscriptionNumber}
                           </TableCell>
+
                           <TableCell>
                             <div>
                               <div className="font-medium">
@@ -461,6 +479,7 @@ const Subscriptions = () => {
                               </div>
                             </div>
                           </TableCell>
+
                           <TableCell>
                             <div>
                               <div className="font-medium">
@@ -471,35 +490,46 @@ const Subscriptions = () => {
                               </div>
                             </div>
                           </TableCell>
+
+                          <TableCell className="font-mono text-sm">
+                            {subscription.deviceImei
+                              ? subscription.deviceImei
+                              : "—"}
+                          </TableCell>
+
                           <TableCell className="hidden sm:table-cell">
                             {formatDate(subscription.startDate)}
                           </TableCell>
+
                           <TableCell>
                             {formatDate(subscription.expiryDate)}
                           </TableCell>
+
                           <TableCell className="text-center">
                             <Badge
                               variant={
                                 daysLeft < 0
                                   ? "destructive"
                                   : daysLeft <= 7
-                                  ? "default"
-                                  : "outline"
+                                    ? "default"
+                                    : "outline"
                               }
                               className={
                                 daysLeft < 0
                                   ? "bg-red-500"
                                   : daysLeft <= 7
-                                  ? "bg-yellow-500"
-                                  : ""
+                                    ? "bg-yellow-500"
+                                    : ""
                               }
                             >
                               {daysLeft < 0 ? "Expired" : `${daysLeft} days`}
                             </Badge>
                           </TableCell>
+
                           <TableCell>
                             {getStatusBadge(subscription.status)}
                           </TableCell>
+
                           <TableCell className="text-right">
                             <DropdownMenu>
                               <DropdownMenuTrigger asChild>
@@ -508,6 +538,7 @@ const Subscriptions = () => {
                                   <MoreHorizontal className="h-4 w-4" />
                                 </Button>
                               </DropdownMenuTrigger>
+
                               <DropdownMenuContent align="end">
                                 <DropdownMenuItem
                                   onClick={() => handleView(subscription)}
@@ -517,7 +548,7 @@ const Subscriptions = () => {
                                 </DropdownMenuItem>
 
                                 {hasPermission(
-                                  PERMISSIONS.SUBSCRIPTIONS_UPDATE
+                                  PERMISSIONS.SUBSCRIPTIONS_UPDATE,
                                 ) &&
                                   subscription.status !==
                                     SubscriptionStatus.CANCELLED && (
@@ -530,7 +561,7 @@ const Subscriptions = () => {
                                   )}
 
                                 {hasPermission(
-                                  PERMISSIONS.SUBSCRIPTIONS_UPDATE
+                                  PERMISSIONS.SUBSCRIPTIONS_UPDATE,
                                 ) &&
                                   subscription.status ===
                                     SubscriptionStatus.ACTIVE && (
@@ -544,7 +575,7 @@ const Subscriptions = () => {
                                   )}
 
                                 {hasPermission(
-                                  PERMISSIONS.SUBSCRIPTIONS_DELETE
+                                  PERMISSIONS.SUBSCRIPTIONS_DELETE,
                                 ) && (
                                   <DropdownMenuItem
                                     onClick={() =>
@@ -568,37 +599,18 @@ const Subscriptions = () => {
             </div>
           </div>
 
-          {/* Pagination */}
-          {totalPages > 1 && (
-            <div className="flex flex-col sm:flex-row items-center justify-between pt-4 px-4 sm:px-0 gap-4">
-              <p className="text-sm text-muted-foreground">
-                Showing {(currentPage - 1) * 10 + 1} to{" "}
-                {Math.min(currentPage * 10, totalItems)} of {totalItems} entries
-              </p>
-              <div className="flex gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => fetchSubscriptions(currentPage - 1)}
-                  disabled={currentPage === 1 || loading}
-                >
-                  Previous
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => fetchSubscriptions(currentPage + 1)}
-                  disabled={currentPage === totalPages || loading}
-                >
-                  Next
-                </Button>
-              </div>
-            </div>
-          )}
+          <PaginationFooter
+            totalItems={totalItems}
+            currentPage={currentPage}
+            totalPages={totalPages}
+            pageSize={pageSize}
+            loading={loading}
+            onPrev={() => fetchSubscriptions(currentPage - 1)}
+            onNext={() => fetchSubscriptions(currentPage + 1)}
+          />
         </CardContent>
       </Card>
 
-      {/* Dialogs */}
       <AddSubscriptionDialog
         open={isAddDialogOpen}
         onOpenChange={setIsAddDialogOpen}
@@ -627,7 +639,6 @@ const Subscriptions = () => {
         </>
       )}
 
-      {/* Delete Dialog */}
       <AlertDialog
         open={!!subscriptionToDelete}
         onOpenChange={() => setSubscriptionToDelete(null)}
