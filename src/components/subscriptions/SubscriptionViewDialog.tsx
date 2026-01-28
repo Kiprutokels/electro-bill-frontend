@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   Dialog,
   DialogContent,
@@ -24,15 +24,19 @@ import {
   FilePlus2,
   Loader2,
   DollarSign,
+  Cpu,
+  Car,
+  MapPin,
+  Wrench,
 } from "lucide-react";
 import {
   Subscription,
   SubscriptionStatus,
+  subscriptionsService,
 } from "@/api/services/subscriptions.service";
 import { formatCurrency, formatDate } from "@/utils/format.utils";
 import { useAuth } from "@/contexts/AuthContext";
 import { PERMISSIONS } from "@/utils/constants";
-import { subscriptionsService } from "@/api/services/subscriptions.service";
 import { toast } from "sonner";
 
 interface SubscriptionViewDialogProps {
@@ -53,7 +57,30 @@ const SubscriptionViewDialog: React.FC<SubscriptionViewDialogProps> = ({
   const { hasPermission } = useAuth();
   const [renewLoading, setRenewLoading] = useState(false);
 
-  if (!subscription) return null;
+  const [detailsLoading, setDetailsLoading] = useState(false);
+  const [details, setDetails] = useState<Subscription | null>(null);
+
+  useEffect(() => {
+    const run = async () => {
+      if (!open || !subscription?.id) return;
+      setDetailsLoading(true);
+      try {
+        const full = await subscriptionsService.getById(subscription.id);
+        setDetails(full);
+      } catch (err: any) {
+        toast.error(
+          err.response?.data?.message || "Failed to load subscription details",
+        );
+        setDetails(subscription);
+      } finally {
+        setDetailsLoading(false);
+      }
+    };
+    run();
+  }, [open, subscription?.id]);
+
+  const s = details || subscription;
+  if (!s) return null;
 
   const getStatusBadge = (status: SubscriptionStatus) => {
     const configs = {
@@ -101,48 +128,46 @@ const SubscriptionViewDialog: React.FC<SubscriptionViewDialogProps> = ({
     const expiry = new Date(expiryDate);
     expiry.setHours(0, 0, 0, 0);
     const diffTime = expiry.getTime() - today.getTime();
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-    return diffDays;
+    return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
   };
 
-  const daysLeft = getDaysUntilExpiry(subscription.expiryDate);
-  const canEdit = subscription.status !== SubscriptionStatus.CANCELLED;
-  const canCancel = subscription.status === SubscriptionStatus.ACTIVE;
+  const daysLeft = getDaysUntilExpiry(s.expiryDate);
+  const canEdit = s.status !== SubscriptionStatus.CANCELLED;
+  const canCancel = s.status === SubscriptionStatus.ACTIVE;
 
   const canGenerateRenewalInvoice =
-    subscription.status === SubscriptionStatus.EXPIRED &&
+    s.status === SubscriptionStatus.EXPIRED &&
     hasPermission(PERMISSIONS.SUBSCRIPTIONS_UPDATE);
 
   const handleGenerateRenewalInvoice = async () => {
-    if (!subscription) return;
     setRenewLoading(true);
     try {
-      const invoice = await subscriptionsService.generateRenewalInvoice(
-        subscription.id
-      );
+      const invoice = await subscriptionsService.generateRenewalInvoice(s.id);
       toast.success(
         `Renewal invoice ${invoice.invoiceNumber} created successfully!`,
         {
           description:
             "Invoice has been sent. Subscription will renew when invoice is paid.",
-        }
+        },
       );
       onOpenChange(false);
       window.location.reload();
     } catch (err: any) {
-      const msg =
-        err.response?.data?.message || "Failed to generate renewal invoice";
-      toast.error(msg);
+      toast.error(
+        err.response?.data?.message || "Failed to generate renewal invoice",
+      );
     } finally {
       setRenewLoading(false);
     }
   };
 
-  const subscriptionFee = subscription.product?.subscriptionFee
-    ? Number(subscription.product.subscriptionFee)
-    : subscription.renewalPrice
-    ? Number(subscription.renewalPrice)
-    : 0;
+  const subscriptionFee = useMemo(() => {
+    const pFee = s.product?.subscriptionFee
+      ? Number(s.product.subscriptionFee)
+      : 0;
+    if (pFee > 0) return pFee;
+    return s.renewalPrice ? Number(s.renewalPrice) : 0;
+  }, [s.product?.subscriptionFee, s.renewalPrice]);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -153,16 +178,23 @@ const SubscriptionViewDialog: React.FC<SubscriptionViewDialogProps> = ({
               <Eye className="h-5 w-5" />
               Subscription Details
             </DialogTitle>
-            {getStatusBadge(subscription.status)}
+            {getStatusBadge(s.status)}
           </div>
           <DialogDescription>
-            View subscription information and history
+            View subscription information, device linkage, and installation
+            history
           </DialogDescription>
         </DialogHeader>
 
+        {detailsLoading && (
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <Loader2 className="h-4 w-4 animate-spin" />
+            Loading full details...
+          </div>
+        )}
+
         <div className="space-y-4">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-            {/* Subscription Information */}
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
@@ -176,17 +208,21 @@ const SubscriptionViewDialog: React.FC<SubscriptionViewDialogProps> = ({
                     Subscription Number
                   </p>
                   <p className="font-mono font-medium">
-                    {subscription.subscriptionNumber}
+                    {s.subscriptionNumber}
                   </p>
                 </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">Start Date</p>
-                  <p>{formatDate(subscription.startDate)}</p>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <p className="text-sm text-muted-foreground">Start Date</p>
+                    <p>{formatDate(s.startDate)}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground">Expiry Date</p>
+                    <p>{formatDate(s.expiryDate)}</p>
+                  </div>
                 </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">Expiry Date</p>
-                  <p>{formatDate(subscription.expiryDate)}</p>
-                </div>
+
                 <div>
                   <p className="text-sm text-muted-foreground">
                     Days Until Expiry
@@ -196,15 +232,15 @@ const SubscriptionViewDialog: React.FC<SubscriptionViewDialogProps> = ({
                       daysLeft < 0
                         ? "destructive"
                         : daysLeft <= 7
-                        ? "default"
-                        : "outline"
+                          ? "default"
+                          : "outline"
                     }
                     className={
                       daysLeft < 0
                         ? "bg-red-500 text-white"
                         : daysLeft <= 7
-                        ? "bg-yellow-500 text-white"
-                        : ""
+                          ? "bg-yellow-500 text-white"
+                          : ""
                     }
                   >
                     {daysLeft < 0
@@ -212,7 +248,7 @@ const SubscriptionViewDialog: React.FC<SubscriptionViewDialogProps> = ({
                       : `${daysLeft} days`}
                   </Badge>
                 </div>
-                {/* Subscription Fee Display */}
+
                 <div>
                   <p className="text-sm text-muted-foreground">
                     Subscription Fee
@@ -222,18 +258,16 @@ const SubscriptionViewDialog: React.FC<SubscriptionViewDialogProps> = ({
                     {formatCurrency(subscriptionFee)}
                   </p>
                 </div>
+
                 <div>
                   <p className="text-sm text-muted-foreground">Auto-Renew</p>
-                  <Badge
-                    variant={subscription.autoRenew ? "default" : "secondary"}
-                  >
-                    {subscription.autoRenew ? "Enabled" : "Disabled"}
+                  <Badge variant={s.autoRenew ? "default" : "secondary"}>
+                    {s.autoRenew ? "Enabled" : "Disabled"}
                   </Badge>
                 </div>
               </CardContent>
             </Card>
 
-            {/* Customer Information */}
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
@@ -245,43 +279,44 @@ const SubscriptionViewDialog: React.FC<SubscriptionViewDialogProps> = ({
                 <div>
                   <p className="text-sm text-muted-foreground">Customer Code</p>
                   <p className="font-medium">
-                    {subscription.customer?.customerCode || "N/A"}
+                    {s.customer?.customerCode || "N/A"}
                   </p>
                 </div>
-                {subscription.customer?.businessName && (
+
+                {s.customer?.businessName && (
                   <div>
                     <p className="text-sm text-muted-foreground">
                       Business Name
                     </p>
-                    <p className="font-medium">
-                      {subscription.customer.businessName}
-                    </p>
+                    <p className="font-medium">{s.customer.businessName}</p>
                   </div>
                 )}
+
                 <div>
                   <p className="text-sm text-muted-foreground">
                     Contact Person
                   </p>
-                  <p>{subscription.customer?.contactPerson || "N/A"}</p>
+                  <p>{s.customer?.contactPerson || "N/A"}</p>
                 </div>
+
                 <div>
                   <p className="text-sm text-muted-foreground">Email</p>
                   <p className="flex items-center gap-2">
                     <Mail className="h-4 w-4" />
-                    {subscription.customer?.email || "N/A"}
+                    {s.customer?.email || "N/A"}
                   </p>
                 </div>
-                {subscription.customer?.phone && (
+
+                {s.customer?.phone && (
                   <div>
                     <p className="text-sm text-muted-foreground">Phone</p>
-                    <p>{subscription.customer.phone}</p>
+                    <p>{s.customer.phone}</p>
                   </div>
                 )}
               </CardContent>
             </Card>
           </div>
 
-          {/* Product Information */}
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
@@ -293,23 +328,17 @@ const SubscriptionViewDialog: React.FC<SubscriptionViewDialogProps> = ({
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div>
                   <p className="text-sm text-muted-foreground">Product Name</p>
-                  <p className="font-medium">
-                    {subscription.product?.name || "N/A"}
-                  </p>
+                  <p className="font-medium">{s.product?.name || "N/A"}</p>
                 </div>
                 <div>
                   <p className="text-sm text-muted-foreground">SKU</p>
-                  <p className="font-mono">
-                    {subscription.product?.sku || "N/A"}
-                  </p>
+                  <p className="font-mono">{s.product?.sku || "N/A"}</p>
                 </div>
                 <div>
                   <p className="text-sm text-muted-foreground">Product Price</p>
                   <p className="font-medium">
-                    {subscription.product?.sellingPrice
-                      ? formatCurrency(
-                          Number(subscription.product.sellingPrice)
-                        )
+                    {s.product?.sellingPrice
+                      ? formatCurrency(Number(s.product.sellingPrice))
                       : "N/A"}
                   </p>
                 </div>
@@ -317,8 +346,176 @@ const SubscriptionViewDialog: React.FC<SubscriptionViewDialogProps> = ({
             </CardContent>
           </Card>
 
-          {/* Invoice Reference */}
-          {subscription.invoice && (
+          {/* Device + Installation */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Cpu className="h-5 w-5" />
+                  Device Details
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <div>
+                  <p className="text-sm text-muted-foreground">Linked IMEI</p>
+                  <p className="font-mono">{s.deviceImei || "—"}</p>
+                </div>
+
+                {s.device ? (
+                  <>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div>
+                        <p className="text-sm text-muted-foreground">Status</p>
+                        <p className="font-medium">{s.device.status}</p>
+                      </div>
+                      <div>
+                        <p className="text-sm text-muted-foreground">
+                          Activated
+                        </p>
+                        <p>
+                          {s.device.activatedDate
+                            ? formatDate(s.device.activatedDate)
+                            : "—"}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div>
+                        <p className="text-sm text-muted-foreground">
+                          SIM ICCID
+                        </p>
+                        <p className="font-mono text-sm">
+                          {s.device.simCardIccid || "—"}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-sm text-muted-foreground">
+                          MAC Address
+                        </p>
+                        <p className="font-mono text-sm">
+                          {s.device.macAddress || "—"}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div>
+                      <p className="text-sm text-muted-foreground">
+                        Device Product
+                      </p>
+                      <p className="font-medium">
+                        {s.device.product
+                          ? `${s.device.product.name} (${s.device.product.sku})`
+                          : "—"}
+                      </p>
+                    </div>
+
+                    <div>
+                      <p className="text-sm text-muted-foreground">Batch</p>
+                      <p className="font-mono text-sm">
+                        {s.device.batch?.batchNumber || "—"}
+                      </p>
+                    </div>
+                  </>
+                ) : (
+                  <p className="text-sm text-muted-foreground">
+                    No device details available (IMEI not linked or device not
+                    found).
+                  </p>
+                )}
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Car className="h-5 w-5" />
+                  Latest Installation / Vehicle
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                {s.latestInstallation ? (
+                  <>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div>
+                        <p className="text-sm text-muted-foreground">
+                          Install Date
+                        </p>
+                        <p>
+                          {formatDate(s.latestInstallation.installationDate)}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-sm text-muted-foreground">Status</p>
+                        <p className="font-medium">
+                          {s.latestInstallation.status}
+                        </p>
+                      </div>
+                    </div>
+
+                    {s.latestInstallation.vehicle ? (
+                      <div>
+                        <p className="text-sm text-muted-foreground">Vehicle</p>
+                        <p className="font-medium">
+                          {s.latestInstallation.vehicle.vehicleReg} —{" "}
+                          {s.latestInstallation.vehicle.make}{" "}
+                          {s.latestInstallation.vehicle.model}
+                        </p>
+                        <p className="text-xs text-muted-foreground font-mono">
+                          Chassis: {s.latestInstallation.vehicle.chassisNo}
+                        </p>
+                      </div>
+                    ) : (
+                      <p className="text-sm text-muted-foreground">
+                        No vehicle linked for latest installation.
+                      </p>
+                    )}
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div>
+                        <p className="text-sm text-muted-foreground flex items-center gap-1">
+                          <MapPin className="h-4 w-4" />
+                          GPS
+                        </p>
+                        <p className="font-mono text-sm">
+                          {s.latestInstallation.gpsCoordinates || "—"}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-sm text-muted-foreground">
+                          Location
+                        </p>
+                        <p>
+                          {s.latestInstallation.installationLocation || "—"}
+                        </p>
+                      </div>
+                    </div>
+
+                    {s.latestInstallation.job && (
+                      <div>
+                        <p className="text-sm text-muted-foreground flex items-center gap-1">
+                          <Wrench className="h-4 w-4" />
+                          Job
+                        </p>
+                        <p className="font-medium font-mono">
+                          {s.latestInstallation.job.jobNumber}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          {s.latestInstallation.job.status}
+                        </p>
+                      </div>
+                    )}
+                  </>
+                ) : (
+                  <p className="text-sm text-muted-foreground">
+                    No installation history found for this device.
+                  </p>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+
+          {s.invoice && (
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
@@ -333,13 +530,13 @@ const SubscriptionViewDialog: React.FC<SubscriptionViewDialogProps> = ({
                       Invoice Number
                     </p>
                     <p className="font-mono font-medium">
-                      {subscription.invoice.invoiceNumber}
+                      {s.invoice.invoiceNumber}
                     </p>
                   </div>
                   <div>
                     <p className="text-sm text-muted-foreground">Amount</p>
                     <p className="font-medium">
-                      {formatCurrency(Number(subscription.invoice.totalAmount))}
+                      {formatCurrency(Number(s.invoice.totalAmount))}
                     </p>
                   </div>
                 </div>
@@ -347,135 +544,6 @@ const SubscriptionViewDialog: React.FC<SubscriptionViewDialogProps> = ({
             </Card>
           )}
 
-          {/* Renewal History */}
-          {subscription.renewals && subscription.renewals.length > 0 && (
-            <Card>
-              <CardHeader>
-                <CardTitle>Renewal History</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-2">
-                  {subscription.renewals.map((renewal, index) => (
-                    <div
-                      key={renewal.id}
-                      className="flex items-center justify-between p-3 border rounded-lg"
-                    >
-                      <div>
-                        <p className="font-medium">
-                          Renewal {subscription.renewals!.length - index}
-                        </p>
-                        <p className="text-sm text-muted-foreground">
-                          {formatDate(renewal.startDate)} -{" "}
-                          {formatDate(renewal.expiryDate)}
-                        </p>
-                        {renewal.invoice && (
-                          <p className="text-xs text-muted-foreground mt-1">
-                            Invoice: {renewal.invoice.invoiceNumber}
-                          </p>
-                        )}
-                      </div>
-                      <div className="text-right">
-                        <p className="font-medium">
-                          {formatCurrency(Number(renewal.amount))}
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                          Paid: {formatDate(renewal.paidAt)}
-                        </p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-          )}
-
-          {/* Notification History */}
-          {subscription.notifications &&
-            subscription.notifications.length > 0 && (
-              <Card>
-                <CardHeader>
-                  <CardTitle>Notification History</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-2">
-                    {subscription.notifications.map((notification, index) => (
-                      <div
-                        key={notification.id}
-                        className="flex items-center justify-between p-3 border rounded-lg"
-                      >
-                        <div>
-                          <p className="font-medium">
-                            {notification.notificationType.replace(/_/g, " ")}
-                          </p>
-                          <p className="text-sm text-muted-foreground">
-                            Sent to: {notification.emailTo}
-                          </p>
-                          <p className="text-xs text-muted-foreground">
-                            {formatDate(notification.sentAt)}
-                          </p>
-                        </div>
-                        <Badge
-                          variant={
-                            notification.success ? "default" : "destructive"
-                          }
-                        >
-                          {notification.success ? "Sent" : "Failed"}
-                        </Badge>
-                      </div>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
-            )}
-
-          {/* Notes */}
-          {subscription.notes && (
-            <Card>
-              <CardHeader>
-                <CardTitle>Notes</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-muted-foreground whitespace-pre-wrap">
-                  {subscription.notes}
-                </p>
-              </CardContent>
-            </Card>
-          )}
-
-          {/* Cancellation Info */}
-          {subscription.status === SubscriptionStatus.CANCELLED &&
-            subscription.cancelledAt && (
-              <Card className="border-destructive">
-                <CardHeader>
-                  <CardTitle className="text-destructive">
-                    Cancellation Information
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-2">
-                    <div>
-                      <p className="text-sm text-muted-foreground">
-                        Cancelled At
-                      </p>
-                      <p>{formatDate(subscription.cancelledAt)}</p>
-                    </div>
-                    {subscription.cancelledByUser && (
-                      <div>
-                        <p className="text-sm text-muted-foreground">
-                          Cancelled By
-                        </p>
-                        <p>
-                          {subscription.cancelledByUser.firstName}{" "}
-                          {subscription.cancelledByUser.lastName}
-                        </p>
-                      </div>
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
-            )}
-
-          {/* Action Buttons */}
           <div className="flex flex-wrap gap-2 pt-4 border-t">
             {hasPermission(PERMISSIONS.SUBSCRIPTIONS_UPDATE) && canEdit && (
               <Button onClick={onEdit} variant="default">
@@ -488,14 +556,13 @@ const SubscriptionViewDialog: React.FC<SubscriptionViewDialogProps> = ({
               <Button
                 variant="outline"
                 className="bg-red-50 border-red-200 text-red-700 hover:bg-red-100"
-                onClick={() => onCancel(subscription)}
+                onClick={() => onCancel(s)}
               >
                 <XCircle className="mr-2 h-4 w-4" />
                 Cancel Subscription
               </Button>
             )}
 
-            {/* Generate Renewal Invoice Button - ONLY for EXPIRED */}
             {canGenerateRenewalInvoice && (
               <Button
                 variant="default"

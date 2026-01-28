@@ -1,3 +1,10 @@
+
+export enum NotificationMethod {
+  EMAIL = 'EMAIL',
+  SMS = 'SMS',
+  BOTH = 'BOTH',
+}
+
 export interface SystemSettings {
   id: string;
   businessName: string;
@@ -15,11 +22,20 @@ export interface SystemSettings {
   invoicePrefix: string;
   receiptPrefix: string;
   logoUrl?: string;
+  
   // Fee Settings
   processingFeeEnabled: boolean;
   processingFeeAmount: number;
   serviceFeeEnabled: boolean;
   serviceFeePercentage: number;
+  
+  // SMS Settings
+  smsEnabled: boolean;
+  smsApiKey?: string;
+  smsPartnerId?: string;
+  smsShortcode?: string;
+  notificationMethod: NotificationMethod;
+  
   createdAt: string;
   updatedAt: string;
 }
@@ -40,11 +56,19 @@ export interface CreateSettingsRequest {
   invoicePrefix?: string;
   receiptPrefix?: string;
   logoUrl?: string;
+  
   // Fee Settings
   processingFeeEnabled?: boolean;
   processingFeeAmount?: number;
   serviceFeeEnabled?: boolean;
   serviceFeePercentage?: number;
+  
+  // SMS Settings
+  smsEnabled?: boolean;
+  smsApiKey?: string;
+  smsPartnerId?: string;
+  smsShortcode?: string;
+  notificationMethod?: NotificationMethod;
 }
 
 export interface UpdateSettingsRequest extends Partial<CreateSettingsRequest> {}

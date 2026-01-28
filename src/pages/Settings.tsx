@@ -7,6 +7,13 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
   Form,
   FormControl,
   FormDescription,
@@ -17,19 +24,22 @@ import {
 } from "@/components/ui/form";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Separator } from "@/components/ui/separator";
-import { 
-  AlertCircle, 
-  Building2, 
-  FileText, 
-  Settings as SettingsIcon, 
-  Loader2, 
+import {
+  AlertCircle,
+  Building2,
+  FileText,
+  Settings as SettingsIcon,
+  Loader2,
   Save,
   DollarSign,
-  CreditCard
+  CreditCard,
+  MessageSquare,
+  Send,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { PERMISSIONS } from "@/utils/constants";
 import { useSettings } from "@/hooks/useSettings";
+import { NotificationMethod } from "@/api/types/settings.types";
 
 const settingsSchema = z.object({
   businessName: z.string().min(1, "Business name is required").max(255),
@@ -51,6 +61,13 @@ const settingsSchema = z.object({
   processingFeeAmount: z.number().min(0).default(1000),
   serviceFeeEnabled: z.boolean().default(false),
   serviceFeePercentage: z.number().min(0).max(100).default(0),
+  
+  // SMS Settings
+  smsEnabled: z.boolean().default(false),
+  smsApiKey: z.string().max(255).optional().or(z.literal("")),
+  smsPartnerId: z.string().max(100).optional().or(z.literal("")),
+  smsShortcode: z.string().max(20).optional().or(z.literal("")),
+  notificationMethod: z.enum(["EMAIL", "SMS", "BOTH"]).default("EMAIL"),
 });
 
 type SettingsFormData = z.infer<typeof settingsSchema>;
@@ -82,6 +99,11 @@ const Settings = () => {
       processingFeeAmount: 1000,
       serviceFeeEnabled: false,
       serviceFeePercentage: 0,
+      smsEnabled: false,
+      smsApiKey: "",
+      smsPartnerId: "",
+      smsShortcode: "AUTOMILE",
+      notificationMethod: "EMAIL",
     },
   });
 
@@ -105,9 +127,14 @@ const Settings = () => {
         receiptPrefix: settings.receiptPrefix || "RCP",
         logoUrl: settings.logoUrl || "",
         processingFeeEnabled: settings.processingFeeEnabled ?? true,
-        processingFeeAmount: settings.processingFeeAmount || 1000,
+        processingFeeAmount: settings.processingFeeAmount || 200,
         serviceFeeEnabled: settings.serviceFeeEnabled ?? false,
         serviceFeePercentage: settings.serviceFeePercentage || 0,
+        smsEnabled: settings.smsEnabled ?? false,
+        smsApiKey: settings.smsApiKey || "",
+        smsPartnerId: settings.smsPartnerId || "",
+        smsShortcode: settings.smsShortcode || "AUTOMILE",
+        notificationMethod: (settings.notificationMethod as any) || "EMAIL",
       });
     }
   }, [settings, form]);
@@ -116,12 +143,14 @@ const Settings = () => {
     if (!settings?.id) return;
 
     try {
-      // Clean empty strings to undefined
       const cleanData = Object.fromEntries(
         Object.entries(data).map(([key, value]) => [key, value === "" ? undefined : value])
       ) as Partial<SettingsFormData>;
 
-      await updateSettings(settings.id, cleanData);
+      await updateSettings(settings.id, {
+        ...cleanData,
+        notificationMethod: cleanData.notificationMethod as NotificationMethod,
+      });
     } catch (err) {
       // Error handled in hook
     }
@@ -187,9 +216,8 @@ const Settings = () => {
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
           <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-            {/* Mobile-friendly tabs */}
             <div className="overflow-x-auto">
-              <TabsList className="grid w-full grid-cols-4 lg:w-[500px]">
+              <TabsList className="grid w-full grid-cols-5 lg:w-[600px]">
                 <TabsTrigger value="business" className="text-xs sm:text-sm">
                   <Building2 className="w-4 h-4 mr-1 sm:mr-2" />
                   <span className="hidden sm:inline">Business</span>
@@ -201,6 +229,10 @@ const Settings = () => {
                 <TabsTrigger value="fees" className="text-xs sm:text-sm">
                   <DollarSign className="w-4 h-4 mr-1 sm:mr-2" />
                   <span className="hidden sm:inline">Fees</span>
+                </TabsTrigger>
+                <TabsTrigger value="notifications" className="text-xs sm:text-sm">
+                  <MessageSquare className="w-4 h-4 mr-1 sm:mr-2" />
+                  <span className="hidden sm:inline">SMS</span>
                 </TabsTrigger>
                 <TabsTrigger value="system" className="text-xs sm:text-sm">
                   <SettingsIcon className="w-4 h-4 mr-1 sm:mr-2" />
@@ -219,7 +251,6 @@ const Settings = () => {
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-6">
-                  {/* Business Details */}
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
                     <FormField
                       control={form.control}
@@ -266,7 +297,6 @@ const Settings = () => {
 
                   <Separator />
 
-                  {/* Contact Information */}
                   <div>
                     <h3 className="text-lg font-medium mb-4">Contact Information</h3>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
@@ -302,7 +332,6 @@ const Settings = () => {
 
                   <Separator />
 
-                  {/* Address Information */}
                   <div>
                     <h3 className="text-lg font-medium mb-4">Address Information</h3>
                     <div className="grid grid-cols-1 gap-4 sm:gap-6">
@@ -369,7 +398,7 @@ const Settings = () => {
               </Card>
             </TabsContent>
 
-            {/* Document Settings Tab */}
+            {/* Documents Tab */}
             <TabsContent value="documents" className="space-y-6">
               <Card>
                 <CardHeader>
@@ -442,7 +471,7 @@ const Settings = () => {
               </Card>
             </TabsContent>
 
-            {/* Fees Settings Tab */}
+            {/* Fees Tab */}
             <TabsContent value="fees" className="space-y-6">
               <Card>
                 <CardHeader>
@@ -603,7 +632,167 @@ const Settings = () => {
               </Card>
             </TabsContent>
 
-            {/* System Settings Tab */}
+            {/* SMS/Notifications Tab */}
+            <TabsContent value="notifications" className="space-y-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center space-x-2">
+                    <MessageSquare className="h-5 w-5" />
+                    <span>SMS & Notification Settings</span>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-6">
+                  {/* Notification Method */}
+                  <FormField
+                    control={form.control}
+                    name="notificationMethod"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Notification Method</FormLabel>
+                        <Select
+                          onValueChange={field.onChange}
+                          defaultValue={field.value}
+                          disabled={!canUpdate}
+                        >
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select notification method" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            <SelectItem value="EMAIL">Email Only</SelectItem>
+                            <SelectItem value="SMS">SMS Only</SelectItem>
+                            <SelectItem value="BOTH">Email + SMS</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <FormDescription>
+                          Choose how to send notifications to customers and technicians
+                        </FormDescription>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <Separator />
+
+                  {/* SMS Configuration */}
+                  <div className="space-y-4">
+                    <div>
+                      <h3 className="text-lg font-medium mb-2">TextSMS Configuration</h3>
+                      <p className="text-sm text-muted-foreground">
+                        Configure your TextSMS API credentials
+                      </p>
+                    </div>
+
+                    <FormField
+                      control={form.control}
+                      name="smsEnabled"
+                      render={({ field }) => (
+                        <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
+                          <div className="space-y-0.5">
+                            <FormLabel className="text-base">Enable SMS Notifications</FormLabel>
+                            <FormDescription>
+                              Allow sending SMS notifications via TextSMS API
+                            </FormDescription>
+                          </div>
+                          <FormControl>
+                            <Switch
+                              checked={field.value}
+                              onCheckedChange={field.onChange}
+                              disabled={!canUpdate}
+                            />
+                          </FormControl>
+                        </FormItem>
+                      )}
+                    />
+
+                    <FormField
+                      control={form.control}
+                      name="smsApiKey"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>TextSMS API Key</FormLabel>
+                          <FormControl>
+                            <Input
+                              type="password"
+                              placeholder="Enter your TextSMS API key"
+                              {...field}
+                              disabled={!canUpdate || !form.watch('smsEnabled')}
+                            />
+                          </FormControl>
+                          <FormDescription>
+                            Get this from your TextSMS account dashboard
+                          </FormDescription>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    <FormField
+                      control={form.control}
+                      name="smsPartnerId"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>TextSMS Partner ID</FormLabel>
+                          <FormControl>
+                            <Input
+                              placeholder="Enter your Partner ID"
+                              {...field}
+                              disabled={!canUpdate || !form.watch('smsEnabled')}
+                            />
+                          </FormControl>
+                          <FormDescription>
+                            Your TextSMS Partner ID from the dashboard
+                          </FormDescription>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    <FormField
+                      control={form.control}
+                      name="smsShortcode"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>SMS Sender ID / Shortcode</FormLabel>
+                          <FormControl>
+                            <Input
+                              placeholder="AUTOMILE"
+                              {...field}
+                              disabled={!canUpdate || !form.watch('smsEnabled')}
+                            />
+                          </FormControl>
+                          <FormDescription>
+                            The name that appears as the sender (max 11 characters)
+                          </FormDescription>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+
+                  {/* Info Box */}
+                  <div className="rounded-lg border bg-blue-50 dark:bg-blue-950 p-4">
+                    <div className="flex items-start space-x-3">
+                      <Send className="h-5 w-5 text-blue-600 dark:text-blue-400 mt-0.5" />
+                      <div className="flex-1 space-y-2">
+                        <h4 className="font-medium text-blue-900 dark:text-blue-100">
+                          SMS Features
+                        </h4>
+                        <ul className="text-sm text-blue-800 dark:text-blue-200 space-y-1">
+                          <li>• Job assignments sent to technicians</li>
+                          <li>• Job started/completed notifications to customers</li>
+                          <li>• Invoice generation alerts</li>
+                          <li>• Comprehensive SMS logging and delivery tracking</li>
+                        </ul>
+                      </div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            {/* System Tab */}
             <TabsContent value="system" className="space-y-6">
               <Card>
                 <CardHeader>
@@ -655,7 +844,7 @@ const Settings = () => {
             </TabsContent>
           </Tabs>
 
-          {/* Save Button  */}
+          {/* Save Button */}
           {canUpdate && (
             <div className="sticky bottom-4 sm:static sm:bottom-auto bg-background pt-4 border-t sm:border-t-0">
               <Button

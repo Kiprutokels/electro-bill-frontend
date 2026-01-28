@@ -160,9 +160,18 @@ export const API_ENDPOINTS = {
     MARK_READ: (id: string) => `/notifications/${id}/read`,
     MARK_ALL_READ: "/notifications/mark-all-read",
   },
+
   MIGRATION_UPLOAD: {
     BASE: "/migration-upload",
     VALIDATE_JOBS: "/migration-upload/jobs/validate",
     IMPORT_JOBS: "/migration-upload/jobs/import",
+  },
+  
+  SMS: {
+    SEND: "/sms/send",
+    BALANCE: "/sms/balance",
+    LOGS: "/sms/logs",
+    STATS: "/sms/stats",
+    TEST: "/sms/test",
   },
 } as const;

@@ -13,7 +13,7 @@ import {
 export const subscriptionsService = {
   getAll: async (
     page = 1,
-    limit = 10,
+    limit = 25,
     search?: string,
     filters: SubscriptionFilters = {}
   ): Promise<SubscriptionPaginatedResponse> => {
@@ -22,6 +22,7 @@ export const subscriptionsService = {
     if (filters.customerId) params.customerId = filters.customerId;
     if (filters.productId) params.productId = filters.productId;
     if (filters.status) params.status = filters.status;
+    if (filters.deviceImei) params.deviceImei = filters.deviceImei;
 
     const response = await apiClient.get(API_ENDPOINTS.SUBSCRIPTIONS.BASE, {
       params,
