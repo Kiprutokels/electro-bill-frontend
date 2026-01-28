@@ -1,9 +1,9 @@
 export enum SubscriptionStatus {
-  ACTIVE = 'ACTIVE',
-  EXPIRING_SOON = 'EXPIRING_SOON',
-  EXPIRED = 'EXPIRED',
-  CANCELLED = 'CANCELLED',
-  SUSPENDED = 'SUSPENDED',
+  ACTIVE = "ACTIVE",
+  EXPIRING_SOON = "EXPIRING_SOON",
+  EXPIRED = "EXPIRED",
+  CANCELLED = "CANCELLED",
+  SUSPENDED = "SUSPENDED",
 }
 
 export interface Subscription {
@@ -12,19 +12,25 @@ export interface Subscription {
   customerId: string;
   productId: string;
   invoiceId?: string;
+
+  deviceImei?: string | null;
+
   startDate: string;
   expiryDate: string;
   status: SubscriptionStatus;
   autoRenew: boolean;
   renewalPrice?: number;
+
   notificationSent30Days: boolean;
   notificationSent7Days: boolean;
   notificationSentExpired: boolean;
+
   notes?: string;
   cancelledAt?: string;
   cancelledBy?: string;
   createdAt: string;
   updatedAt: string;
+
   customer?: {
     id: string;
     customerCode: string;
@@ -33,6 +39,7 @@ export interface Subscription {
     email?: string;
     phone?: string;
   };
+
   product?: {
     id: string;
     name: string;
@@ -40,19 +47,75 @@ export interface Subscription {
     sellingPrice: number;
     subscriptionFee?: number;
   };
+
   invoice?: {
     id: string;
     invoiceNumber: string;
     totalAmount: number;
     jobId?: string;
   };
+
   notifications?: SubscriptionNotification[];
   renewals?: SubscriptionRenewal[];
+
   cancelledByUser?: {
     id: string;
     firstName: string;
     lastName: string;
   };
+
+  // Additive fields from backend findOne()
+  device?: {
+    imeiNumber: string;
+    status: string;
+    serialNumber?: string | null;
+    macAddress?: string | null;
+    simCardIccid?: string | null;
+    simCardImsi?: string | null;
+    activatedDate?: string | null;
+    salesDate?: string | null;
+    createdAt: string;
+    updatedAt: string;
+    product?: { id: string; name: string; sku: string } | null;
+    batch?: { id: string; batchNumber: string } | null;
+  } | null;
+
+  latestInstallation?: {
+    id: string;
+    installationDate: string;
+    status: string;
+    gpsCoordinates?: string | null;
+    installationLocation?: string | null;
+    simCard?: string | null;
+    macAddress?: string | null;
+
+    job?: {
+      id: string;
+      jobNumber: string;
+      status: string;
+      serviceDescription: string;
+    } | null;
+
+    vehicle?: {
+      id: string;
+      vehicleReg: string;
+      make: string;
+      model: string;
+      color?: string | null;
+      chassisNo: string;
+    } | null;
+
+    technician?: {
+      id: string;
+      technicianCode: string;
+      user?: {
+        id: string;
+        firstName: string;
+        lastName: string;
+        phone?: string | null;
+      } | null;
+    } | null;
+  } | null;
 }
 
 export interface SubscriptionNotification {
@@ -88,6 +151,7 @@ export interface CreateSubscriptionRequest {
   customerId: string;
   productId: string;
   invoiceId?: string;
+  deviceImei?: string;
   startDate: string;
   expiryDate: string;
   autoRenew?: boolean;
@@ -102,12 +166,14 @@ export interface UpdateSubscriptionRequest {
   renewalPrice?: number;
   notes?: string;
   status?: SubscriptionStatus;
+  deviceImei?: string | null;
 }
 
 export interface SubscriptionFilters {
   customerId?: string;
   productId?: string;
   status?: SubscriptionStatus;
+  deviceImei?: string;
 }
 
 export interface SubscriptionPaginatedResponse {
