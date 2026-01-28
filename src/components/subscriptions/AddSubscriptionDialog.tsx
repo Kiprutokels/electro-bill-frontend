@@ -1,35 +1,41 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from "react";
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
   DialogDescription,
-} from '@/components/ui/dialog';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
+} from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '@/components/ui/select';
-import { Loader2, Calendar } from 'lucide-react';
-import { customersService, Customer } from '@/api/services/customers.service';
-import { productsService } from '@/api/services/products.service';
-import { subscriptionsService, CreateSubscriptionRequest, Subscription } from '@/api/services/subscriptions.service';
-import { toast } from 'sonner';
-import { validateRequired } from '@/utils/validation.utils';
-import { Checkbox } from '@/components/ui/checkbox';
+} from "@/components/ui/select";
+import { Loader2, Calendar } from "lucide-react";
+import { customersService, Customer } from "@/api/services/customers.service";
+import { productsService } from "@/api/services/products.service";
+import {
+  subscriptionsService,
+  CreateSubscriptionRequest,
+  Subscription,
+} from "@/api/services/subscriptions.service";
+import { toast } from "sonner";
+import { validateRequired } from "@/utils/validation.utils";
+import { Checkbox } from "@/components/ui/checkbox";
 
 interface AddSubscriptionDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onSubscriptionAdded: (subscription: Subscription) => void;
 }
+
+const isValidImei = (v: string) => /^\d{10,20}$/.test(v.trim());
 
 const AddSubscriptionDialog: React.FC<AddSubscriptionDialogProps> = ({
   open,
@@ -42,13 +48,14 @@ const AddSubscriptionDialog: React.FC<AddSubscriptionDialogProps> = ({
   const [errors, setErrors] = useState<Record<string, string>>({});
 
   const [formData, setFormData] = useState<CreateSubscriptionRequest>({
-    customerId: '',
-    productId: '',
-    startDate: new Date().toISOString().split('T')[0],
-    expiryDate: '',
+    customerId: "",
+    productId: "",
+    deviceImei: "",
+    startDate: new Date().toISOString().split("T")[0],
+    expiryDate: "",
     autoRenew: false,
     renewalPrice: undefined,
-    notes: '',
+    notes: "",
   });
 
   useEffect(() => {
@@ -60,13 +67,16 @@ const AddSubscriptionDialog: React.FC<AddSubscriptionDialogProps> = ({
   }, [open]);
 
   useEffect(() => {
-    // Auto-calculate expiry date (1 year from start)
     if (formData.startDate) {
       const startDate = new Date(formData.startDate);
-      const expiryDate = new Date(startDate.getFullYear() + 1, startDate.getMonth(), startDate.getDate());
-      setFormData(prev => ({
+      const expiryDate = new Date(
+        startDate.getFullYear() + 1,
+        startDate.getMonth(),
+        startDate.getDate(),
+      );
+      setFormData((prev) => ({
         ...prev,
-        expiryDate: expiryDate.toISOString().split('T')[0]
+        expiryDate: expiryDate.toISOString().split("T")[0],
       }));
     }
   }, [formData.startDate]);
@@ -77,8 +87,8 @@ const AddSubscriptionDialog: React.FC<AddSubscriptionDialogProps> = ({
       const customersData = Array.isArray(response) ? response : response.data;
       setCustomers(customersData.filter((c: Customer) => c.isActive));
     } catch (error) {
-      console.error('Failed to fetch customers:', error);
-      toast.error('Failed to fetch customers');
+      console.error("Failed to fetch customers:", error);
+      toast.error("Failed to fetch customers");
     }
   };
 
@@ -88,32 +98,39 @@ const AddSubscriptionDialog: React.FC<AddSubscriptionDialogProps> = ({
       const productsData = Array.isArray(response) ? response : response.data;
       setProducts(productsData.filter((p: any) => p.isActive));
     } catch (error) {
-      console.error('Failed to fetch products:', error);
-      toast.error('Failed to fetch products');
+      console.error("Failed to fetch products:", error);
+      toast.error("Failed to fetch products");
     }
   };
 
   const validateForm = (): boolean => {
     const newErrors: Record<string, string> = {};
 
-    const customerError = validateRequired(formData.customerId, 'Customer');
+    const customerError = validateRequired(formData.customerId, "Customer");
     if (customerError) newErrors.customerId = customerError;
 
-    const productError = validateRequired(formData.productId, 'Product');
+    const productError = validateRequired(formData.productId, "Product");
     if (productError) newErrors.productId = productError;
 
-    const startDateError = validateRequired(formData.startDate, 'Start Date');
+    const startDateError = validateRequired(formData.startDate, "Start Date");
     if (startDateError) newErrors.startDate = startDateError;
 
-    const expiryDateError = validateRequired(formData.expiryDate, 'Expiry Date');
+    const expiryDateError = validateRequired(
+      formData.expiryDate,
+      "Expiry Date",
+    );
     if (expiryDateError) newErrors.expiryDate = expiryDateError;
 
-    // Validate expiry date is after start date
     if (formData.startDate && formData.expiryDate) {
       const start = new Date(formData.startDate);
       const expiry = new Date(formData.expiryDate);
-      if (expiry <= start) {
-        newErrors.expiryDate = 'Expiry date must be after start date';
+      if (expiry <= start)
+        newErrors.expiryDate = "Expiry date must be after start date";
+    }
+
+    if (formData.deviceImei && formData.deviceImei.trim().length > 0) {
+      if (!isValidImei(formData.deviceImei)) {
+        newErrors.deviceImei = "Device IMEI must be numeric (10-20 digits)";
       }
     }
 
@@ -124,18 +141,24 @@ const AddSubscriptionDialog: React.FC<AddSubscriptionDialogProps> = ({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!validateForm()) {
-      return;
-    }
+    if (!validateForm()) return;
 
     setLoading(true);
     try {
-      const newSubscription = await subscriptionsService.create(formData);
+      const payload: CreateSubscriptionRequest = {
+        ...formData,
+        deviceImei: formData.deviceImei?.trim()
+          ? formData.deviceImei.trim()
+          : undefined,
+      };
+
+      const newSubscription = await subscriptionsService.create(payload);
       onSubscriptionAdded(newSubscription);
       onOpenChange(false);
-      toast.success('Subscription created successfully');
+      toast.success("Subscription created successfully");
     } catch (err: any) {
-      const errorMessage = err.response?.data?.message || 'Failed to create subscription';
+      const errorMessage =
+        err.response?.data?.message || "Failed to create subscription";
       toast.error(errorMessage);
     } finally {
       setLoading(false);
@@ -143,18 +166,19 @@ const AddSubscriptionDialog: React.FC<AddSubscriptionDialogProps> = ({
   };
 
   const resetForm = () => {
-    const today = new Date().toISOString().split('T')[0];
+    const today = new Date().toISOString().split("T")[0];
     const oneYearLater = new Date();
     oneYearLater.setFullYear(oneYearLater.getFullYear() + 1);
-    
+
     setFormData({
-      customerId: '',
-      productId: '',
+      customerId: "",
+      productId: "",
+      deviceImei: "",
       startDate: today,
-      expiryDate: oneYearLater.toISOString().split('T')[0],
+      expiryDate: oneYearLater.toISOString().split("T")[0],
       autoRenew: false,
       renewalPrice: undefined,
-      notes: '',
+      notes: "",
     });
     setErrors({});
   };
@@ -174,7 +198,6 @@ const AddSubscriptionDialog: React.FC<AddSubscriptionDialogProps> = ({
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {/* Customer */}
             <div>
               <Label htmlFor="customerId">
                 Customer <span className="text-destructive">*</span>
@@ -182,10 +205,12 @@ const AddSubscriptionDialog: React.FC<AddSubscriptionDialogProps> = ({
               <Select
                 value={formData.customerId}
                 onValueChange={(value) =>
-                  setFormData(prev => ({ ...prev, customerId: value }))
+                  setFormData((prev) => ({ ...prev, customerId: value }))
                 }
               >
-                <SelectTrigger className={errors.customerId ? 'border-destructive' : ''}>
+                <SelectTrigger
+                  className={errors.customerId ? "border-destructive" : ""}
+                >
                   <SelectValue placeholder="Select customer" />
                 </SelectTrigger>
                 <SelectContent>
@@ -197,11 +222,12 @@ const AddSubscriptionDialog: React.FC<AddSubscriptionDialogProps> = ({
                 </SelectContent>
               </Select>
               {errors.customerId && (
-                <p className="text-sm text-destructive mt-1">{errors.customerId}</p>
+                <p className="text-sm text-destructive mt-1">
+                  {errors.customerId}
+                </p>
               )}
             </div>
 
-            {/* Product */}
             <div>
               <Label htmlFor="productId">
                 Product <span className="text-destructive">*</span>
@@ -209,10 +235,12 @@ const AddSubscriptionDialog: React.FC<AddSubscriptionDialogProps> = ({
               <Select
                 value={formData.productId}
                 onValueChange={(value) =>
-                  setFormData(prev => ({ ...prev, productId: value }))
+                  setFormData((prev) => ({ ...prev, productId: value }))
                 }
               >
-                <SelectTrigger className={errors.productId ? 'border-destructive' : ''}>
+                <SelectTrigger
+                  className={errors.productId ? "border-destructive" : ""}
+                >
                   <SelectValue placeholder="Select product" />
                 </SelectTrigger>
                 <SelectContent>
@@ -224,11 +252,49 @@ const AddSubscriptionDialog: React.FC<AddSubscriptionDialogProps> = ({
                 </SelectContent>
               </Select>
               {errors.productId && (
-                <p className="text-sm text-destructive mt-1">{errors.productId}</p>
+                <p className="text-sm text-destructive mt-1">
+                  {errors.productId}
+                </p>
               )}
             </div>
 
-            {/* Start Date */}
+            <div>
+              <Label htmlFor="deviceImei">Device IMEI (optional)</Label>
+              <Input
+                id="deviceImei"
+                value={formData.deviceImei || ""}
+                onChange={(e) =>
+                  setFormData((prev) => ({
+                    ...prev,
+                    deviceImei: e.target.value,
+                  }))
+                }
+                placeholder="e.g. 353549090597591"
+                className={errors.deviceImei ? "border-destructive" : ""}
+              />
+              {errors.deviceImei && (
+                <p className="text-sm text-destructive mt-1">
+                  {errors.deviceImei}
+                </p>
+              )}
+              <p className="text-xs text-muted-foreground mt-1">
+                If provided, device must be ACTIVE.
+              </p>
+            </div>
+
+            <div className="flex items-center space-x-2 pt-6">
+              <Checkbox
+                id="autoRenew"
+                checked={!!formData.autoRenew}
+                onCheckedChange={(checked) =>
+                  setFormData((prev) => ({ ...prev, autoRenew: !!checked }))
+                }
+              />
+              <Label htmlFor="autoRenew" className="cursor-pointer">
+                Auto-renew subscription
+              </Label>
+            </div>
+
             <div>
               <Label htmlFor="startDate">
                 Start Date <span className="text-destructive">*</span>
@@ -238,12 +304,17 @@ const AddSubscriptionDialog: React.FC<AddSubscriptionDialogProps> = ({
                 type="date"
                 value={formData.startDate}
                 onChange={(e) =>
-                  setFormData(prev => ({ ...prev, startDate: e.target.value }))
+                  setFormData((prev) => ({
+                    ...prev,
+                    startDate: e.target.value,
+                  }))
                 }
-                className={errors.startDate ? 'border-destructive' : ''}
+                className={errors.startDate ? "border-destructive" : ""}
               />
               {errors.startDate && (
-                <p className="text-sm text-destructive mt-1">{errors.startDate}</p>
+                <p className="text-sm text-destructive mt-1">
+                  {errors.startDate}
+                </p>
               )}
             </div>
 
@@ -257,16 +328,20 @@ const AddSubscriptionDialog: React.FC<AddSubscriptionDialogProps> = ({
                 type="date"
                 value={formData.expiryDate}
                 onChange={(e) =>
-                  setFormData(prev => ({ ...prev, expiryDate: e.target.value }))
+                  setFormData((prev) => ({
+                    ...prev,
+                    expiryDate: e.target.value,
+                  }))
                 }
-                className={errors.expiryDate ? 'border-destructive' : ''}
+                className={errors.expiryDate ? "border-destructive" : ""}
               />
               {errors.expiryDate && (
-                <p className="text-sm text-destructive mt-1">{errors.expiryDate}</p>
+                <p className="text-sm text-destructive mt-1">
+                  {errors.expiryDate}
+                </p>
               )}
             </div>
 
-            {/* Renewal Price */}
             <div>
               <Label htmlFor="renewalPrice">Renewal Price</Label>
               <Input
@@ -274,57 +349,44 @@ const AddSubscriptionDialog: React.FC<AddSubscriptionDialogProps> = ({
                 type="number"
                 min="0"
                 step="0.01"
-                value={formData.renewalPrice || ''}
+                value={formData.renewalPrice ?? ""}
                 onChange={(e) =>
-                  setFormData(prev => ({
+                  setFormData((prev) => ({
                     ...prev,
-                    renewalPrice: parseFloat(e.target.value) || undefined
+                    renewalPrice: e.target.value
+                      ? parseFloat(e.target.value)
+                      : undefined,
                   }))
                 }
                 placeholder="Enter renewal price"
               />
             </div>
-
-            {/* Auto Renew */}
-            <div className="flex items-center space-x-2 pt-6">
-              <Checkbox
-                id="autoRenew"
-                checked={formData.autoRenew}
-                onCheckedChange={(checked) =>
-                  setFormData(prev => ({ ...prev, autoRenew: !!checked }))
-                }
-              />
-              <Label htmlFor="autoRenew" className="cursor-pointer">
-                Auto-renew subscription
-              </Label>
-            </div>
           </div>
 
-          {/* Notes */}
           <div>
             <Label htmlFor="notes">Notes</Label>
             <Textarea
               id="notes"
-              value={formData.notes}
+              value={formData.notes || ""}
               onChange={(e) =>
-                setFormData(prev => ({ ...prev, notes: e.target.value }))
+                setFormData((prev) => ({ ...prev, notes: e.target.value }))
               }
               placeholder="Additional notes (optional)"
               rows={3}
             />
           </div>
 
-          {/* Actions */}
           <div className="flex gap-2 pt-4">
             <Button type="submit" disabled={loading} className="flex-1">
               {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              {loading ? 'Creating...' : 'Create Subscription'}
+              {loading ? "Creating..." : "Create Subscription"}
             </Button>
             <Button
               type="button"
               variant="outline"
               onClick={() => onOpenChange(false)}
               className="flex-1"
+              disabled={loading}
             >
               Cancel
             </Button>
