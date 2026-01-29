@@ -21,8 +21,7 @@ const PaginationFooter: React.FC<PaginationFooterProps> = ({
   onNext,
 }) => {
   const from = totalItems === 0 ? 0 : (currentPage - 1) * pageSize + 1;
-  const to =
-    totalItems === 0 ? 0 : Math.min(currentPage * pageSize, totalItems);
+  const to = totalItems === 0 ? 0 : Math.min(currentPage * pageSize, totalItems);
 
   return (
     <div className="flex flex-col sm:flex-row items-center justify-between pt-4 px-4 sm:px-0 gap-4">
