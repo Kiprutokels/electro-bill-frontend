@@ -3,7 +3,6 @@ import { useQuery } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import {
   Table,
@@ -43,10 +42,13 @@ import {
   FileText,
   DollarSign,
   CalendarClock,
+  MapPin,
 } from "lucide-react";
 import { jobsService, JobStatus, Job } from "@/api/services/jobs.service";
 import { useAuth } from "@/contexts/AuthContext";
 import { PERMISSIONS } from "@/utils/constants";
+import TableToolbar, { PageSizeOption } from "@/components/shared/TableToolbar";
+import PaginationFooter from "@/components/shared/PaginationFooter";
 
 // Dialogs
 import CreateJobDialog from "@/components/jobs/CreateJobDialog";
@@ -56,11 +58,19 @@ import ManageTechniciansDialog from "@/components/jobs/ManageTechniciansDialog";
 import CancelJobDialog from "@/components/jobs/CancelJobDialog";
 import RescheduleJobDialog from "@/components/jobs/RescheduleJobDialog";
 
+const PAGE_SIZE_OPTIONS: PageSizeOption[] = [
+  { label: "10", value: 10 },
+  { label: "25", value: 25 },
+  { label: "50", value: 50 },
+  { label: "100", value: 100 },
+];
+
 const Jobs = () => {
   const navigate = useNavigate();
   const { hasPermission } = useAuth();
 
   const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<JobStatus | undefined>();
 
@@ -72,12 +82,16 @@ const Jobs = () => {
   const [isRescheduleDialogOpen, setIsRescheduleDialogOpen] = useState(false);
   const [selectedJob, setSelectedJob] = useState<Job | null>(null);
 
-  const { data: jobsData, isLoading } = useQuery({
-    queryKey: ["jobs", page, searchTerm, statusFilter],
+  const {
+    data: jobsData,
+    isLoading,
+    refetch,
+  } = useQuery({
+    queryKey: ["jobs", page, pageSize, searchTerm, statusFilter],
     queryFn: () =>
       jobsService.getJobs({
         page,
-        limit: 10,
+        limit: pageSize,
         search: searchTerm,
         status: statusFilter,
       }),
@@ -89,6 +103,8 @@ const Jobs = () => {
   });
 
   const jobs = jobsData?.data || [];
+  const totalPages = jobsData?.meta?.totalPages || 1;
+  const totalItems = jobsData?.meta?.total || 0;
 
   const handleView = (job: Job) => {
     setSelectedJob(job);
@@ -121,6 +137,23 @@ const Jobs = () => {
 
   const handleGenerateInvoice = (job: Job) => {
     navigate(`/jobs/${job.id}/workflow`);
+  };
+
+  const handlePageSizeChange = (newSize: number) => {
+    setPageSize(newSize);
+    setPage(1);
+  };
+
+  const handleRefresh = () => {
+    refetch();
+  };
+
+  const handleStatusFilterChange = (value: string) => {
+    if (value === "all") {
+      setStatusFilter(undefined);
+    } else {
+      setStatusFilter(value as JobStatus);
+    }
   };
 
   const getStatusBadge = (status: string) => {
@@ -166,18 +199,34 @@ const Jobs = () => {
     );
   };
 
+  if (isLoading && jobs.length === 0) {
+    return (
+      <div className="flex items-center justify-center h-96">
+        <div className="flex flex-col items-center space-y-4">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+          <p className="text-sm text-muted-foreground">Loading jobs...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6 p-4 sm:p-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold">Job Management</h1>
-          <p className="text-muted-foreground">
+          <h1 className="text-2xl sm:text-3xl font-bold text-foreground">
+            Job Management
+          </h1>
+          <p className="text-sm text-muted-foreground mt-1">
             Track installation and maintenance jobs
           </p>
         </div>
         {hasPermission(PERMISSIONS.JOBS_CREATE) && (
-          <Button onClick={() => setIsCreateDialogOpen(true)}>
+          <Button
+            onClick={() => setIsCreateDialogOpen(true)}
+            className="w-full sm:w-auto"
+          >
             <Plus className="mr-2 h-4 w-4" />
             Create Job
           </Button>
@@ -185,68 +234,86 @@ const Jobs = () => {
       </div>
 
       {/* Statistics */}
-      <div className="grid grid-cols-1 md:grid-cols-6 gap-4">
-        <Card className="border-l-4 border-l-gray-500">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Total Jobs</CardTitle>
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-4">
+        <Card className="border-l-4 border-l-primary">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">
+              Total Jobs
+            </CardTitle>
+            <Briefcase className="h-4 w-4 text-primary" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{statistics?.total || 0}</div>
+            <div className="text-2xl font-bold text-foreground">
+              {statistics?.total || 0}
+            </div>
           </CardContent>
         </Card>
 
         <Card className="border-l-4 border-l-indigo-500">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Scheduled</CardTitle>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">
+              Scheduled
+            </CardTitle>
+            <Calendar className="h-4 w-4 text-indigo-500" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-indigo-600">
+            <div className="text-2xl font-bold text-foreground">
               {statistics?.scheduled || 0}
             </div>
           </CardContent>
         </Card>
 
         <Card className="border-l-4 border-l-yellow-500">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Pending</CardTitle>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">
+              Pending
+            </CardTitle>
+            <Clock className="h-4 w-4 text-yellow-500" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-gray-600">
+            <div className="text-2xl font-bold text-foreground">
               {statistics?.pending || 0}
             </div>
           </CardContent>
         </Card>
 
         <Card className="border-l-4 border-l-purple-500">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">In Progress</CardTitle>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">
+              In Progress
+            </CardTitle>
+            <Briefcase className="h-4 w-4 text-purple-500" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-purple-600">
+            <div className="text-2xl font-bold text-foreground">
               {statistics?.inProgress || 0}
             </div>
           </CardContent>
         </Card>
 
         <Card className="border-l-4 border-l-green-500">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Completed</CardTitle>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">
+              Completed
+            </CardTitle>
+            <CheckCircle className="h-4 w-4 text-green-500" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-green-600">
+            <div className="text-2xl font-bold text-foreground">
               {statistics?.completed || 0}
             </div>
           </CardContent>
         </Card>
 
         <Card className="border-l-4 border-l-orange-500">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">
               Awaiting Inspection
             </CardTitle>
+            <Clock className="h-4 w-4 text-orange-500" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-orange-600">
+            <div className="text-2xl font-bold text-foreground">
               {statistics?.awaitingInspection || 0}
             </div>
           </CardContent>
@@ -256,17 +323,18 @@ const Jobs = () => {
       {/* Jobs Table */}
       <Card>
         <CardHeader>
-          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-            <CardTitle>Jobs</CardTitle>
-            <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
-              <Select
-                value={statusFilter}
-                onValueChange={(val) =>
-                  setStatusFilter(
-                    val === "all" ? undefined : (val as JobStatus)
-                  )
-                }
-              >
+          <TableToolbar
+            title="Job Management"
+            searchPlaceholder="Search jobs, customer, vehicle, location..."
+            searchValue={searchTerm}
+            onSearchChange={setSearchTerm}
+            pageSize={pageSize}
+            pageSizeOptions={PAGE_SIZE_OPTIONS}
+            onPageSizeChange={handlePageSizeChange}
+            refreshing={isLoading}
+            onRefresh={handleRefresh}
+            rightSlot={
+              <Select value={statusFilter || "all"} onValueChange={handleStatusFilterChange}>
                 <SelectTrigger className="w-full sm:w-[200px]">
                   <SelectValue placeholder="Filter by status" />
                 </SelectTrigger>
@@ -279,18 +347,11 @@ const Jobs = () => {
                   ))}
                 </SelectContent>
               </Select>
-
-              <Input
-                placeholder="Search jobs..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full sm:max-w-sm"
-              />
-            </div>
-          </div>
+            }
+          />
         </CardHeader>
 
-        <CardContent>
+        <CardContent className="p-0 sm:p-6">
           <div className="rounded-md border overflow-hidden">
             <div className="overflow-x-auto">
               <Table>
@@ -300,31 +361,21 @@ const Jobs = () => {
                     <TableHead className="min-w-[220px]">
                       Customer/Vehicle
                     </TableHead>
+                    <TableHead className="min-w-[150px]">Location</TableHead>
                     <TableHead className="min-w-[120px]">Type</TableHead>
                     <TableHead className="min-w-[140px]">Technicians</TableHead>
                     <TableHead className="min-w-[120px]">Scheduled</TableHead>
                     <TableHead className="min-w-[160px]">Status</TableHead>
-                    <TableHead className="text-right min-w-[100px]">
+                    <TableHead className="text-right min-w-[60px]">
                       Actions
                     </TableHead>
                   </TableRow>
                 </TableHeader>
 
                 <TableBody>
-                  {isLoading ? (
+                  {jobs.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={7} className="text-center py-8">
-                        <div className="flex flex-col items-center gap-2">
-                          <Loader2 className="h-6 w-6 animate-spin" />
-                          <p className="text-sm text-muted-foreground">
-                            Loading jobs...
-                          </p>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ) : jobs.length === 0 ? (
-                    <TableRow>
-                      <TableCell colSpan={7} className="text-center py-8">
+                      <TableCell colSpan={8} className="text-center py-8">
                         <div className="text-muted-foreground">
                           {searchTerm
                             ? "No jobs found matching your search."
@@ -361,6 +412,18 @@ const Jobs = () => {
                                 ? `${job.vehicle.vehicleReg} - ${job.vehicle.make} ${job.vehicle.model}`
                                 : "No vehicle assigned"}
                             </div>
+                          </div>
+                        </TableCell>
+
+                        <TableCell>
+                          <div className="flex items-center gap-1 text-sm">
+                            <MapPin className="h-3 w-3 text-muted-foreground" />
+                            <span
+                              className="truncate max-w-[120px]"
+                              title={job.location}
+                            >
+                              {job.location || "-"}
+                            </span>
                           </div>
                         </TableCell>
 
@@ -425,7 +488,8 @@ const Jobs = () => {
                               <DropdownMenuSeparator />
 
                               {/* Assignment Actions */}
-                              {job.status === JobStatus.PENDING &&
+                              {(job.status === JobStatus.PENDING ||
+                                job.status === JobStatus.SCHEDULED) &&
                                 !job.technicians?.length && (
                                   <DropdownMenuItem
                                     onClick={() => handleAssignClick(job)}
@@ -506,37 +570,15 @@ const Jobs = () => {
             </div>
           </div>
 
-          {/* Pagination */}
-          {jobsData && jobsData.meta.totalPages > 1 && (
-            <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mt-4">
-              <div className="text-sm text-muted-foreground">
-                Showing {(page - 1) * 10 + 1} to{" "}
-                {Math.min(page * 10, jobsData.meta.total)} of{" "}
-                {jobsData.meta.total} jobs
-              </div>
-              <div className="flex gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setPage((p) => Math.max(1, p - 1))}
-                  disabled={page === 1}
-                >
-                  Previous
-                </Button>
-                <div className="flex items-center gap-2 px-3 text-sm">
-                  Page {page} of {jobsData.meta.totalPages}
-                </div>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setPage((p) => p + 1)}
-                  disabled={page >= jobsData.meta.totalPages}
-                >
-                  Next
-                </Button>
-              </div>
-            </div>
-          )}
+          <PaginationFooter
+            totalItems={totalItems}
+            currentPage={page}
+            totalPages={totalPages}
+            pageSize={pageSize}
+            loading={isLoading}
+            onPrev={() => setPage((p) => Math.max(1, p - 1))}
+            onNext={() => setPage((p) => Math.min(totalPages, p + 1))}
+          />
         </CardContent>
       </Card>
 
