@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from "react";
-import { Check, ChevronsUpDown, Loader2 } from "lucide-react";
+import { Check, ChevronsUpDown, Loader2, User, Phone, Mail } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import {
@@ -28,7 +28,7 @@ const CustomerSearchCombobox: React.FC<CustomerSearchComboboxProps> = ({
   value,
   onValueChange,
   disabled = false,
-  placeholder = "Select customer...",
+  placeholder = "Search customer...",
 }) => {
   const [open, setOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
@@ -86,7 +86,7 @@ const CustomerSearchCombobox: React.FC<CustomerSearchComboboxProps> = ({
   };
 
   const displayValue = selectedCustomer
-    ? `${selectedCustomer.businessName || selectedCustomer.contactPerson} (${selectedCustomer.customerCode})`
+    ? `${selectedCustomer.businessName || selectedCustomer.contactPerson}`
     : placeholder;
 
   return (
@@ -96,53 +96,119 @@ const CustomerSearchCombobox: React.FC<CustomerSearchComboboxProps> = ({
           variant="outline"
           role="combobox"
           aria-expanded={open}
-          className="w-full justify-between"
+          className={cn(
+            "w-full justify-between h-11 px-4 text-base font-medium transition-all duration-200",
+            "hover:bg-slate-50 hover:border-slate-300 dark:hover:bg-slate-900 dark:hover:border-slate-600",
+            open && "ring-2 ring-blue-500 ring-opacity-30 border-blue-500",
+            disabled && "opacity-50 cursor-not-allowed"
+          )}
           disabled={disabled}
         >
-          <span className="truncate">{displayValue}</span>
-          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+          <div className="flex items-center flex-1 min-w-0">
+            <User className="h-4 w-4 mr-2 text-slate-400 flex-shrink-0" />
+            <span className="truncate text-slate-900 dark:text-slate-100">
+              {displayValue}
+            </span>
+            {selectedCustomer && (
+              <span className="ml-2 text-sm text-slate-500 dark:text-slate-400 flex-shrink-0">
+                ({selectedCustomer.customerCode})
+              </span>
+            )}
+          </div>
+          <ChevronsUpDown className="ml-2 h-4 w-4 flex-shrink-0 opacity-50 transition-transform duration-200" />
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-full p-0" align="start">
+      <PopoverContent className="p-0 w-screen max-w-2xl" align="start">
         <Command shouldFilter={false}>
           <CommandInput
             placeholder="Search by name, code, phone, email..."
+            className="h-11 text-base"
             value={searchQuery}
             onValueChange={setSearchQuery}
           />
           <CommandEmpty>
             {loading ? (
-              <div className="flex items-center justify-center py-6">
-                <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                <span className="text-sm text-muted-foreground">Searching...</span>
+              <div className="flex flex-col items-center justify-center py-12">
+                <Loader2 className="h-5 w-5 animate-spin text-blue-500 mb-3" />
+                <span className="text-sm text-slate-600 dark:text-slate-400">
+                  Searching customers...
+                </span>
               </div>
             ) : searchQuery.length > 0 ? (
-              "No customers found."
+              <div className="flex flex-col items-center justify-center py-12">
+                <User className="h-5 w-5 text-slate-300 dark:text-slate-600 mb-3" />
+                <span className="text-sm text-slate-600 dark:text-slate-400">
+                  No customers found
+                </span>
+                <p className="text-xs text-slate-500 dark:text-slate-500 mt-1">
+                  Try searching with different keywords
+                </p>
+              </div>
             ) : (
-              "Start typing to search customers..."
+              <div className="flex flex-col items-center justify-center py-12">
+                <User className="h-5 w-5 text-slate-300 dark:text-slate-600 mb-3" />
+                <span className="text-sm text-slate-600 dark:text-slate-400">
+                  Start typing to search
+                </span>
+                <p className="text-xs text-slate-500 dark:text-slate-500 mt-1">
+                  Search by name, code, phone or email
+                </p>
+              </div>
             )}
           </CommandEmpty>
-          <CommandGroup className="max-h-64 overflow-auto">
+          <CommandGroup className="max-h-96 overflow-auto">
             {customers.map((customer) => (
               <CommandItem
                 key={customer.id}
                 value={customer.id}
                 onSelect={() => handleSelect(customer)}
+                className="px-4 py-4 rounded-lg cursor-pointer hover:bg-blue-50 dark:hover:bg-slate-800 transition-colors duration-150 border-b border-slate-100 dark:border-slate-700 last:border-b-0"
               >
                 <Check
                   className={cn(
-                    "mr-2 h-4 w-4",
-                    value === customer.id ? "opacity-100" : "opacity-0"
+                    "mr-4 h-5 w-5 flex-shrink-0 transition-all duration-200",
+                    value === customer.id
+                      ? "opacity-100 text-blue-600"
+                      : "opacity-0"
                   )}
                 />
-                <div className="flex flex-col">
-                  <span className="font-medium">
-                    {customer.businessName || customer.contactPerson}
-                  </span>
-                  <span className="text-xs text-muted-foreground">
-                    {customer.customerCode} • {customer.phone}
-                    {customer.email && ` • ${customer.email}`}
-                  </span>
+                <div className="flex flex-1 items-center gap-6 min-w-0">
+                  {/* Business Name & Code */}
+                  <div className="flex-1 min-w-0">
+                    <p className="font-bold text-slate-900 dark:text-slate-100 text-base">
+                      {customer.businessName || customer.contactPerson}
+                    </p>
+                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                      {customer.customerCode}
+                    </p>
+                  </div>
+
+                  {/* Contact Info - Hidden on very small screens */}
+                  <div className="flex-1 min-w-0 hidden sm:block">
+                    <p className="text-sm text-slate-700 dark:text-slate-300 font-medium">
+                      {customer.contactPerson}
+                    </p>
+                  </div>
+
+                  {/* Phone - Always visible */}
+                  {customer.phone && (
+                    <div className="flex-1 min-w-0 hidden md:block">
+                      <p className="text-xs text-slate-600 dark:text-slate-400 flex items-center gap-2">
+                        <Phone className="h-4 w-4 flex-shrink-0" />
+                        <span className="truncate">{customer.phone}</span>
+                      </p>
+                    </div>
+                  )}
+
+                  {/* Email - Always visible */}
+                  {customer.email && (
+                    <div className="flex-1 min-w-0 hidden lg:block">
+                      <p className="text-xs text-slate-600 dark:text-slate-400 flex items-center gap-2">
+                        <Mail className="h-4 w-4 flex-shrink-0" />
+                        <span className="truncate">{customer.email}</span>
+                      </p>
+                    </div>
+                  )}
                 </div>
               </CommandItem>
             ))}
