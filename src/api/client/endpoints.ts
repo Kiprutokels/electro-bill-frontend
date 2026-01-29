@@ -21,6 +21,7 @@ export const API_ENDPOINTS = {
     BASE: "/customers",
     BY_ID: (id: string) => `/customers/${id}`,
     TOGGLE_STATUS: (id: string) => `/customers/${id}/toggle-status`,
+    SEARCH: "/customers/search",
     STATEMENT: (id: string) => `/customers/${id}/statement`,
     OUTSTANDING_BALANCE: "/customers/outstanding-balance",
     TOP_CUSTOMERS: "/customers/top-customers",
@@ -166,7 +167,7 @@ export const API_ENDPOINTS = {
     VALIDATE_JOBS: "/migration-upload/jobs/validate",
     IMPORT_JOBS: "/migration-upload/jobs/import",
   },
-  
+
   SMS: {
     SEND: "/sms/send",
     BALANCE: "/sms/balance",
