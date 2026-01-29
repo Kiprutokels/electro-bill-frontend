@@ -14,18 +14,14 @@ export type PageSizeOption = { label: string; value: number };
 
 interface TableToolbarProps {
   title?: string;
-
   searchPlaceholder?: string;
   searchValue: string;
   onSearchChange: (v: string) => void;
-
   pageSize: number;
   pageSizeOptions: PageSizeOption[];
   onPageSizeChange: (v: number) => void;
-
   refreshing?: boolean;
   onRefresh: () => void;
-
   rightSlot?: React.ReactNode;
 }
 
@@ -42,11 +38,11 @@ const TableToolbar: React.FC<TableToolbarProps> = ({
   rightSlot,
 }) => {
   return (
-    <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
-      {title ? <div className="font-semibold">{title}</div> : <div />}
+    <div className="flex flex-col gap-4">
+      {title && <div className="font-semibold text-lg">{title}</div>}
 
-      <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
-        <div className="relative flex-1 sm:w-64">
+      <div className="flex flex-col sm:flex-row gap-2 w-full">
+        <div className="relative flex-1 sm:max-w-sm">
           <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
           <Input
             placeholder={searchPlaceholder}
@@ -56,33 +52,37 @@ const TableToolbar: React.FC<TableToolbarProps> = ({
           />
         </div>
 
-        {rightSlot}
+        <div className="flex flex-wrap gap-2">
+          {rightSlot}
 
-        <Select
-          value={String(pageSize)}
-          onValueChange={(v) => onPageSizeChange(Number(v))}
-        >
-          <SelectTrigger className="w-full sm:w-28">
-            <SelectValue placeholder="Page size" />
-          </SelectTrigger>
-          <SelectContent>
-            {pageSizeOptions.map((opt) => (
-              <SelectItem key={opt.value} value={String(opt.value)}>
-                {opt.label}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+          <Select
+            value={String(pageSize)}
+            onValueChange={(v) => onPageSizeChange(Number(v))}
+          >
+            <SelectTrigger className="w-full sm:w-28">
+              <SelectValue placeholder="Page size" />
+            </SelectTrigger>
+            <SelectContent>
+              {pageSizeOptions.map((opt) => (
+                <SelectItem key={opt.value} value={String(opt.value)}>
+                  {opt.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
 
-        <Button
-          variant="outline"
-          size="icon"
-          onClick={onRefresh}
-          disabled={refreshing}
-          title="Refresh"
-        >
-          <RefreshCw className={`h-4 w-4 ${refreshing ? "animate-spin" : ""}`} />
-        </Button>
+          <Button
+            variant="outline"
+            size="icon"
+            onClick={onRefresh}
+            disabled={refreshing}
+            title="Refresh"
+          >
+            <RefreshCw
+              className={`h-4 w-4 ${refreshing ? "animate-spin" : ""}`}
+            />
+          </Button>
+        </div>
       </div>
     </div>
   );
