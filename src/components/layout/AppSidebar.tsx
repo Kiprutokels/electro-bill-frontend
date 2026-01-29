@@ -78,9 +78,9 @@ const adminNavigation = [
     section: "sales",
   },
   {
-    name: "Orders",
+    name: "Invoices",
     href: ROUTES.INVOICES,
-    icon: FileText,
+    icon: Receipt,
     permission: PERMISSIONS.SALES_READ,
     section: "sales",
   },
@@ -194,12 +194,12 @@ const adminNavigation = [
     permission: PERMISSIONS.CUSTOMERS_CREATE,
   },
   {
-  name: "SMS Management",
-  icon: MessageSquare,
-  href: "/sms",
-  section: "system",
-  permission: PERMISSIONS.SMS_READ,
-},
+    name: "SMS Management",
+    icon: MessageSquare,
+    href: "/sms",
+    section: "system",
+    permission: PERMISSIONS.SMS_READ,
+  },
 ];
 
 // Technician-specific navigation
@@ -271,27 +271,27 @@ export function AppSidebar() {
 
   // Filter navigation based on user permissions
   const filteredNavigation = navigation.filter(
-    (item) => !item.permission || hasPermission(item.permission)
+    (item) => !item.permission || hasPermission(item.permission),
   );
 
   // Group navigation by section
   const mainItems = filteredNavigation.filter(
-    (item) => item.section === "main"
+    (item) => item.section === "main",
   );
   const salesItems = filteredNavigation.filter(
-    (item) => item.section === "sales"
+    (item) => item.section === "sales",
   );
   const trackingItems = filteredNavigation.filter(
-    (item) => item.section === "tracking"
+    (item) => item.section === "tracking",
   );
   const fieldItems = filteredNavigation.filter(
-    (item) => item.section === "field"
+    (item) => item.section === "field",
   );
   const systemItems = filteredNavigation.filter(
-    (item) => item.section === "system"
+    (item) => item.section === "system",
   );
   const accountItems = filteredNavigation.filter(
-    (item) => item.section === "account"
+    (item) => item.section === "account",
   );
 
   const isActive = (path: string) => currentPath === path;
