@@ -12,19 +12,51 @@ import {
   FileText,
   Receipt,
   Wallet,
+  ClipboardList,
+  PhoneCall,
+  AlertTriangle,
+  Plus,
+  Ticket,
 } from "lucide-react";
 import { formatCurrency, formatDate } from "@/utils/format.utils";
 import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { crmFollowupsService } from "@/api/services/crm-followups.service";
+import { ticketsService } from "@/api/services/tickets.service";
+import { crmInteractionsService } from "@/api/services/crm-interactions.service";
+import { toast } from "sonner";
 
 const CustomerDetail = () => {
   const { customerId } = useParams<{ customerId: string }>();
   const { data, loading, error, refresh } = useCustomerDetail(customerId || "");
   const [refreshing, setRefreshing] = useState(false);
 
+  // ==================== CRM INTEGRATION ====================
+  const crmFollowups = useQuery({
+    queryKey: ["crm-followups-customer", customerId],
+    queryFn: () => crmFollowupsService.list({ customerId, limit: 10, status: "PENDING" }),
+    enabled: !!customerId,
+  });
+
+  const crmInteractions = useQuery({
+    queryKey: ["crm-interactions-customer", customerId],
+    queryFn: () => crmInteractionsService.list({ customerId, limit: 10 }),
+    enabled: !!customerId,
+  });
+
+  const crmTickets = useQuery({
+    queryKey: ["tickets-customer", customerId],
+    queryFn: () => ticketsService.list({ customerId, limit: 10 }),
+    enabled: !!customerId,
+  });
+
   const handleRefresh = async () => {
     setRefreshing(true);
     try {
       await refresh();
+      crmFollowups.refetch();
+      crmInteractions.refetch();
+      crmTickets.refetch();
     } finally {
       setRefreshing(false);
     }
@@ -50,6 +82,10 @@ const CustomerDetail = () => {
     customer?.customerCode ||
     "Customer";
 
+  const followups = crmFollowups.data?.data || [];
+  const interactions = crmInteractions.data?.data || [];
+  const tickets = crmTickets.data?.data || [];
+
   return (
     <div className="space-y-4 sm:space-y-6 p-4 sm:p-6">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
@@ -66,7 +102,7 @@ const CustomerDetail = () => {
             </h1>
             <p className="text-sm text-muted-foreground">
               Comprehensive customer view: vehicles, subscriptions, invoices,
-              payments, transactions
+              payments, transactions, **CRM activities**
             </p>
           </div>
         </div>
@@ -204,6 +240,120 @@ const CustomerDetail = () => {
               </div>
             </CardContent>
           </Card>
+
+          {/* ==================== ✅ CRM SECTION ==================== */}
+
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+            {/* CRM Follow-ups */}
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between">
+                <CardTitle className="flex items-center gap-2 text-base">
+                  <ClipboardList className="h-4 w-4" /> Follow-ups
+                </CardTitle>
+                <Badge variant="outline">{followups.length}</Badge>
+              </CardHeader>
+              <CardContent className="space-y-2">
+                {followups.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">No pending follow-ups.</p>
+                ) : (
+                  followups.map((f: any) => (
+                    <div key={f.id} className="border rounded-md p-2">
+                      <div className="text-sm font-medium">{f.title}</div>
+                      <div className="text-xs text-muted-foreground">
+                        Due: {formatDate(f.dueDate)} • {f.status} • {f.priority}
+                      </div>
+                      <div className="text-xs text-muted-foreground">
+                        Sub: {f.subscription?.subscriptionNumber || "—"}
+                      </div>
+                    </div>
+                  ))
+                )}
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="w-full"
+                  onClick={() => {
+                    // Navigate to create follow-up with prefilled customerId
+                    window.location.href = `/crm/followups?prefill=${customerId}`;
+                  }}
+                >
+                  <Plus className="h-3 w-3 mr-2" /> New Follow-up
+                </Button>
+              </CardContent>
+            </Card>
+
+            {/* CRM Interactions */}
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between">
+                <CardTitle className="flex items-center gap-2 text-base">
+                  <PhoneCall className="h-4 w-4" /> Interactions
+                </CardTitle>
+                <Badge variant="outline">{interactions.length}</Badge>
+              </CardHeader>
+              <CardContent className="space-y-2">
+                {interactions.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">No interactions yet.</p>
+                ) : (
+                  interactions.map((i: any) => (
+                    <div key={i.id} className="border rounded-md p-2">
+                      <div className="text-xs text-muted-foreground">
+                        {formatDate(i.interactionDate)} • {i.interactionType}
+                      </div>
+                      <div className="text-sm">{i.notes.slice(0, 80)}...</div>
+                    </div>
+                  ))
+                )}
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="w-full"
+                  onClick={() => {
+                    window.location.href = `/crm/interactions?prefill=${customerId}`;
+                  }}
+                >
+                  <Plus className="h-3 w-3 mr-2" /> Log Interaction
+                </Button>
+              </CardContent>
+            </Card>
+
+            {/* Tickets */}
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between">
+                <CardTitle className="flex items-center gap-2 text-base">
+                  <Ticket className="h-4 w-4" /> Tickets
+                </CardTitle>
+                <Badge variant="outline">{tickets.length}</Badge>
+              </CardHeader>
+              <CardContent className="space-y-2">
+                {tickets.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">No open tickets.</p>
+                ) : (
+                  tickets.map((t: any) => (
+                    <div key={t.id} className="border rounded-md p-2">
+                      <div className="font-mono text-xs">{t.ticketNumber}</div>
+                      <div className="text-sm font-medium">{t.subject}</div>
+                      <div className="text-xs text-muted-foreground">
+                        {t.status} • {t.priority}
+                        {t.slaBreached && (
+                          <span className="text-red-600 font-semibold ml-2">SLA BREACHED</span>
+                        )}
+                      </div>
+                    </div>
+                  ))
+                )}
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="w-full"
+                  onClick={() => {
+                    window.location.href = `/tickets?prefill=${customerId}`;
+                  }}
+                >
+                  <Plus className="h-3 w-3 mr-2" /> New Ticket
+                </Button>
+              </CardContent>
+            </Card>
+          </div>
 
           {/* Vehicles */}
           <Card>
