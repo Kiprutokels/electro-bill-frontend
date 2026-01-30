@@ -84,16 +84,54 @@ export const PERMISSIONS = {
   PROCESSING_FEES_READ: "processing_fees.read",
   PROCESSING_FEES_SETTLE: "processing_fees.settle",
 
-// REQUESTS
-  ADVANCE_REQUESTS_CREATE: 'advance_requests.create',
-  ADVANCE_REQUESTS_READ: 'advance_requests.read',
-  ADVANCE_REQUESTS_APPROVE: 'advance_requests.approve',
-  ADVANCE_REQUESTS_DISBURSE: 'advance_requests.disburse',
+  // REQUESTS
+  ADVANCE_REQUESTS_CREATE: "advance_requests.create",
+  ADVANCE_REQUESTS_READ: "advance_requests.read",
+  ADVANCE_REQUESTS_APPROVE: "advance_requests.approve",
+  ADVANCE_REQUESTS_DISBURSE: "advance_requests.disburse",
 
   SMS_SEND: "sms.send",
   SMS_READ: "sms.read",
 
-  
+  CRM_READ: "crm.read",
+
+  CRM_INTERACTIONS_CREATE: "crm.interactions.create",
+  CRM_INTERACTIONS_READ: "crm.interactions.read",
+
+  CRM_FOLLOWUPS_CREATE: "crm.followups.create",
+  CRM_FOLLOWUPS_READ: "crm.followups.read",
+  CRM_FOLLOWUPS_UPDATE: "crm.followups.update",
+  CRM_FOLLOWUPS_COMPLETE: "crm.followups.complete",
+
+  CRM_ALERTS_READ: "crm.alerts.read",
+  CRM_ALERTS_ACK: "crm.alerts.acknowledge",
+  CRM_ALERTS_RESOLVE: "crm.alerts.resolve",
+
+  CRM_DASHBOARD_READ: "crm.dashboard.read",
+  CRM_DASHBOARD_MANAGER: "crm.dashboard.manager",
+
+  TICKETS_CREATE: "tickets.create",
+  TICKETS_READ: "tickets.read",
+  TICKETS_UPDATE: "tickets.update",
+  TICKETS_ASSIGN: "tickets.assign",
+  TICKETS_COMMENT: "tickets.comment",
+  TICKETS_CLOSE: "tickets.close",
+
+  FEEDBACK_CREATE: "feedback.create",
+  FEEDBACK_READ: "feedback.read",
+  FEEDBACK_ACK: "feedback.acknowledge",
+  FEEDBACK_RESOLVE: "feedback.resolve",
+
+  CAMPAIGNS_CREATE: "campaigns.create",
+  CAMPAIGNS_READ: "campaigns.read",
+  CAMPAIGNS_UPDATE: "campaigns.update",
+  CAMPAIGNS_SCHEDULE: "campaigns.schedule",
+  CAMPAIGNS_SEND: "campaigns.send",
+
+  DEPARTMENTS_CREATE: "departments.create",
+  DEPARTMENTS_READ: "departments.read",
+  DEPARTMENTS_UPDATE: "departments.update",
+  DEPARTMENTS_ASSIGN: "departments.assign",
 } as const;
 
 export const APP_NAME = "ElectroBill";
@@ -123,8 +161,17 @@ export const ROUTES = {
   TECHNICIANS: "/technicians",
   REQUISITIONS: "/requisitions",
   INSPECTIONS: "/inspections",
-  ADVANCE_REQUESTS: '/advance-requests',
-  PROFILE: '/profile',
+  ADVANCE_REQUESTS: "/advance-requests",
+  PROFILE: "/profile",
+
+  CRM_DASHBOARD: "/crm/dashboard",
+  CRM_FOLLOWUPS: "/crm/followups",
+  CRM_INTERACTIONS: "/crm/interactions",
+  CRM_ALERTS: "/crm/alerts",
+  TICKETS: "/tickets",
+  FEEDBACK: "/feedback",
+  CAMPAIGNS: "/campaigns",
+  DEPARTMENTS: "/departments",
 } as const;
 
 export const API_BASE_URL =

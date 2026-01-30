@@ -53,6 +53,17 @@ import MigrationUpload from "./pages/MigrationUpload";
 import Devices from "./pages/Inventory/Devices";
 import SmsManagement from "./pages/SmsManagement";
 
+import CrmDashboard from "./pages/Crm/Dashboard";
+import CrmFollowUps from "./pages/Crm/FollowUps";
+import CrmInteractions from "./pages/Crm/Interactions";
+import CrmAlerts from "./pages/Crm/Alerts";
+import Tickets from "./pages/Tickets";
+import TicketView from "./pages/Tickets/TicketView";
+import Feedback from "./pages/Feedback";
+import Campaigns from "./pages/Campaigns";
+import Departments from "./pages/Departments";
+import Test from "./pages/Test";
+
 const queryClient = new QueryClient();
 
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
@@ -113,7 +124,10 @@ const AppRoutes = () => {
             <Route path="roles" element={<Roles />} />
             <Route path="products" element={<Products />} />
             <Route path="customers" element={<Customers />} />
-            <Route path="customers/:customerId/detail" element={<CustomerDetail />} />
+            <Route
+              path="customers/:customerId/detail"
+              element={<CustomerDetail />}
+            />
             <Route path="users" element={<Users />} />
             <Route path="categories" element={<Categories />} />
             <Route path="brands" element={<Brands />} />
@@ -143,6 +157,20 @@ const AppRoutes = () => {
             <Route path="jobs/:id/workflow" element={<JobWorkflow />} />
             <Route path="notifications" element={<NotificationsPage />} />
             <Route path="migration-upload" element={<MigrationUpload />} />
+
+            <Route path="crm/dashboard" element={<CrmDashboard />} />
+            <Route path="crm/followups" element={<CrmFollowUps />} />
+            <Route path="crm/interactions" element={<CrmInteractions />} />
+            <Route path="crm/alerts" element={<CrmAlerts />} />
+
+            <Route path="tickets" element={<Tickets />} />
+            <Route path="tickets/:id" element={<TicketView />} />
+
+            <Route path="feedback" element={<Feedback />} />
+            <Route path="campaigns" element={<Campaigns />} />
+            <Route path="departments" element={<Departments />} />
+
+            <Route path="Test" element={<Test />} />
           </>
         )}
 

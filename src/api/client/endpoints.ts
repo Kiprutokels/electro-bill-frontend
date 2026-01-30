@@ -175,4 +175,59 @@ export const API_ENDPOINTS = {
     STATS: "/sms/stats",
     TEST: "/sms/test",
   },
+
+
+    // Departments
+  DEPARTMENTS: {
+    BASE: "/departments",
+    BY_ID: (id: string) => `/departments/${id}`,
+    ASSIGN_USER: "/departments/assign-user",
+    REMOVE_USER: (departmentId: string, userId: string) =>
+      `/departments/${departmentId}/users/${userId}`,
+  },
+
+  // CRM
+  CRM: {
+    DASHBOARD_MY: "/crm/dashboard/my",
+    DASHBOARD_MANAGER: "/crm/dashboard/manager",
+
+    INTERACTIONS: "/crm/interactions",
+    INTERACTION_BY_ID: (id: string) => `/crm/interactions/${id}`,
+
+    FOLLOWUPS: "/crm/followups",
+    FOLLOWUP_BY_ID: (id: string) => `/crm/followups/${id}`,
+    FOLLOWUP_COMPLETE: (id: string) => `/crm/followups/${id}/complete`,
+    FOLLOWUP_MY_QUEUE: "/crm/followups/my-queue",
+
+    ALERTS: "/crm/alerts",
+    ALERT_BY_ID: (id: string) => `/crm/alerts/${id}`,
+    ALERT_ACK: (id: string) => `/crm/alerts/${id}/acknowledge`,
+    ALERT_RESOLVE: (id: string) => `/crm/alerts/${id}/resolve`,
+  },
+
+  // Tickets
+  TICKETS: {
+    BASE: "/tickets",
+    BY_ID: (id: string) => `/tickets/${id}`,
+    ASSIGN: (id: string) => `/tickets/${id}/assign`,
+    STATUS: (id: string) => `/tickets/${id}/status`,
+    COMMENTS: (id: string) => `/tickets/${id}/comments`,
+  },
+
+  // Feedback
+  FEEDBACK: {
+    BASE: "/feedback",
+    BY_ID: (id: string) => `/feedback/${id}`,
+    ACK: (id: string) => `/feedback/${id}/acknowledge`,
+    RESOLVE: (id: string) => `/feedback/${id}/resolve`,
+  },
+
+  // Campaigns
+  CAMPAIGNS: {
+    BASE: "/campaigns",
+    BY_ID: (id: string) => `/campaigns/${id}`,
+    PREVIEW_RECIPIENTS: "/campaigns/preview-recipients",
+    SCHEDULE: (id: string) => `/campaigns/${id}/schedule`,
+  },
+
 } as const;
