@@ -20,6 +20,12 @@ import {
   User,
   Upload,
   MessageSquare,
+  ClipboardList,
+  Megaphone,
+  PhoneCall,
+  ShieldAlert,
+  Ticket,
+  Users2,
 } from "lucide-react";
 import {
   Sidebar,
@@ -200,6 +206,62 @@ const adminNavigation = [
     section: "system",
     permission: PERMISSIONS.SMS_READ,
   },
+  {
+  name: "CRM Dashboard",
+  href: "/crm/dashboard",
+  icon: ClipboardList,
+  permission: PERMISSIONS.CRM_DASHBOARD_READ,
+  section: "system",
+},
+{
+  name: "Follow-ups",
+  href: "/crm/followups",
+  icon: ClipboardList,
+  permission: PERMISSIONS.CRM_FOLLOWUPS_READ,
+  section: "system",
+},
+{
+  name: "Interactions",
+  href: "/crm/interactions",
+  icon: PhoneCall,
+  permission: PERMISSIONS.CRM_INTERACTIONS_READ,
+  section: "system",
+},
+{
+  name: "CRM Alerts",
+  href: "/crm/alerts",
+  icon: ShieldAlert,
+  permission: PERMISSIONS.CRM_ALERTS_READ,
+  section: "system",
+},
+{
+  name: "Tickets",
+  href: "/tickets",
+  icon: Ticket,
+  permission: PERMISSIONS.TICKETS_READ,
+  section: "system",
+},
+{
+  name: "Feedback",
+  href: "/feedback",
+  icon: ShieldAlert,
+  permission: PERMISSIONS.FEEDBACK_READ,
+  section: "system",
+},
+{
+  name: "Campaigns",
+  href: "/campaigns",
+  icon: Megaphone,
+  permission: PERMISSIONS.CAMPAIGNS_READ,
+  section: "system",
+},
+{
+  name: "Departments",
+  href: "/departments",
+  icon: Users2,
+  permission: PERMISSIONS.DEPARTMENTS_READ,
+  section: "system",
+},
 ];
 
 // Technician-specific navigation
