@@ -35,6 +35,7 @@ import {
 import { validateRequired } from "@/utils/validation.utils";
 import { toast } from "sonner";
 import ImeiEntryDialog from "./ImeiEntryDialog";
+import ImeiSelectionDialog from "./ImeiSelectionDialog";
 import { DeviceImeiInput } from "@/api/types/device.types";
 
 interface InventoryAdjustmentDialogProps {
@@ -51,7 +52,8 @@ const InventoryAdjustmentDialog: React.FC<InventoryAdjustmentDialogProps> = ({
   onSuccess,
 }) => {
   const [loading, setLoading] = useState(false);
-  const [showImeiDialog, setShowImeiDialog] = useState(false);
+  const [showImeiEntryDialog, setShowImeiEntryDialog] = useState(false);
+  const [showImeiSelectionDialog, setShowImeiSelectionDialog] = useState(false);
 
   const [formData, setFormData] = useState<ManualInventoryAdjustment>({
     productId: "",
@@ -62,8 +64,13 @@ const InventoryAdjustmentDialog: React.FC<InventoryAdjustmentDialogProps> = ({
 
   const [errors, setErrors] = useState<Record<string, string>>({});
 
+  const isTracked = item?.product?.isImeiTracked || false;
+
+  console.log('[InventoryAdjustmentDialog] Item:', item?.product?.name, 'isTracked:', isTracked);
+
   useEffect(() => {
     if (item && open) {
+      console.log('[InventoryAdjustmentDialog] Dialog opened for item:', item.productId);
       setFormData({
         productId: item.productId,
         quantity: 0,
@@ -97,26 +104,40 @@ const InventoryAdjustmentDialog: React.FC<InventoryAdjustmentDialogProps> = ({
     return Object.keys(newErrors).length === 0;
   };
 
-  const submitAdjustment = async (deviceImeis: DeviceImeiInput[]) => {
+  const submitAdjustment = async (deviceImeis: DeviceImeiInput[] | string[]) => {
     if (!item) return;
+
+    console.log('[InventoryAdjustmentDialog] Submitting adjustment:', formData.type, 'quantity:', formData.quantity, 'IMEIs:', deviceImeis.length);
 
     setLoading(true);
     try {
+      const formattedImeis: DeviceImeiInput[] = deviceImeis.map((imei: any) => {
+        if (typeof imei === "string") {
+          return { imeiNumber: imei };
+        }
+        return imei;
+      });
+
       const adjustmentData: any = {
         ...formData,
-        deviceImeis: deviceImeis.length > 0 ? deviceImeis : undefined,
+        deviceImeis: formattedImeis.length > 0 ? formattedImeis : undefined,
       };
 
+      console.log('[InventoryAdjustmentDialog] Adjustment payload:', adjustmentData);
+
       await inventoryService.adjustInventory(adjustmentData);
+      
+      console.log('[InventoryAdjustmentDialog] Adjustment successful');
       toast.success(
-        deviceImeis.length > 0
-          ? `Inventory adjusted with ${deviceImeis.length} device IMEIs`
+        formattedImeis.length > 0
+          ? `Inventory adjusted with ${formattedImeis.length} device IMEIs`
           : "Inventory adjusted successfully",
       );
       onSuccess();
       onOpenChange(false);
       resetForm();
     } catch (err: any) {
+      console.error('[InventoryAdjustmentDialog] Adjustment error:', err);
       const errorMessage =
         err.response?.data?.message || "Failed to adjust inventory";
       toast.error(errorMessage);
@@ -129,15 +150,58 @@ const InventoryAdjustmentDialog: React.FC<InventoryAdjustmentDialogProps> = ({
     e.preventDefault();
     if (!validateForm() || !item) return;
 
+    console.log('[InventoryAdjustmentDialog] Form submitted, type:', formData.type, 'isTracked:', isTracked);
+
+    // For INCREASE: optionally add IMEIs (manual entry)
     if (formData.type === InventoryAdjustmentType.INCREASE) {
-      setShowImeiDialog(true);
+      console.log('[InventoryAdjustmentDialog] INCREASE: opening IMEI entry dialog');
+      setShowImeiEntryDialog(true);
       return;
     }
 
-    await submitAdjustment([]);
+    // For DECREASE: if tracked, must select existing IMEIs
+    if (formData.type === InventoryAdjustmentType.DECREASE) {
+      if (isTracked) {
+        console.log('[InventoryAdjustmentDialog] DECREASE (tracked): opening IMEI selection dialog');
+        setShowImeiSelectionDialog(true);
+        return;
+      } else {
+        console.log('[InventoryAdjustmentDialog] DECREASE (non-tracked): submitting without IMEIs');
+        await submitAdjustment([]);
+        return;
+      }
+    }
+
+    // For CORRECTION: handle both increase and decrease
+    if (formData.type === InventoryAdjustmentType.CORRECTION) {
+      const currentQty = item.quantityAvailable || 0;
+      const targetQty = formData.quantity;
+      const diff = targetQty - currentQty;
+
+      console.log('[InventoryAdjustmentDialog] CORRECTION: current=', currentQty, 'target=', targetQty, 'diff=', diff);
+
+      if (diff > 0 && isTracked) {
+        // Need to add devices
+        console.log('[InventoryAdjustmentDialog] CORRECTION (increase, tracked): opening IMEI entry dialog');
+        setShowImeiEntryDialog(true);
+        return;
+      }
+
+      if (diff < 0 && isTracked) {
+        // Need to remove devices
+        console.log('[InventoryAdjustmentDialog] CORRECTION (decrease, tracked): opening IMEI selection dialog');
+        setShowImeiSelectionDialog(true);
+        return;
+      }
+
+      // Non-tracked or no change
+      console.log('[InventoryAdjustmentDialog] CORRECTION (non-tracked): submitting without IMEIs');
+      await submitAdjustment([]);
+    }
   };
 
   const resetForm = () => {
+    console.log('[InventoryAdjustmentDialog] Resetting form');
     setFormData({
       productId: item?.productId || "",
       quantity: 0,
@@ -198,6 +262,12 @@ const InventoryAdjustmentDialog: React.FC<InventoryAdjustmentDialogProps> = ({
                   {item.quantityAvailable || 0} units
                 </Badge>
               </div>
+              {isTracked && (
+                <div className="flex items-center gap-2 mt-2 text-amber-600">
+                  <Smartphone className="h-4 w-4" />
+                  <span className="text-xs font-medium">IMEI-Tracked Product</span>
+                </div>
+              )}
             </div>
 
             {/* Adjustment Type */}
@@ -308,7 +378,19 @@ const InventoryAdjustmentDialog: React.FC<InventoryAdjustmentDialogProps> = ({
                 <div className="flex items-center gap-2 p-3 bg-blue-50 border border-blue-200 rounded-lg">
                   <Smartphone className="h-4 w-4 text-blue-600 flex-shrink-0" />
                   <p className="text-sm text-blue-800">
-                    You can add device IMEIs after clicking Continue (optional)
+                    You can add device IMEIs in the next step (optional for increase)
+                  </p>
+                </div>
+              )}
+
+            {/* IMEI Notice for DECREASE (tracked) */}
+            {formData.type === InventoryAdjustmentType.DECREASE &&
+              isTracked &&
+              formData.quantity > 0 && (
+                <div className="flex items-center gap-2 p-3 bg-amber-50 border border-amber-200 rounded-lg">
+                  <AlertTriangle className="h-4 w-4 text-amber-600 flex-shrink-0" />
+                  <p className="text-sm text-amber-800">
+                    You must select {formData.quantity} device(s) to remove in the next step
                   </p>
                 </div>
               )}
@@ -366,22 +448,25 @@ const InventoryAdjustmentDialog: React.FC<InventoryAdjustmentDialogProps> = ({
               <Button type="submit" disabled={loading}>
                 {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 {loading
-                  ? "Adjusting..."
-                  : formData.type === InventoryAdjustmentType.INCREASE
-                    ? "Continue"
-                    : "Adjust Stock"}
+                  ? "Processing..."
+                  : formData.type === InventoryAdjustmentType.DECREASE && isTracked
+                    ? "Select Devices"
+                    : formData.type === InventoryAdjustmentType.INCREASE
+                      ? "Continue"
+                      : "Adjust Stock"}
               </Button>
             </div>
           </form>
         </DialogContent>
       </Dialog>
 
-      {/* IMEI Entry Dialog */}
+      {/* IMEI Entry Dialog (for INCREASE) */}
       <ImeiEntryDialog
-        open={showImeiDialog}
-        onOpenChange={setShowImeiDialog}
+        open={showImeiEntryDialog}
+        onOpenChange={setShowImeiEntryDialog}
         requiredCount={formData.quantity}
         onConfirm={(imeis) => {
+          console.log('[InventoryAdjustmentDialog] IMEI entry confirmed:', imeis.length, 'IMEIs');
           const deviceImeis: DeviceImeiInput[] = imeis.map((i) => ({
             imeiNumber: i.imeiNumber,
             notes: i.notes,
@@ -389,6 +474,21 @@ const InventoryAdjustmentDialog: React.FC<InventoryAdjustmentDialogProps> = ({
           submitAdjustment(deviceImeis);
         }}
         productName={item?.product?.name || "Product"}
+      />
+
+      {/* IMEI Selection Dialog (for DECREASE) */}
+      <ImeiSelectionDialog
+        open={showImeiSelectionDialog}
+        onOpenChange={setShowImeiSelectionDialog}
+        productId={item?.productId || ""}
+        productName={item?.product?.name || "Product"}
+        batchId={item?.batchId || undefined}
+        location={item?.location}
+        requiredCount={formData.quantity}
+        onConfirm={(selectedImeis) => {
+          console.log('[InventoryAdjustmentDialog] IMEI selection confirmed:', selectedImeis.length, 'IMEIs');
+          submitAdjustment(selectedImeis);
+        }}
       />
     </>
   );
