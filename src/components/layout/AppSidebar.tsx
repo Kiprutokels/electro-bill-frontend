@@ -164,13 +164,13 @@ const adminNavigation = [
   },
 
   // System Section
-  {
-    name: "Reports",
-    href: ROUTES.REPORTS,
-    icon: BarChart3,
-    permission: PERMISSIONS.REPORTS_VIEW,
-    section: "system",
-  },
+  // {
+  //   name: "Reports",
+  //   href: ROUTES.REPORTS,
+  //   icon: BarChart3,
+  //   permission: PERMISSIONS.REPORTS_VIEW,
+  //   section: "system",
+  // },
   {
     name: "Users",
     href: "/users",

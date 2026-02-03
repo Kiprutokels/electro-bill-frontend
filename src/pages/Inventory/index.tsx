@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -38,14 +38,19 @@ import {
   MoreHorizontal,
   FileBarChart,
   PackageOpen,
+  ArrowLeftRight,
+  MapPin,
+  Smartphone,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { PERMISSIONS } from "@/utils/constants";
 import { InventoryItem } from "@/api/services/inventory.service";
+import { locationsService, WarehouseLocation } from "@/api/services/locations.service";
 import { formatDate } from "@/utils/format.utils";
 import { useInventory } from "@/hooks/useInventory";
 import InventoryViewDialog from "@/components/inventory/InventoryViewDialog";
 import InventoryAdjustmentDialog from "@/components/inventory/InventoryAdjustmentDialog";
+import TransferInventoryDialog from "@/components/inventory/TransferInventoryDialog";
 import { toast } from "sonner";
 
 const PAGE_SIZE_OPTIONS = [
@@ -53,7 +58,6 @@ const PAGE_SIZE_OPTIONS = [
   { label: "25", value: 25 },
   { label: "50", value: 50 },
   { label: "100", value: 100 },
-  { label: "All", value: -1 },
 ];
 
 const Inventory = () => {
@@ -80,7 +84,30 @@ const Inventory = () => {
 
   const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
   const [isAdjustmentDialogOpen, setIsAdjustmentDialogOpen] = useState(false);
+  const [isTransferDialogOpen, setIsTransferDialogOpen] = useState(false);
   const [selectedItem, setSelectedItem] = useState<InventoryItem | null>(null);
+  const [locations, setLocations] = useState<WarehouseLocation[]>([]);
+  const [loadingLocations, setLoadingLocations] = useState(false);
+
+  // Fetch locations on component mount
+  useEffect(() => {
+    const fetchLocations = async () => {
+      console.log('[Inventory] Fetching locations for filter');
+      setLoadingLocations(true);
+      try {
+        const data = await locationsService.getAll(false);
+        console.log('[Inventory] Fetched', data.length, 'active locations');
+        setLocations(data.filter((loc) => loc.isActive));
+      } catch (err: any) {
+        console.error('[Inventory] Fetch locations error:', err);
+        toast.error("Failed to load locations");
+      } finally {
+        setLoadingLocations(false);
+      }
+    };
+
+    fetchLocations();
+  }, []);
 
   const handleView = (item: InventoryItem) => {
     setSelectedItem(item);
@@ -192,9 +219,21 @@ const Inventory = () => {
         </div>
         <div className="flex gap-2">
           {hasPermission(PERMISSIONS.INVENTORY_READ) && (
+            <Button variant="outline" onClick={() => navigate("/inventory/devices")}>
+              <Smartphone className="mr-2 h-4 w-4" />
+              View Devices
+            </Button>
+          )}
+          {hasPermission(PERMISSIONS.INVENTORY_READ) && (
             <Button variant="outline" onClick={() => navigate("/inventory/batches")}>
               <PackageOpen className="mr-2 h-4 w-4" />
               View Batches
+            </Button>
+          )}
+          {hasPermission(PERMISSIONS.INVENTORY_READ) && (
+            <Button variant="outline" onClick={() => navigate("/inventory/locations")}>
+              <MapPin className="mr-2 h-4 w-4" />
+              Locations
             </Button>
           )}
           {hasPermission(PERMISSIONS.INVENTORY_READ) && (
@@ -299,13 +338,18 @@ const Inventory = () => {
               <Select
                 value={filters.location || "all"}
                 onValueChange={handleLocationFilterChange}
+                disabled={loadingLocations}
               >
                 <SelectTrigger className="w-full sm:w-40">
                   <SelectValue placeholder="Location" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All Locations</SelectItem>
-                  <SelectItem value="MAIN_WAREHOUSE">Main Warehouse</SelectItem>
+                  {locations.map((loc) => (
+                    <SelectItem key={loc.id} value={loc.code}>
+                      {loc.name}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
 
@@ -448,6 +492,15 @@ const Inventory = () => {
                                   Adjust Stock
                                 </DropdownMenuItem>
                               )}
+                              {hasPermission(PERMISSIONS.INVENTORY_UPDATE) && (
+                                <DropdownMenuItem onClick={() => {
+                                  setSelectedItem(item);
+                                  setIsTransferDialogOpen(true);
+                                }}>
+                                  <ArrowLeftRight className="mr-2 h-4 w-4" />
+                                  Transfer Stock
+                                </DropdownMenuItem>
+                              )}
                             </DropdownMenuContent>
                           </DropdownMenu>
                         </TableCell>
@@ -509,6 +562,16 @@ const Inventory = () => {
         onSuccess={() => {
           refresh();
           toast.success("Inventory adjusted successfully");
+        }}
+      />
+
+      <TransferInventoryDialog
+        open={isTransferDialogOpen}
+        onOpenChange={setIsTransferDialogOpen}
+        item={selectedItem}
+        onSuccess={() => {
+          refresh();
+          toast.success("Inventory transferred successfully");
         }}
       />
     </div>
