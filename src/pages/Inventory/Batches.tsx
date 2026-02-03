@@ -47,6 +47,7 @@ import {
   Calendar,
   AlertTriangle,
   ArrowLeft,
+  Smartphone,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
@@ -427,6 +428,11 @@ const ProductBatches = () => {
                                 <DropdownMenuItem onClick={() => handleView(batch)}>
                                   <Eye className="mr-2 h-4 w-4" />
                                   View Details
+                                </DropdownMenuItem>
+
+                                <DropdownMenuItem onClick={() => navigate(`/inventory/batches/${batch.id}/devices`)}>
+                                  <Smartphone className="mr-2 h-4 w-4" />
+                                  View Devices
                                 </DropdownMenuItem>
 
                                 {hasPermission(PERMISSIONS.INVENTORY_UPDATE) && (
