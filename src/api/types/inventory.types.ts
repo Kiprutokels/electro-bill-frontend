@@ -1,11 +1,10 @@
-import { ImeiNumberInput } from "./imei.types";
-
 export interface InventoryProduct {
   id: string;
   name: string;
   sku: string;
   sellingPrice: string;
   reorderLevel: number;
+  isImeiTracked?: boolean;
   category: {
     id: string;
     name: string;
@@ -129,6 +128,10 @@ export enum InventoryAdjustmentType {
   INCREASE = 'INCREASE',
   DECREASE = 'DECREASE',
   CORRECTION = 'CORRECTION',
+}
+
+export interface ImeiNumberInput {
+  imeiNumber: string;
 }
 
 export interface ManualInventoryAdjustment {
