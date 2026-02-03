@@ -9,11 +9,18 @@ import {
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
-import { RefreshCw, Loader2, Search, Smartphone } from "lucide-react";
-import apiClient from "@/api/client/axios";
-import { Device, DeviceStatus } from "@/api/types/device.types";
+import { Loader2, RefreshCw, Search, Smartphone, Eye, Edit, Zap, Send, AlertTriangle, RotateCcw, Power, History } from "lucide-react";
 import { toast } from "sonner";
 import { formatDate } from "@/utils/format.utils";
+import { Device, DeviceStatus } from "@/api/types/device.types";
+import { devicesService } from "@/api/services/devices.service";
+import ViewDeviceDialog from "@/components/devices/ViewDeviceDialog";
+import EditDeviceDialog from "@/components/devices/EditDeviceDialog";
+import IssueDeviceDialog from "@/components/devices/IssueDeviceDialog";
+import ActivateDeviceDialog from "@/components/devices/ActivateDeviceDialog";
+import DeviceNoteActionDialog from "@/components/devices/DeviceNoteActionDialog";
+import DeviceHistoryDialog from "@/components/devices/DeviceHistoryDialog";
+import { useAuth } from "@/contexts/AuthContext";
 
 const PAGE_SIZE_OPTIONS = [
   { label: "10", value: 10 },
@@ -35,6 +42,9 @@ const statusColor = (s: DeviceStatus) => {
 };
 
 const Devices = () => {
+  const { user } = useAuth();
+  const currentUserId = user?.id;
+
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
@@ -46,10 +56,19 @@ const Devices = () => {
 
   const [devices, setDevices] = useState<Device[]>([]);
   const [total, setTotal] = useState<number>(0);
-  const totalPages = useMemo(() => {
-    if (pageSize < 0) return 1;
-    return Math.max(1, Math.ceil(total / pageSize));
-  }, [total, pageSize]);
+
+  // dialogs
+  const [selectedImei, setSelectedImei] = useState<string | null>(null);
+  const [selectedDevice, setSelectedDevice] = useState<Device | null>(null);
+  const [isViewOpen, setIsViewOpen] = useState(false);
+  const [isEditOpen, setIsEditOpen] = useState(false);
+  const [isIssueOpen, setIsIssueOpen] = useState(false);
+  const [isActivateOpen, setIsActivateOpen] = useState(false);
+  const [isNoteActionOpen, setIsNoteActionOpen] = useState(false);
+  const [noteAction, setNoteAction] = useState<"DAMAGED" | "RETURNED" | "DEACTIVATE">("DAMAGED");
+  const [isHistoryOpen, setIsHistoryOpen] = useState(false);
+
+  const totalPages = useMemo(() => Math.max(1, Math.ceil(total / pageSize)), [total, pageSize]);
 
   const fetchDevices = async (opts?: { refresh?: boolean }) => {
     const isRefresh = !!opts?.refresh;
@@ -57,24 +76,27 @@ const Devices = () => {
       if (isRefresh) setRefreshing(true);
       else setLoading(true);
 
-      const effectivePage = pageSize < 0 ? 1 : page;
+      const effectivePage = page;
 
-      const res = await apiClient.get(`/devices`, {
-        params: {
-          page: effectivePage,
-          limit: pageSize,
-          search: search.trim() || undefined,
-          status: status === "all" ? undefined : status,
-        },
+      console.log("[Devices] Fetching list:", {
+        page: effectivePage,
+        limit: pageSize,
+        search,
+        status,
       });
 
-      const data = res.data?.data ?? res.data ?? [];
-      const meta = res.data?.meta;
+      const res = await devicesService.list({
+        page: effectivePage,
+        limit: pageSize,
+        search: search.trim() || undefined,
+        status: status === "all" ? undefined : status,
+      });
 
-      setDevices(data);
-      setTotal(meta?.total ?? data.length);
+      setDevices(res.data || []);
+      setTotal(res.meta?.total ?? (res.data?.length ?? 0));
       setPage(effectivePage);
     } catch (e: any) {
+      console.error("[Devices] Fetch error:", e);
       toast.error(e?.response?.data?.message || "Failed to load devices");
     } finally {
       setLoading(false);
@@ -82,16 +104,49 @@ const Devices = () => {
     }
   };
 
+  const loadFullDeviceAndOpen = async (imei: string, mode: "view" | "edit" | "issue" | "activate" | "history") => {
+    try {
+      console.log("[Devices] Loading full device for action:", { imei, mode });
+      setSelectedImei(imei);
+
+      const full = await devicesService.getByImei(imei);
+      console.log("[Devices] Full device loaded:", full?.imeiNumber);
+
+      setSelectedDevice(full);
+
+      if (mode === "view") setIsViewOpen(true);
+      if (mode === "edit") setIsEditOpen(true);
+      if (mode === "issue") setIsIssueOpen(true);
+      if (mode === "activate") setIsActivateOpen(true);
+      if (mode === "history") setIsHistoryOpen(true);
+    } catch (err: any) {
+      console.error("[Devices] Load full device error:", err);
+      toast.error(err?.response?.data?.message || "Failed to load device details");
+    }
+  };
+
+  const doRefreshAfterAction = async () => {
+    console.log("[Devices] Refresh after action");
+    await fetchDevices({ refresh: true });
+
+    if (selectedImei) {
+      try {
+        const full = await devicesService.getByImei(selectedImei);
+        setSelectedDevice(full);
+      } catch (e) {
+        console.warn("[Devices] Could not refresh selected device", e);
+      }
+    }
+  };
+
   useEffect(() => {
-    const t = setTimeout(() => {
-      fetchDevices();
-    }, 300);
+    const t = setTimeout(() => fetchDevices(), 250);
     return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [search, status, pageSize, page]);
 
-  const from = total === 0 ? 0 : (pageSize < 0 ? 1 : (page - 1) * pageSize + 1);
-  const to = total === 0 ? 0 : (pageSize < 0 ? total : Math.min(page * pageSize, total));
+  const from = total === 0 ? 0 : (page - 1) * pageSize + 1;
+  const to = total === 0 ? 0 : Math.min(page * pageSize, total);
 
   if (loading && devices.length === 0) {
     return (
@@ -187,12 +242,14 @@ const Devices = () => {
                     <TableHead>Status</TableHead>
                     <TableHead className="hidden md:table-cell">Batch</TableHead>
                     <TableHead className="hidden md:table-cell">Created</TableHead>
+                    <TableHead className="text-right min-w-[220px]">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
+
                 <TableBody>
                   {devices.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={5} className="text-center py-10">
+                      <TableCell colSpan={6} className="text-center py-10">
                         <div className="text-muted-foreground">No devices found.</div>
                       </TableCell>
                     </TableRow>
@@ -200,6 +257,7 @@ const Devices = () => {
                     devices.map((d) => (
                       <TableRow key={d.id}>
                         <TableCell className="font-mono font-medium">{d.imeiNumber}</TableCell>
+
                         <TableCell>
                           <div>
                             <div className="font-medium">{d.product?.name || d.productId}</div>
@@ -208,21 +266,121 @@ const Devices = () => {
                             </div>
                           </div>
                         </TableCell>
+
                         <TableCell>
                           <Badge className={statusColor(d.status)} variant="default">
                             {d.status}
                           </Badge>
                         </TableCell>
+
                         <TableCell className="hidden md:table-cell font-mono">
                           {d.batch?.batchNumber || "—"}
                         </TableCell>
+
                         <TableCell className="hidden md:table-cell">
                           {formatDate(d.createdAt)}
+                        </TableCell>
+
+                        <TableCell className="text-right">
+                          <div className="flex justify-end flex-wrap gap-2">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => loadFullDeviceAndOpen(d.imeiNumber, "view")}
+                            >
+                              <Eye className="h-4 w-4 mr-1" />
+                              View
+                            </Button>
+
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => loadFullDeviceAndOpen(d.imeiNumber, "edit")}
+                            >
+                              <Edit className="h-4 w-4 mr-1" />
+                              Edit
+                            </Button>
+
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => loadFullDeviceAndOpen(d.imeiNumber, "history")}
+                            >
+                              <History className="h-4 w-4 mr-1" />
+                              History
+                            </Button>
+
+                            {d.status === DeviceStatus.AVAILABLE && (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => loadFullDeviceAndOpen(d.imeiNumber, "issue")}
+                                disabled={!currentUserId}
+                                title={!currentUserId ? "No current user ID in auth context" : undefined}
+                              >
+                                <Send className="h-4 w-4 mr-1" />
+                                Issue
+                              </Button>
+                            )}
+
+                            {(d.status === DeviceStatus.AVAILABLE || d.status === DeviceStatus.ISSUED) && (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => loadFullDeviceAndOpen(d.imeiNumber, "activate")}
+                              >
+                                <Zap className="h-4 w-4 mr-1" />
+                                Activate
+                              </Button>
+                            )}
+
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={async () => {
+                                await loadFullDeviceAndOpen(d.imeiNumber, "view");
+                                setNoteAction("DAMAGED");
+                                setIsNoteActionOpen(true);
+                              }}
+                            >
+                              <AlertTriangle className="h-4 w-4 mr-1" />
+                              Damaged
+                            </Button>
+
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={async () => {
+                                await loadFullDeviceAndOpen(d.imeiNumber, "view");
+                                setNoteAction("RETURNED");
+                                setIsNoteActionOpen(true);
+                              }}
+                            >
+                              <RotateCcw className="h-4 w-4 mr-1" />
+                              Returned
+                            </Button>
+
+                            {d.status === DeviceStatus.ACTIVE && (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={async () => {
+                                  await loadFullDeviceAndOpen(d.imeiNumber, "view");
+                                  setNoteAction("DEACTIVATE");
+                                  setIsNoteActionOpen(true);
+                                }}
+                              >
+                                <Power className="h-4 w-4 mr-1" />
+                                Deactivate
+                              </Button>
+                            )}
+                          </div>
                         </TableCell>
                       </TableRow>
                     ))
                   )}
                 </TableBody>
+
               </Table>
             </div>
           </div>
@@ -233,7 +391,7 @@ const Devices = () => {
                 Showing {from} to {to} of {total} entries
               </p>
 
-              {pageSize >= 0 && totalPages > 1 && (
+              {totalPages > 1 && (
                 <div className="flex gap-2">
                   <Button
                     variant="outline"
@@ -257,6 +415,84 @@ const Devices = () => {
           )}
         </CardContent>
       </Card>
+
+      {/* View */}
+      <ViewDeviceDialog
+        open={isViewOpen}
+        onOpenChange={setIsViewOpen}
+        device={selectedDevice}
+        onEdit={() => setIsEditOpen(true)}
+        onViewHistory={() => setIsHistoryOpen(true)}
+        onIssue={() => setIsIssueOpen(true)}
+        onActivate={() => setIsActivateOpen(true)}
+        onDamaged={() => { setNoteAction("DAMAGED"); setIsNoteActionOpen(true); }}
+        onReturned={() => { setNoteAction("RETURNED"); setIsNoteActionOpen(true); }}
+        onDeactivate={() => { setNoteAction("DEACTIVATE"); setIsNoteActionOpen(true); }}
+      />
+
+      {/* Edit */}
+      <EditDeviceDialog
+        open={isEditOpen}
+        onOpenChange={setIsEditOpen}
+        device={selectedDevice}
+        onUpdated={async (d) => {
+          setSelectedDevice(d);
+          await doRefreshAfterAction();
+        }}
+      />
+
+      {/* Issue */}
+      <IssueDeviceDialog
+        open={isIssueOpen}
+        onOpenChange={setIsIssueOpen}
+        device={selectedDevice}
+        currentUserId={currentUserId || ""}
+        onIssued={async (d) => {
+          setSelectedDevice(d);
+          await doRefreshAfterAction();
+        }}
+      />
+
+      {/* Activate */}
+      <ActivateDeviceDialog
+        open={isActivateOpen}
+        onOpenChange={setIsActivateOpen}
+        device={selectedDevice}
+        onActivated={async (d) => {
+          setSelectedDevice(d);
+          await doRefreshAfterAction();
+        }}
+      />
+
+      {/* Status Note Actions */}
+      <DeviceNoteActionDialog
+        open={isNoteActionOpen}
+        onOpenChange={setIsNoteActionOpen}
+        device={selectedDevice}
+        action={noteAction}
+        onConfirm={async (notes?: string) => {
+          if (!selectedDevice) return;
+
+          if (noteAction === "DAMAGED") {
+            await devicesService.damaged(selectedDevice.imeiNumber, notes);
+          }
+          if (noteAction === "RETURNED") {
+            await devicesService.returned(selectedDevice.imeiNumber, notes);
+          }
+          if (noteAction === "DEACTIVATE") {
+            await devicesService.deactivate(selectedDevice.imeiNumber, notes);
+          }
+
+          await doRefreshAfterAction();
+        }}
+      />
+
+      {/* History */}
+      <DeviceHistoryDialog
+        open={isHistoryOpen}
+        onOpenChange={setIsHistoryOpen}
+        device={selectedDevice}
+      />
     </div>
   );
 };
