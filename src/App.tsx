@@ -63,6 +63,10 @@ import Feedback from "./pages/Feedback";
 import Campaigns from "./pages/Campaigns";
 import Departments from "./pages/Departments";
 import Test from "./pages/Test";
+import ManagerTools from "./pages/Crm/ManagerTools";
+import MySubscriptions from "./pages/Crm/MySubscriptions";
+import Locations from "./pages/Inventory/Locations";
+import BatchDevices from "./pages/Inventory/BatchDevices";
 
 const queryClient = new QueryClient();
 
@@ -134,6 +138,8 @@ const AppRoutes = () => {
             <Route path="inventory" element={<Inventory />} />
             <Route path="inventory/batches" element={<ProductBatches />} />
             <Route path="inventory/devices" element={<Devices />} />
+            <Route path="inventory/batches/:batchId/devices" element={<BatchDevices />} />
+            <Route path="inventory/locations" element={<Locations />} />
             <Route path="quotations" element={<Quotations />} />
             <Route path="invoices" element={<Invoices />} />
             <Route path="invoices/:id" element={<InvoiceView />} />
@@ -162,6 +168,8 @@ const AppRoutes = () => {
             <Route path="crm/followups" element={<CrmFollowUps />} />
             <Route path="crm/interactions" element={<CrmInteractions />} />
             <Route path="crm/alerts" element={<CrmAlerts />} />
+            <Route path="crm/my-subscriptions" element={<MySubscriptions />} />
+            <Route path="crm/manager-tools" element={<ManagerTools />} />
 
             <Route path="tickets" element={<Tickets />} />
             <Route path="tickets/:id" element={<TicketView />} />
