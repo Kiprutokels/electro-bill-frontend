@@ -262,6 +262,20 @@ const adminNavigation = [
   permission: PERMISSIONS.DEPARTMENTS_READ,
   section: "system",
 },
+{
+  name: "My Subscriptions",
+  href: "/crm/my-subscriptions",
+  icon: ClipboardList,
+  permission: PERMISSIONS.SUBSCRIPTIONS_READ,
+  section: "system",
+},
+{
+  name: "CRM Manager Tools",
+  href: "/crm/manager-tools",
+  icon: Users2,
+  permission: PERMISSIONS.SUBSCRIPTIONS_UPDATE,
+  section: "system",
+},
 ];
 
 // Technician-specific navigation
