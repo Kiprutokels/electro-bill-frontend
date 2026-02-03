@@ -28,6 +28,8 @@ import {
   Car,
   MapPin,
   Wrench,
+  Users2,
+  SlidersHorizontal,
 } from "lucide-react";
 import {
   Subscription,
@@ -38,6 +40,8 @@ import { formatCurrency, formatDate } from "@/utils/format.utils";
 import { useAuth } from "@/contexts/AuthContext";
 import { PERMISSIONS } from "@/utils/constants";
 import { toast } from "sonner";
+import AssignOwnerDialog from "@/components/subscriptions/AssignOwnerDialog";
+import CrmConfigDialog from "@/components/subscriptions/CrmConfigDialog";
 
 interface SubscriptionViewDialogProps {
   open: boolean;
@@ -59,6 +63,9 @@ const SubscriptionViewDialog: React.FC<SubscriptionViewDialogProps> = ({
 
   const [detailsLoading, setDetailsLoading] = useState(false);
   const [details, setDetails] = useState<Subscription | null>(null);
+
+  const [assignOwnerOpen, setAssignOwnerOpen] = useState(false);
+  const [crmConfigOpen, setCrmConfigOpen] = useState(false);
 
   useEffect(() => {
     const run = async () => {
@@ -162,16 +169,26 @@ const SubscriptionViewDialog: React.FC<SubscriptionViewDialogProps> = ({
   };
 
   const subscriptionFee = useMemo(() => {
-    const pFee = s.product?.subscriptionFee
-      ? Number(s.product.subscriptionFee)
-      : 0;
+    const pFee = s.product?.subscriptionFee ? Number(s.product.subscriptionFee) : 0;
     if (pFee > 0) return pFee;
     return s.renewalPrice ? Number(s.renewalPrice) : 0;
   }, [s.product?.subscriptionFee, s.renewalPrice]);
 
+  const ownerName =
+    s.accountOwner ? `${s.accountOwner.firstName} ${s.accountOwner.lastName}` : "Unassigned";
+
+  const crmTags = useMemo(() => {
+    try {
+      const parsed = s.tags ? JSON.parse(s.tags) : [];
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      return [];
+    }
+  }, [s.tags]);
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <div className="flex items-center justify-between">
             <DialogTitle className="flex items-center gap-2">
@@ -181,8 +198,7 @@ const SubscriptionViewDialog: React.FC<SubscriptionViewDialogProps> = ({
             {getStatusBadge(s.status)}
           </div>
           <DialogDescription>
-            View subscription information, device linkage, and installation
-            history
+            Subscription + device + installation + CRM ownership/workflow
           </DialogDescription>
         </DialogHeader>
 
@@ -194,6 +210,61 @@ const SubscriptionViewDialog: React.FC<SubscriptionViewDialogProps> = ({
         )}
 
         <div className="space-y-4">
+          {/* CRM Summary */}
+          <Card className="border-l-4 border-l-blue-500">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Users2 className="h-5 w-5" />
+                CRM Ownership & Follow-up
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="grid grid-cols-1 md:grid-cols-4 gap-3 text-sm">
+              <div>
+                <div className="text-muted-foreground">Owner</div>
+                <div className="font-medium">{ownerName}</div>
+              </div>
+              <div>
+                <div className="text-muted-foreground">CRM Status</div>
+                <div className="font-medium">{s.crmStatus ?? "ACTIVE"}</div>
+              </div>
+              <div>
+                <div className="text-muted-foreground">Priority</div>
+                <div className="font-medium">{s.priority ?? "NORMAL"}</div>
+              </div>
+              <div>
+                <div className="text-muted-foreground">Next Follow-up</div>
+                <div className="font-medium">
+                  {s.nextFollowUpDate ? formatDate(s.nextFollowUpDate) : "—"}
+                </div>
+              </div>
+
+              <div className="md:col-span-4">
+                <div className="text-muted-foreground">Tags</div>
+                <div className="flex flex-wrap gap-2 mt-1">
+                  {crmTags.length ? crmTags.map((t: string) => (
+                    <Badge key={t} variant="outline">{t}</Badge>
+                  )) : <span className="text-muted-foreground">—</span>}
+                </div>
+              </div>
+
+              <div className="md:col-span-4 flex gap-2 pt-2">
+                {hasPermission(PERMISSIONS.SUBSCRIPTIONS_UPDATE) && (
+                  <>
+                    <Button variant="outline" onClick={() => setAssignOwnerOpen(true)}>
+                      <Users2 className="h-4 w-4 mr-2" />
+                      Assign Owner
+                    </Button>
+                    <Button variant="outline" onClick={() => setCrmConfigOpen(true)}>
+                      <SlidersHorizontal className="h-4 w-4 mr-2" />
+                      CRM Config
+                    </Button>
+                  </>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Existing sections unchanged */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
             <Card>
               <CardHeader>
@@ -204,12 +275,8 @@ const SubscriptionViewDialog: React.FC<SubscriptionViewDialogProps> = ({
               </CardHeader>
               <CardContent className="space-y-4">
                 <div>
-                  <p className="text-sm text-muted-foreground">
-                    Subscription Number
-                  </p>
-                  <p className="font-mono font-medium">
-                    {s.subscriptionNumber}
-                  </p>
+                  <p className="text-sm text-muted-foreground">Subscription Number</p>
+                  <p className="font-mono font-medium">{s.subscriptionNumber}</p>
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -224,35 +291,17 @@ const SubscriptionViewDialog: React.FC<SubscriptionViewDialogProps> = ({
                 </div>
 
                 <div>
-                  <p className="text-sm text-muted-foreground">
-                    Days Until Expiry
-                  </p>
+                  <p className="text-sm text-muted-foreground">Days Until Expiry</p>
                   <Badge
-                    variant={
-                      daysLeft < 0
-                        ? "destructive"
-                        : daysLeft <= 7
-                          ? "default"
-                          : "outline"
-                    }
-                    className={
-                      daysLeft < 0
-                        ? "bg-red-500 text-white"
-                        : daysLeft <= 7
-                          ? "bg-yellow-500 text-white"
-                          : ""
-                    }
+                    variant={daysLeft < 0 ? "destructive" : daysLeft <= 7 ? "default" : "outline"}
+                    className={daysLeft < 0 ? "bg-red-500 text-white" : daysLeft <= 7 ? "bg-yellow-500 text-white" : ""}
                   >
-                    {daysLeft < 0
-                      ? `Expired ${Math.abs(daysLeft)} days ago`
-                      : `${daysLeft} days`}
+                    {daysLeft < 0 ? `Expired ${Math.abs(daysLeft)} days ago` : `${daysLeft} days`}
                   </Badge>
                 </div>
 
                 <div>
-                  <p className="text-sm text-muted-foreground">
-                    Subscription Fee
-                  </p>
+                  <p className="text-sm text-muted-foreground">Subscription Fee</p>
                   <p className="font-medium text-lg flex items-center gap-1">
                     <DollarSign className="h-4 w-4" />
                     {formatCurrency(subscriptionFee)}
@@ -278,24 +327,18 @@ const SubscriptionViewDialog: React.FC<SubscriptionViewDialogProps> = ({
               <CardContent className="space-y-4">
                 <div>
                   <p className="text-sm text-muted-foreground">Customer Code</p>
-                  <p className="font-medium">
-                    {s.customer?.customerCode || "N/A"}
-                  </p>
+                  <p className="font-medium">{s.customer?.customerCode || "N/A"}</p>
                 </div>
 
                 {s.customer?.businessName && (
                   <div>
-                    <p className="text-sm text-muted-foreground">
-                      Business Name
-                    </p>
+                    <p className="text-sm text-muted-foreground">Business Name</p>
                     <p className="font-medium">{s.customer.businessName}</p>
                   </div>
                 )}
 
                 <div>
-                  <p className="text-sm text-muted-foreground">
-                    Contact Person
-                  </p>
+                  <p className="text-sm text-muted-foreground">Contact Person</p>
                   <p>{s.customer?.contactPerson || "N/A"}</p>
                 </div>
 
@@ -317,6 +360,7 @@ const SubscriptionViewDialog: React.FC<SubscriptionViewDialogProps> = ({
             </Card>
           </div>
 
+          {/* Product */}
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
@@ -337,9 +381,7 @@ const SubscriptionViewDialog: React.FC<SubscriptionViewDialogProps> = ({
                 <div>
                   <p className="text-sm text-muted-foreground">Product Price</p>
                   <p className="font-medium">
-                    {s.product?.sellingPrice
-                      ? formatCurrency(Number(s.product.sellingPrice))
-                      : "N/A"}
+                    {s.product?.sellingPrice ? formatCurrency(Number(s.product.sellingPrice)) : "N/A"}
                   </p>
                 </div>
               </div>
@@ -369,58 +411,37 @@ const SubscriptionViewDialog: React.FC<SubscriptionViewDialogProps> = ({
                         <p className="font-medium">{s.device.status}</p>
                       </div>
                       <div>
-                        <p className="text-sm text-muted-foreground">
-                          Activated
-                        </p>
-                        <p>
-                          {s.device.activatedDate
-                            ? formatDate(s.device.activatedDate)
-                            : "—"}
-                        </p>
+                        <p className="text-sm text-muted-foreground">Activated</p>
+                        <p>{s.device.activatedDate ? formatDate(s.device.activatedDate) : "—"}</p>
                       </div>
                     </div>
 
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       <div>
-                        <p className="text-sm text-muted-foreground">
-                          SIM ICCID
-                        </p>
-                        <p className="font-mono text-sm">
-                          {s.device.simCardIccid || "—"}
-                        </p>
+                        <p className="text-sm text-muted-foreground">SIM ICCID</p>
+                        <p className="font-mono text-sm">{s.device.simCardIccid || "—"}</p>
                       </div>
                       <div>
-                        <p className="text-sm text-muted-foreground">
-                          MAC Address
-                        </p>
-                        <p className="font-mono text-sm">
-                          {s.device.macAddress || "—"}
-                        </p>
+                        <p className="text-sm text-muted-foreground">MAC Address</p>
+                        <p className="font-mono text-sm">{s.device.macAddress || "—"}</p>
                       </div>
                     </div>
 
                     <div>
-                      <p className="text-sm text-muted-foreground">
-                        Device Product
-                      </p>
+                      <p className="text-sm text-muted-foreground">Device Product</p>
                       <p className="font-medium">
-                        {s.device.product
-                          ? `${s.device.product.name} (${s.device.product.sku})`
-                          : "—"}
+                        {s.device.product ? `${s.device.product.name} (${s.device.product.sku})` : "—"}
                       </p>
                     </div>
 
                     <div>
                       <p className="text-sm text-muted-foreground">Batch</p>
-                      <p className="font-mono text-sm">
-                        {s.device.batch?.batchNumber || "—"}
-                      </p>
+                      <p className="font-mono text-sm">{s.device.batch?.batchNumber || "—"}</p>
                     </div>
                   </>
                 ) : (
                   <p className="text-sm text-muted-foreground">
-                    No device details available (IMEI not linked or device not
-                    found).
+                    No device details available (IMEI not linked or device not found).
                   </p>
                 )}
               </CardContent>
@@ -438,18 +459,12 @@ const SubscriptionViewDialog: React.FC<SubscriptionViewDialogProps> = ({
                   <>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       <div>
-                        <p className="text-sm text-muted-foreground">
-                          Install Date
-                        </p>
-                        <p>
-                          {formatDate(s.latestInstallation.installationDate)}
-                        </p>
+                        <p className="text-sm text-muted-foreground">Install Date</p>
+                        <p>{formatDate(s.latestInstallation.installationDate)}</p>
                       </div>
                       <div>
                         <p className="text-sm text-muted-foreground">Status</p>
-                        <p className="font-medium">
-                          {s.latestInstallation.status}
-                        </p>
+                        <p className="font-medium">{s.latestInstallation.status}</p>
                       </div>
                     </div>
 
@@ -457,8 +472,7 @@ const SubscriptionViewDialog: React.FC<SubscriptionViewDialogProps> = ({
                       <div>
                         <p className="text-sm text-muted-foreground">Vehicle</p>
                         <p className="font-medium">
-                          {s.latestInstallation.vehicle.vehicleReg} —{" "}
-                          {s.latestInstallation.vehicle.make}{" "}
+                          {s.latestInstallation.vehicle.vehicleReg} — {s.latestInstallation.vehicle.make}{" "}
                           {s.latestInstallation.vehicle.model}
                         </p>
                         <p className="text-xs text-muted-foreground font-mono">
@@ -466,9 +480,7 @@ const SubscriptionViewDialog: React.FC<SubscriptionViewDialogProps> = ({
                         </p>
                       </div>
                     ) : (
-                      <p className="text-sm text-muted-foreground">
-                        No vehicle linked for latest installation.
-                      </p>
+                      <p className="text-sm text-muted-foreground">No vehicle linked for latest installation.</p>
                     )}
 
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -477,17 +489,11 @@ const SubscriptionViewDialog: React.FC<SubscriptionViewDialogProps> = ({
                           <MapPin className="h-4 w-4" />
                           GPS
                         </p>
-                        <p className="font-mono text-sm">
-                          {s.latestInstallation.gpsCoordinates || "—"}
-                        </p>
+                        <p className="font-mono text-sm">{s.latestInstallation.gpsCoordinates || "—"}</p>
                       </div>
                       <div>
-                        <p className="text-sm text-muted-foreground">
-                          Location
-                        </p>
-                        <p>
-                          {s.latestInstallation.installationLocation || "—"}
-                        </p>
+                        <p className="text-sm text-muted-foreground">Location</p>
+                        <p>{s.latestInstallation.installationLocation || "—"}</p>
                       </div>
                     </div>
 
@@ -497,12 +503,8 @@ const SubscriptionViewDialog: React.FC<SubscriptionViewDialogProps> = ({
                           <Wrench className="h-4 w-4" />
                           Job
                         </p>
-                        <p className="font-medium font-mono">
-                          {s.latestInstallation.job.jobNumber}
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                          {s.latestInstallation.job.status}
-                        </p>
+                        <p className="font-medium font-mono">{s.latestInstallation.job.jobNumber}</p>
+                        <p className="text-xs text-muted-foreground">{s.latestInstallation.job.status}</p>
                       </div>
                     )}
                   </>
@@ -526,24 +528,19 @@ const SubscriptionViewDialog: React.FC<SubscriptionViewDialogProps> = ({
               <CardContent>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <p className="text-sm text-muted-foreground">
-                      Invoice Number
-                    </p>
-                    <p className="font-mono font-medium">
-                      {s.invoice.invoiceNumber}
-                    </p>
+                    <p className="text-sm text-muted-foreground">Invoice Number</p>
+                    <p className="font-mono font-medium">{s.invoice.invoiceNumber}</p>
                   </div>
                   <div>
                     <p className="text-sm text-muted-foreground">Amount</p>
-                    <p className="font-medium">
-                      {formatCurrency(Number(s.invoice.totalAmount))}
-                    </p>
+                    <p className="font-medium">{formatCurrency(Number(s.invoice.totalAmount))}</p>
                   </div>
                 </div>
               </CardContent>
             </Card>
           )}
 
+          {/* Footer buttons */}
           <div className="flex flex-wrap gap-2 pt-4 border-t">
             {hasPermission(PERMISSIONS.SUBSCRIPTIONS_UPDATE) && canEdit && (
               <Button onClick={onEdit} variant="default">
@@ -584,15 +581,25 @@ const SubscriptionViewDialog: React.FC<SubscriptionViewDialogProps> = ({
               </Button>
             )}
 
-            <Button
-              variant="outline"
-              onClick={() => onOpenChange(false)}
-              className="ml-auto"
-            >
+            <Button variant="outline" onClick={() => onOpenChange(false)} className="ml-auto">
               Close
             </Button>
           </div>
         </div>
+
+        {/* CRM dialogs */}
+        <AssignOwnerDialog
+          open={assignOwnerOpen}
+          onOpenChange={setAssignOwnerOpen}
+          subscription={s}
+          onSuccess={(updated) => setDetails(updated)}
+        />
+        <CrmConfigDialog
+          open={crmConfigOpen}
+          onOpenChange={setCrmConfigOpen}
+          subscription={s}
+          onSuccess={(updated) => setDetails(updated)}
+        />
       </DialogContent>
     </Dialog>
   );

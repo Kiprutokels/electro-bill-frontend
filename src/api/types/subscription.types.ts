@@ -64,7 +64,6 @@ export interface Subscription {
     lastName: string;
   };
 
-  // Additive fields from backend findOne()
   device?: {
     imeiNumber: string;
     status: string;
@@ -116,6 +115,21 @@ export interface Subscription {
       } | null;
     } | null;
   } | null;
+
+  // ==================== CRM fields ====================
+  accountOwnerId?: string | null;
+  accountOwner?: { id: string; firstName: string; lastName: string } | null;
+
+  followUpFrequencyMonths?: number | null;
+  followUpTimesPerYear?: number | null;
+
+  nextFollowUpDate?: string | null;
+  lastContactDate?: string | null;
+
+  crmStatus?: "ACTIVE" | "PAUSED" | "AT_RISK" | "CANCELLED";
+  priority?: "NORMAL" | "HIGH_VALUE" | "CRITICAL";
+
+  tags?: string | null;
 }
 
 export interface SubscriptionNotification {
