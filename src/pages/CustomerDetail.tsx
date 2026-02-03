@@ -14,8 +14,6 @@ import {
   Wallet,
   ClipboardList,
   PhoneCall,
-  AlertTriangle,
-  Plus,
   Ticket,
 } from "lucide-react";
 import { formatCurrency, formatDate } from "@/utils/format.utils";
@@ -24,7 +22,7 @@ import { useQuery } from "@tanstack/react-query";
 import { crmFollowupsService } from "@/api/services/crm-followups.service";
 import { ticketsService } from "@/api/services/tickets.service";
 import { crmInteractionsService } from "@/api/services/crm-interactions.service";
-import { toast } from "sonner";
+import QuickActionsCard from "@/components/crm/QuickActionsCard";
 
 const CustomerDetail = () => {
   const { customerId } = useParams<{ customerId: string }>();
@@ -67,9 +65,7 @@ const CustomerDetail = () => {
       <div className="flex items-center justify-center h-96">
         <div className="flex flex-col items-center space-y-4">
           <Loader2 className="h-8 w-8 animate-spin text-primary" />
-          <p className="text-sm text-muted-foreground">
-            Loading customer detail...
-          </p>
+          <p className="text-sm text-muted-foreground">Loading customer detail...</p>
         </div>
       </div>
     );
@@ -97,20 +93,15 @@ const CustomerDetail = () => {
             </Link>
           </Button>
           <div>
-            <h1 className="text-2xl sm:text-3xl font-bold text-foreground">
-              {name}
-            </h1>
+            <h1 className="text-2xl sm:text-3xl font-bold text-foreground">{name}</h1>
             <p className="text-sm text-muted-foreground">
-              Comprehensive customer view: vehicles, subscriptions, invoices,
-              payments, transactions, **CRM activities**
+              Comprehensive customer view: vehicles, subscriptions, invoices, payments, transactions, CRM activities
             </p>
           </div>
         </div>
 
         <Button variant="outline" onClick={handleRefresh} disabled={refreshing}>
-          <RefreshCw
-            className={`h-4 w-4 mr-2 ${refreshing ? "animate-spin" : ""}`}
-          />
+          <RefreshCw className={`h-4 w-4 mr-2 ${refreshing ? "animate-spin" : ""}`} />
           Refresh
         </Button>
       </div>
@@ -141,8 +132,7 @@ const CustomerDetail = () => {
                   {formatCurrency(Number(data.financials.currentBalance))}
                 </div>
                 <div className="text-xs text-muted-foreground mt-1">
-                  Credit Limit:{" "}
-                  {formatCurrency(Number(data.financials.creditLimit))}
+                  Credit Limit: {formatCurrency(Number(data.financials.creditLimit))}
                 </div>
               </CardContent>
             </Card>
@@ -174,8 +164,7 @@ const CustomerDetail = () => {
                   {formatCurrency(Number(data.financials.totalOutstanding))}
                 </div>
                 <div className="text-xs text-muted-foreground mt-1">
-                  Invoices: {data.totals.invoices} • Receipts:{" "}
-                  {data.totals.receipts}
+                  Invoices: {data.totals.invoices} • Receipts: {data.totals.receipts}
                 </div>
               </CardContent>
             </Card>
@@ -187,15 +176,9 @@ const CustomerDetail = () => {
                 </CardTitle>
               </CardHeader>
               <CardContent className="text-sm">
-                <div>
-                  Vehicles: <strong>{data.totals.vehicles}</strong>
-                </div>
-                <div>
-                  Subscriptions: <strong>{data.totals.subscriptions}</strong>
-                </div>
-                <div>
-                  Transactions: <strong>{data.totals.transactions}</strong>
-                </div>
+                <div>Vehicles: <strong>{data.totals.vehicles}</strong></div>
+                <div>Subscriptions: <strong>{data.totals.subscriptions}</strong></div>
+                <div>Transactions: <strong>{data.totals.transactions}</strong></div>
               </CardContent>
             </Card>
           </div>
@@ -233,18 +216,16 @@ const CustomerDetail = () => {
                     customer.addressLine2,
                     customer.city,
                     customer.country,
-                  ]
-                    .filter(Boolean)
-                    .join(", ") || "N/A"}
+                  ].filter(Boolean).join(", ") || "N/A"}
                 </div>
               </div>
             </CardContent>
           </Card>
 
-          {/* ==================== ✅ CRM SECTION ==================== */}
+          {/* ==================== CRM SECTION (PRODUCTION) ==================== */}
+          <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
+            <QuickActionsCard customerId={customerId!} />
 
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-            {/* CRM Follow-ups */}
             <Card>
               <CardHeader className="flex flex-row items-center justify-between">
                 <CardTitle className="flex items-center gap-2 text-base">
@@ -268,21 +249,9 @@ const CustomerDetail = () => {
                     </div>
                   ))
                 )}
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="w-full"
-                  onClick={() => {
-                    // Navigate to create follow-up with prefilled customerId
-                    window.location.href = `/crm/followups?prefill=${customerId}`;
-                  }}
-                >
-                  <Plus className="h-3 w-3 mr-2" /> New Follow-up
-                </Button>
               </CardContent>
             </Card>
 
-            {/* CRM Interactions */}
             <Card>
               <CardHeader className="flex flex-row items-center justify-between">
                 <CardTitle className="flex items-center gap-2 text-base">
@@ -303,20 +272,9 @@ const CustomerDetail = () => {
                     </div>
                   ))
                 )}
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="w-full"
-                  onClick={() => {
-                    window.location.href = `/crm/interactions?prefill=${customerId}`;
-                  }}
-                >
-                  <Plus className="h-3 w-3 mr-2" /> Log Interaction
-                </Button>
               </CardContent>
             </Card>
 
-            {/* Tickets */}
             <Card>
               <CardHeader className="flex flex-row items-center justify-between">
                 <CardTitle className="flex items-center gap-2 text-base">
@@ -341,16 +299,6 @@ const CustomerDetail = () => {
                     </div>
                   ))
                 )}
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="w-full"
-                  onClick={() => {
-                    window.location.href = `/tickets?prefill=${customerId}`;
-                  }}
-                >
-                  <Plus className="h-3 w-3 mr-2" /> New Ticket
-                </Button>
               </CardContent>
             </Card>
           </div>
@@ -365,15 +313,10 @@ const CustomerDetail = () => {
             </CardHeader>
             <CardContent className="space-y-2">
               {data.vehicles.length === 0 ? (
-                <p className="text-sm text-muted-foreground">
-                  No vehicles found.
-                </p>
+                <p className="text-sm text-muted-foreground">No vehicles found.</p>
               ) : (
                 data.vehicles.map((v) => (
-                  <div
-                    key={v.id}
-                    className="border rounded-lg p-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2"
-                  >
+                  <div key={v.id} className="border rounded-lg p-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
                     <div>
                       <div className="font-medium">{v.vehicleReg}</div>
                       <div className="text-sm text-muted-foreground">
@@ -399,29 +342,21 @@ const CustomerDetail = () => {
             </CardHeader>
             <CardContent className="space-y-3">
               {data.subscriptions.length === 0 ? (
-                <p className="text-sm text-muted-foreground">
-                  No subscriptions found.
-                </p>
+                <p className="text-sm text-muted-foreground">No subscriptions found.</p>
               ) : (
                 data.subscriptions.map((s) => (
                   <div key={s.id} className="border rounded-lg p-3 space-y-2">
                     <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
                       <div>
-                        <div className="font-mono font-medium">
-                          {s.subscriptionNumber}
-                        </div>
+                        <div className="font-mono font-medium">{s.subscriptionNumber}</div>
                         <div className="text-sm text-muted-foreground">
                           {s.product?.name} ({s.product?.sku})
                         </div>
                         <div className="text-sm">
-                          Start: {formatDate(s.startDate)} • Expiry:{" "}
-                          {formatDate(s.expiryDate)}
+                          Start: {formatDate(s.startDate)} • Expiry: {formatDate(s.expiryDate)}
                         </div>
                         <div className="text-sm text-muted-foreground">
-                          Fee:{" "}
-                          {formatCurrency(
-                            Number(s.product?.subscriptionFee || 0)
-                          )}
+                          Fee: {formatCurrency(Number(s.product?.subscriptionFee || 0))}
                         </div>
                       </div>
                       <Badge variant="outline">{s.status}</Badge>
@@ -429,23 +364,14 @@ const CustomerDetail = () => {
 
                     {Array.isArray(s.renewals) && s.renewals.length > 0 && (
                       <div className="border-t pt-2">
-                        <div className="text-sm font-medium mb-1">
-                          Renewal History
-                        </div>
+                        <div className="text-sm font-medium mb-1">Renewal History</div>
                         {s.renewals.slice(0, 5).map((r) => (
-                          <div
-                            key={r.id}
-                            className="text-sm text-muted-foreground flex flex-col sm:flex-row sm:justify-between"
-                          >
+                          <div key={r.id} className="text-sm text-muted-foreground flex flex-col sm:flex-row sm:justify-between">
                             <span>
-                              {formatDate(r.paidAt)} •{" "}
-                              {formatCurrency(Number(r.amount))} •{" "}
-                              {formatDate(r.startDate)} →{" "}
-                              {formatDate(r.expiryDate)}
+                              {formatDate(r.paidAt)} • {formatCurrency(Number(r.amount))} • {formatDate(r.startDate)} → {formatDate(r.expiryDate)}
                             </span>
                             <span>
-                              Invoice: {r.invoice?.invoiceNumber} (
-                              {r.invoice?.status})
+                              Invoice: {r.invoice?.invoiceNumber} ({r.invoice?.status})
                             </span>
                           </div>
                         ))}
@@ -467,31 +393,20 @@ const CustomerDetail = () => {
             </CardHeader>
             <CardContent className="space-y-2">
               {data.invoices.length === 0 ? (
-                <p className="text-sm text-muted-foreground">
-                  No invoices found.
-                </p>
+                <p className="text-sm text-muted-foreground">No invoices found.</p>
               ) : (
                 data.invoices.slice(0, 10).map((inv: any) => (
-                  <div
-                    key={inv.id}
-                    className="border rounded-lg p-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2"
-                  >
+                  <div key={inv.id} className="border rounded-lg p-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
                     <div>
-                      <div className="font-mono font-medium">
-                        {inv.invoiceNumber}
-                      </div>
+                      <div className="font-mono font-medium">{inv.invoiceNumber}</div>
                       <div className="text-sm text-muted-foreground">
-                        {formatDate(inv.invoiceDate)} • Due{" "}
-                        {formatDate(inv.dueDate)}
+                        {formatDate(inv.invoiceDate)} • Due {formatDate(inv.dueDate)}
                       </div>
                       <div className="text-sm">
-                        Total: {formatCurrency(Number(inv.totalAmount))} • Paid:{" "}
-                        {formatCurrency(Number(inv.amountPaid))}
+                        Total: {formatCurrency(Number(inv.totalAmount))} • Paid: {formatCurrency(Number(inv.amountPaid))}
                       </div>
                       {inv.job?.jobNumber && (
-                        <div className="text-sm text-muted-foreground">
-                          Job: {inv.job.jobNumber}
-                        </div>
+                        <div className="text-sm text-muted-foreground">Job: {inv.job.jobNumber}</div>
                       )}
                     </div>
                     <Badge variant="outline">{inv.status}</Badge>
@@ -511,32 +426,23 @@ const CustomerDetail = () => {
             </CardHeader>
             <CardContent className="space-y-2">
               {data.receipts.length === 0 ? (
-                <p className="text-sm text-muted-foreground">
-                  No receipts found.
-                </p>
+                <p className="text-sm text-muted-foreground">No receipts found.</p>
               ) : (
                 data.receipts.slice(0, 10).map((r: any) => (
                   <div key={r.id} className="border rounded-lg p-3">
                     <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
                       <div>
-                        <div className="font-mono font-medium">
-                          {r.receiptNumber}
-                        </div>
+                        <div className="font-mono font-medium">{r.receiptNumber}</div>
                         <div className="text-sm text-muted-foreground">
                           {formatDate(r.paymentDate)} • {r.paymentMethod?.name}
                         </div>
                       </div>
-                      <div className="font-medium">
-                        {formatCurrency(Number(r.totalAmount))}
-                      </div>
+                      <div className="font-medium">{formatCurrency(Number(r.totalAmount))}</div>
                     </div>
                     {Array.isArray(r.items) && r.items.length > 0 && (
                       <div className="mt-2 text-sm text-muted-foreground">
                         Applied to:{" "}
-                        {r.items
-                          .map((it: any) => it.invoice?.invoiceNumber)
-                          .filter(Boolean)
-                          .join(", ")}
+                        {r.items.map((it: any) => it.invoice?.invoiceNumber).filter(Boolean).join(", ")}
                       </div>
                     )}
                   </div>
