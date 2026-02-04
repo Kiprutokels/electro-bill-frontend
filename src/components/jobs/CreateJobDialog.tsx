@@ -28,6 +28,12 @@ import {
   Calendar,
   MapPin,
   FileText,
+  Wrench,
+  RotateCcw,
+  Hammer,
+  ArrowUp,
+  Zap,
+  CheckCircle2,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
@@ -44,11 +50,15 @@ interface CreateJobDialogProps {
 }
 
 const JOB_TYPES = [
-  { value: JobType.NEW_INSTALLATION, label: "New Installation", icon: "⚙️" },
-  { value: JobType.REPLACEMENT, label: "Replacement", icon: "🔄" },
-  { value: JobType.MAINTENANCE, label: "Maintenance", icon: "🔧" },
-  { value: JobType.REPAIR, label: "Repair", icon: "🛠️" },
-  { value: JobType.UPGRADE, label: "Upgrade", icon: "⬆️" },
+  {
+    value: JobType.NEW_INSTALLATION,
+    label: "New Installation",
+    icon: Zap,
+  },
+  { value: JobType.REPLACEMENT, label: "Replacement", icon: RotateCcw },
+  { value: JobType.MAINTENANCE, label: "Maintenance", icon: Wrench },
+  { value: JobType.REPAIR, label: "Repair", icon: Hammer },
+  { value: JobType.UPGRADE, label: "Upgrade", icon: ArrowUp },
 ];
 
 const CreateJobDialog = ({ open, onOpenChange }: CreateJobDialogProps) => {
@@ -125,7 +135,7 @@ const CreateJobDialog = ({ open, onOpenChange }: CreateJobDialogProps) => {
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-3xl max-h-[95vh] overflow-hidden flex flex-col">
         <DialogHeader className="border-b border-slate-200 dark:border-slate-700 pb-4">
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-3">
             <div className="p-2 bg-blue-100 dark:bg-blue-900/30 rounded-lg">
               <Briefcase className="h-5 w-5 text-blue-600 dark:text-blue-400" />
             </div>
@@ -219,12 +229,17 @@ const CreateJobDialog = ({ open, onOpenChange }: CreateJobDialogProps) => {
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      {JOB_TYPES.map((type) => (
-                        <SelectItem key={type.value} value={type.value}>
-                          <span className="mr-2">{type.icon}</span>
-                          {type.label}
-                        </SelectItem>
-                      ))}
+                      {JOB_TYPES.map((type) => {
+                        const IconComponent = type.icon;
+                        return (
+                          <SelectItem key={type.value} value={type.value}>
+                            <div className="flex items-center gap-2">
+                              <IconComponent className="h-4 w-4" />
+                              <span>{type.label}</span>
+                            </div>
+                          </SelectItem>
+                        );
+                      })}
                     </SelectContent>
                   </Select>
                   {formErrors.jobType && (
@@ -316,7 +331,10 @@ const CreateJobDialog = ({ open, onOpenChange }: CreateJobDialogProps) => {
                         ...formData,
                         serviceDescription: e.target.value,
                       });
-                      setFormErrors({ ...formErrors, serviceDescription: "" });
+                      setFormErrors({
+                        ...formErrors,
+                        serviceDescription: "",
+                      });
                     }}
                     rows={5}
                     className="pl-10 text-base resize-none"
@@ -371,12 +389,19 @@ const CreateJobDialog = ({ open, onOpenChange }: CreateJobDialogProps) => {
           <Button
             onClick={handleSubmit}
             disabled={createMutation.isPending}
-            className="h-10 px-6 font-medium bg-blue-600 hover:bg-blue-700 text-white"
+            className="h-10 px-6 font-medium bg-blue-600 hover:bg-blue-700 text-white flex items-center gap-2"
           >
             {createMutation.isPending && (
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              <Loader2 className="h-4 w-4 animate-spin" />
             )}
-            {createMutation.isPending ? "Creating..." : "Create Job"}
+            {createMutation.isPending ? (
+              "Creating..."
+            ) : (
+              <>
+                <CheckCircle2 className="h-4 w-4" />
+                Create Job
+              </>
+            )}
           </Button>
         </DialogFooter>
       </DialogContent>
