@@ -256,7 +256,7 @@ const CreateJobDialog = ({ open, onOpenChange }: CreateJobDialogProps) => {
                     Scheduled Date <span className="text-red-500">*</span>
                   </Label>
                   <div className="relative">
-                    <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none" />
+                 <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 dark:text-slate-300 pointer-events-none" />
                     <Input
                       id="scheduledDate"
                       type="date"
