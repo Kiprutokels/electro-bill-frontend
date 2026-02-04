@@ -102,23 +102,13 @@ const PostInspection = ({ job, onComplete }: PostInspectionProps) => {
       });
       await queryClient.invalidateQueries({ queryKey: ["active-job"] });
       await queryClient.invalidateQueries({ queryKey: ["job-by-id", job.id] });
-
-      const wasFirstSubmission = !hasExistingInspection;
-
-      if (wasFirstSubmission) {
-        toast.success("Post-installation inspection submitted");
-      } else {
-        toast.success("Post-installation inspection updated");
-      }
-
+      toast.success("Post-installation inspection submitted");
       setChecklistData({});
       setPhotoFiles({});
       setSelectedItems(new Set());
       setSelectAll(false);
       setIsEditing(false);
-
-      // Only call onComplete for first-time submissions (to advance to next tab)
-      if (onComplete && wasFirstSubmission) {
+      if (onComplete) {
         onComplete();
       }
     },
@@ -222,15 +212,6 @@ const PostInspection = ({ job, onComplete }: PostInspectionProps) => {
     toast.info("Edit mode enabled. You can now modify your inspection.");
   };
 
-  const handleCancelEdit = () => {
-    setIsEditing(false);
-    setChecklistData({});
-    setPhotoFiles({});
-    setSelectedItems(new Set());
-    setSelectAll(false);
-    toast.info("Edit mode cancelled");
-  };
-
   const getStatusIcon = (status?: string) => {
     if (status === CheckStatus.CHECKED) {
       return <Check className="h-5 w-5 text-green-600 dark:text-green-500" />;
@@ -319,17 +300,6 @@ const PostInspection = ({ job, onComplete }: PostInspectionProps) => {
                 )}
               </div>
               <div className="flex items-center gap-2">
-                {isEditing && (
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    onClick={handleCancelEdit}
-                  >
-                    Cancel
-                  </Button>
-                )}
-
                 <Button
                   type="button"
                   variant="outline"
