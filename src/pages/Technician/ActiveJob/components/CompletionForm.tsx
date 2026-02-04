@@ -10,10 +10,12 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
 import { CheckCircle2, Loader2, AlertCircle } from "lucide-react";
 import { technicianJobsService } from "@/api/services/technician-jobs.service";
+import { JobType } from "@/api/services/jobs.service";
 
 const CompletionForm = ({ job }: { job: any }) => {
   const queryClient = useQueryClient();
   const navigate = useNavigate();
+
   const [confirmationChecks, setConfirmationChecks] = useState({
     allComponentsWorking: false,
     areaCleanedUp: false,
@@ -32,25 +34,16 @@ const CompletionForm = ({ job }: { job: any }) => {
         macAddress: job.macAddress,
       }),
     onSuccess: async () => {
-      // Remove old cache entries immediately
       queryClient.removeQueries({ queryKey: ["active-job"] });
       queryClient.removeQueries({ queryKey: ["job-by-id", job.id] });
 
       // Invalidate and refetch all related queries
       await Promise.all([
-        queryClient.invalidateQueries({
-          queryKey: ["technician-jobs"],
-          refetchType: "active",
-        }),
-        queryClient.invalidateQueries({
-          queryKey: ["technician-stats"],
-          refetchType: "active",
-        }),
+        queryClient.invalidateQueries({ queryKey: ["technician-jobs"], refetchType: "active" }),
+        queryClient.invalidateQueries({ queryKey: ["technician-stats"], refetchType: "active" }),
       ]);
 
       toast.success("Job completed successfully!");
-
-      // Navigate with replace to prevent back navigation to completed job
       navigate("/technician/jobs", { replace: true });
     },
     onError: (error: any) => {
@@ -93,20 +86,19 @@ const CompletionForm = ({ job }: { job: any }) => {
     "VERIFIED",
   ].includes(job.status);
 
-  const hasInstallationData =
-    job.imeiNumbers &&
-    job.imeiNumbers.length > 0 &&
-    job.photoUrls &&
-    job.photoUrls.length > 0;
+  const isRepairOrMaintenance = [JobType.REPAIR, JobType.MAINTENANCE].includes(job.jobType);
+  const deviceWasChanged = job.deviceChanged === true;
 
-  const hasPostInspection = [
-    "POST_INSPECTION_PENDING",
-    "COMPLETED",
-    "VERIFIED",
-  ].includes(job.status);
+  // For REPAIR/MAINTENANCE: only require installation data if deviceChanged
+  const hasInstallationData = isRepairOrMaintenance
+    ? deviceWasChanged
+      ? job.imeiNumbers?.length > 0 && job.photoUrls?.length > 0
+      : job.photoUrls?.length > 0 // Photos always required; IMEI not required if no device change
+    : job.imeiNumbers?.length > 0 && job.photoUrls?.length > 0;
 
-  const canComplete =
-    hasVehicle && hasPreInspection && hasInstallationData && hasPostInspection;
+  const hasPostInspection = ["POST_INSPECTION_PENDING", "COMPLETED", "VERIFIED"].includes(job.status);
+
+  const canComplete = hasVehicle && hasPreInspection && hasInstallationData && hasPostInspection;
 
   return (
     <div className="space-y-6">
@@ -123,53 +115,42 @@ const CompletionForm = ({ job }: { job: any }) => {
               ) : (
                 <AlertCircle className="h-5 w-5 text-orange-600" />
               )}
-              <span
-                className={hasVehicle ? "text-green-800" : "text-orange-800"}
-              >
+              <span className={hasVehicle ? "text-green-800" : "text-orange-800"}>
                 Vehicle information added
               </span>
             </div>
+
             <div className="flex items-center gap-2">
               {hasPreInspection ? (
                 <CheckCircle2 className="h-5 w-5 text-green-600" />
               ) : (
                 <AlertCircle className="h-5 w-5 text-orange-600" />
               )}
-              <span
-                className={
-                  hasPreInspection ? "text-green-800" : "text-orange-800"
-                }
-              >
+              <span className={hasPreInspection ? "text-green-800" : "text-orange-800"}>
                 Pre-installation inspection completed
               </span>
             </div>
+
             <div className="flex items-center gap-2">
               {hasInstallationData ? (
                 <CheckCircle2 className="h-5 w-5 text-green-600" />
               ) : (
                 <AlertCircle className="h-5 w-5 text-orange-600" />
               )}
-              <span
-                className={
-                  hasInstallationData ? "text-green-800" : "text-orange-800"
-                }
-              >
-                Installation details and photos added (IMEI:{" "}
-                {job.imeiNumbers?.length || 0}, Photos:{" "}
-                {job.photoUrls?.length || 0})
+              <span className={hasInstallationData ? "text-green-800" : "text-orange-800"}>
+                {isRepairOrMaintenance && !deviceWasChanged
+                  ? `Photos uploaded (${job.photoUrls?.length || 0})`
+                  : `Installation details completed (IMEI: ${job.imeiNumbers?.length || 0}, Photos: ${job.photoUrls?.length || 0})`}
               </span>
             </div>
+
             <div className="flex items-center gap-2">
               {hasPostInspection ? (
                 <CheckCircle2 className="h-5 w-5 text-green-600" />
               ) : (
                 <AlertCircle className="h-5 w-5 text-orange-600" />
               )}
-              <span
-                className={
-                  hasPostInspection ? "text-green-800" : "text-orange-800"
-                }
-              >
+              <span className={hasPostInspection ? "text-green-800" : "text-orange-800"}>
                 Post-installation inspection completed
               </span>
             </div>
@@ -198,10 +179,7 @@ const CompletionForm = ({ job }: { job: any }) => {
                   })
                 }
               />
-              <Label
-                htmlFor="allComponentsWorking"
-                className="font-medium cursor-pointer"
-              >
+              <Label htmlFor="allComponentsWorking" className="font-medium cursor-pointer">
                 All components are working correctly
               </Label>
             </div>
@@ -217,10 +195,7 @@ const CompletionForm = ({ job }: { job: any }) => {
                   })
                 }
               />
-              <Label
-                htmlFor="areaCleanedUp"
-                className="font-medium cursor-pointer"
-              >
+              <Label htmlFor="areaCleanedUp" className="font-medium cursor-pointer">
                 Work area has been cleaned and materials removed
               </Label>
             </div>
@@ -240,7 +215,7 @@ const CompletionForm = ({ job }: { job: any }) => {
             </Label>
             <Textarea
               id="completionNotes"
-              placeholder="Add any final notes about the installation, customer feedback, or recommendations..."
+              placeholder="Add any final notes about the work performed, customer feedback, or recommendations..."
               value={completionNotes}
               onChange={(e) => setCompletionNotes(e.target.value)}
               rows={4}
@@ -249,8 +224,7 @@ const CompletionForm = ({ job }: { job: any }) => {
 
           <div className="space-y-2">
             <Label htmlFor="customerSignature">
-              Customer Name (Signature){" "}
-              <span className="text-destructive">*</span>
+              Customer Name (Signature) <span className="text-destructive">*</span>
             </Label>
             <Input
               id="customerSignature"
@@ -259,8 +233,7 @@ const CompletionForm = ({ job }: { job: any }) => {
               onChange={(e) => setCustomerSignature(e.target.value)}
             />
             <p className="text-xs text-muted-foreground">
-              Please confirm customer name to acknowledge installation
-              completion
+              Please confirm customer name to acknowledge completion
             </p>
           </div>
         </CardContent>
@@ -272,7 +245,7 @@ const CompletionForm = ({ job }: { job: any }) => {
           <CardTitle>Job Summary</CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
-          <div className="grid grid-cols-2 gap-4 text-sm">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
             <div>
               <Label className="text-muted-foreground">Job Number</Label>
               <p className="font-mono font-medium">{job.jobNumber}</p>
@@ -290,7 +263,7 @@ const CompletionForm = ({ job }: { job: any }) => {
             <div>
               <Label className="text-muted-foreground">IMEI Numbers</Label>
               <p className="font-mono text-xs">
-                {job.imeiNumbers?.join(", ") || "N/A"}
+                {job.imeiNumbers?.join(", ") || (isRepairOrMaintenance && !deviceWasChanged ? "N/A (not changed)" : "N/A")}
               </p>
             </div>
             <div>
@@ -303,9 +276,7 @@ const CompletionForm = ({ job }: { job: any }) => {
             </div>
             <div>
               <Label className="text-muted-foreground">Photos Uploaded</Label>
-              <p className="font-medium">
-                {job.photoUrls?.length || 0} photo(s)
-              </p>
+              <p className="font-medium">{job.photoUrls?.length || 0} photo(s)</p>
             </div>
             <div>
               <Label className="text-muted-foreground">GPS Location</Label>
@@ -346,42 +317,29 @@ const CompletionForm = ({ job }: { job: any }) => {
         </Button>
       </div>
 
-      {(!canComplete ||
-        !allChecksCompleted ||
-        !completionNotes.trim() ||
-        !customerSignature.trim()) && (
-        <Card className="border-orange-200 bg-orange-50">
+      {(!canComplete || !allChecksCompleted || !completionNotes.trim() || !customerSignature.trim()) && (
+        <Card className="border-orange-200 bg-orange-50 dark:bg-orange-900/20">
           <CardContent className="pt-6">
             <div className="flex items-start gap-2">
               <AlertCircle className="h-5 w-5 text-orange-600 flex-shrink-0 mt-0.5" />
               <div>
-                <p className="text-sm font-medium text-orange-900">
+                <p className="text-sm font-medium text-orange-900 dark:text-orange-200">
                   Cannot complete job yet
                 </p>
-                <div className="text-sm text-orange-700 mt-2 space-y-1">
+                <div className="text-sm text-orange-700 dark:text-orange-300 mt-2 space-y-1">
                   {!hasVehicle && <p>• Vehicle information not added</p>}
-                  {!hasPreInspection && (
-                    <p>• Pre-installation inspection not completed</p>
-                  )}
+                  {!hasPreInspection && <p>• Pre-inspection not completed</p>}
                   {!hasInstallationData && (
                     <p>
-                      • Installation details missing (IMEI:{" "}
-                      {job.imeiNumbers?.length || 0}, Photos:{" "}
-                      {job.photoUrls?.length || 0})
+                      {isRepairOrMaintenance && !deviceWasChanged
+                        ? `• Photos required (${job.photoUrls?.length || 0})`
+                        : `• Installation details missing (IMEI: ${job.imeiNumbers?.length || 0}, Photos: ${job.photoUrls?.length || 0})`}
                     </p>
                   )}
-                  {!hasPostInspection && (
-                    <p>• Post-installation inspection not completed</p>
-                  )}
-                  {!allChecksCompleted && (
-                    <p>• All completion checklist items must be confirmed</p>
-                  )}
-                  {!completionNotes.trim() && (
-                    <p>• Completion notes are required</p>
-                  )}
-                  {!customerSignature.trim() && (
-                    <p>• Customer signature is required</p>
-                  )}
+                  {!hasPostInspection && <p>• Post-inspection not completed</p>}
+                  {!allChecksCompleted && <p>• All checklist items must be confirmed</p>}
+                  {!completionNotes.trim() && <p>• Completion notes are required</p>}
+                  {!customerSignature.trim() && <p>• Customer signature is required</p>}
                 </div>
               </div>
             </div>
