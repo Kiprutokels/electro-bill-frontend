@@ -36,8 +36,6 @@ interface EditProductDialogProps {
   categories: ProductCategory[];
   brands: Brand[];
 }
-
-// UI form state (allows empty strings for better UX)
 interface FormState {
   sku: string;
   name: string;
