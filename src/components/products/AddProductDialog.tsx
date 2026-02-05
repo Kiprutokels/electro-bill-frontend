@@ -36,6 +36,24 @@ interface AddProductDialogProps {
   brands: Brand[];
 }
 
+// UI form state (allows empty strings for better UX)
+interface FormState {
+  sku: string;
+  name: string;
+  description: string;
+  categoryId: string;
+  brandId: string;
+  unitOfMeasure: string;
+  sellingPrice: string;
+  wholesalePrice: string;
+  subscriptionFee: string;
+  weight: string;
+  dimensions: string;
+  warrantyPeriodMonths: string;
+  reorderLevel: string;
+  isActive: boolean;
+}
+
 const AddProductDialog: React.FC<AddProductDialogProps> = ({
   open,
   onOpenChange,
@@ -44,24 +62,33 @@ const AddProductDialog: React.FC<AddProductDialogProps> = ({
   brands,
 }) => {
   const [loading, setLoading] = useState(false);
-  const [formData, setFormData] = useState<CreateProductRequest>({
+  const [formData, setFormData] = useState<FormState>({
     sku: "",
     name: "",
     description: "",
     categoryId: "",
     brandId: "",
     unitOfMeasure: "PCS",
-    sellingPrice: 0,
-    wholesalePrice: 0,
-    subscriptionFee: 0,
-    weight: 0,
+    sellingPrice: "",
+    wholesalePrice: "",
+    subscriptionFee: "",
+    weight: "",
     dimensions: "",
-    warrantyPeriodMonths: 0,
-    reorderLevel: 0,
+    warrantyPeriodMonths: "",
+    reorderLevel: "",
     isActive: true,
   });
 
   const [errors, setErrors] = useState<Record<string, string>>({});
+
+  const getNumericValues = () => ({
+    sellingPrice: formData.sellingPrice === "" ? 0 : Number(formData.sellingPrice),
+    wholesalePrice: formData.wholesalePrice === "" ? 0 : Number(formData.wholesalePrice),
+    subscriptionFee: formData.subscriptionFee === "" ? 0 : Number(formData.subscriptionFee),
+    weight: formData.weight === "" ? 0 : Number(formData.weight),
+    warrantyPeriodMonths: formData.warrantyPeriodMonths === "" ? 0 : Number(formData.warrantyPeriodMonths),
+    reorderLevel: formData.reorderLevel === "" ? 0 : Number(formData.reorderLevel),
+  });
 
   const validateForm = (): boolean => {
     const newErrors: Record<string, string> = {};
@@ -75,12 +102,13 @@ const AddProductDialog: React.FC<AddProductDialogProps> = ({
     const categoryError = validateRequired(formData.categoryId, "Category");
     if (categoryError) newErrors.categoryId = categoryError;
 
-    if (formData.sellingPrice <= 0) {
+    const { sellingPrice, subscriptionFee } = getNumericValues();
+
+    if (sellingPrice <= 0) {
       newErrors.sellingPrice = "Selling price must be greater than 0";
     }
 
-    // ✅ subscriptionFee can be 0, but cannot be negative
-    if (formData.subscriptionFee < 0) {
+    if (subscriptionFee < 0) {
       newErrors.subscriptionFee = "Subscription fee cannot be negative";
     }
 
@@ -97,13 +125,30 @@ const AddProductDialog: React.FC<AddProductDialogProps> = ({
 
     setLoading(true);
     try {
+      const {
+        sellingPrice,
+        wholesalePrice,
+        subscriptionFee,
+        weight,
+        warrantyPeriodMonths,
+        reorderLevel,
+      } = getNumericValues();
+
       const requestData: CreateProductRequest = {
-        ...formData,
+        sku: formData.sku,
+        name: formData.name,
         description: formData.description || undefined,
+        categoryId: formData.categoryId,
         brandId: formData.brandId || undefined,
-        wholesalePrice: formData.wholesalePrice || undefined,
-        weight: formData.weight || undefined,
+        unitOfMeasure: formData.unitOfMeasure,
+        sellingPrice,
+        wholesalePrice: wholesalePrice || undefined,
+        subscriptionFee,
+        weight: weight || undefined,
         dimensions: formData.dimensions || undefined,
+        warrantyPeriodMonths,
+        reorderLevel,
+        isActive: formData.isActive,
       };
 
       const newProduct = await productsService.create(requestData);
@@ -128,16 +173,23 @@ const AddProductDialog: React.FC<AddProductDialogProps> = ({
       categoryId: "",
       brandId: "",
       unitOfMeasure: "PCS",
-      sellingPrice: 0,
-      wholesalePrice: 0,
-      subscriptionFee: 0,
-      weight: 0,
+      sellingPrice: "",
+      wholesalePrice: "",
+      subscriptionFee: "",
+      weight: "",
       dimensions: "",
-      warrantyPeriodMonths: 0,
-      reorderLevel: 0,
+      warrantyPeriodMonths: "",
+      reorderLevel: "",
       isActive: true,
     });
     setErrors({});
+  };
+
+  const handleInputChange = (field: keyof FormState, value: any) => {
+    setFormData((prev) => ({ ...prev, [field]: value }));
+    if (errors[field]) {
+      setErrors((prev) => ({ ...prev, [field]: "" }));
+    }
   };
 
   return (
@@ -160,7 +212,7 @@ const AddProductDialog: React.FC<AddProductDialogProps> = ({
                 id="sku"
                 value={formData.sku}
                 onChange={(e) =>
-                  setFormData((prev) => ({ ...prev, sku: e.target.value }))
+                  handleInputChange("sku", e.target.value)
                 }
                 placeholder="e.g., SKU-TP-WR841N"
                 className={errors.sku ? "border-destructive" : ""}
@@ -178,7 +230,7 @@ const AddProductDialog: React.FC<AddProductDialogProps> = ({
                 id="name"
                 value={formData.name}
                 onChange={(e) =>
-                  setFormData((prev) => ({ ...prev, name: e.target.value }))
+                  handleInputChange("name", e.target.value)
                 }
                 placeholder="Product name"
                 className={errors.name ? "border-destructive" : ""}
@@ -195,7 +247,7 @@ const AddProductDialog: React.FC<AddProductDialogProps> = ({
               id="description"
               value={formData.description}
               onChange={(e) =>
-                setFormData((prev) => ({ ...prev, description: e.target.value }))
+                handleInputChange("description", e.target.value)
               }
               placeholder="Product description (optional)"
               rows={3}
@@ -210,7 +262,7 @@ const AddProductDialog: React.FC<AddProductDialogProps> = ({
               <Select
                 value={formData.categoryId}
                 onValueChange={(value) =>
-                  setFormData((prev) => ({ ...prev, categoryId: value }))
+                  handleInputChange("categoryId", value)
                 }
               >
                 <SelectTrigger
@@ -238,10 +290,10 @@ const AddProductDialog: React.FC<AddProductDialogProps> = ({
               <Select
                 value={formData.brandId}
                 onValueChange={(value) =>
-                  setFormData((prev) => ({
-                    ...prev,
-                    brandId: value === "no-brand" ? "" : value,
-                  }))
+                  handleInputChange(
+                    "brandId",
+                    value === "no-brand" ? "" : value
+                  )
                 }
               >
                 <SelectTrigger>
@@ -271,12 +323,9 @@ const AddProductDialog: React.FC<AddProductDialogProps> = ({
                 type="number"
                 min="0"
                 step="0.01"
-                value={formData.sellingPrice || ""}
+                value={formData.sellingPrice}
                 onChange={(e) =>
-                  setFormData((prev) => ({
-                    ...prev,
-                    sellingPrice: parseFloat(e.target.value) || 0,
-                  }))
+                  handleInputChange("sellingPrice", e.target.value)
                 }
                 placeholder="0.00"
                 className={errors.sellingPrice ? "border-destructive" : ""}
@@ -293,12 +342,9 @@ const AddProductDialog: React.FC<AddProductDialogProps> = ({
                 type="number"
                 min="0"
                 step="0.01"
-                value={formData.subscriptionFee ?? ""}
+                value={formData.subscriptionFee}
                 onChange={(e) =>
-                  setFormData((prev) => ({
-                    ...prev,
-                    subscriptionFee: parseFloat(e.target.value) || 0,
-                  }))
+                  handleInputChange("subscriptionFee", e.target.value)
                 }
                 placeholder="0.00"
                 className={errors.subscriptionFee ? "border-destructive" : ""}
@@ -315,12 +361,9 @@ const AddProductDialog: React.FC<AddProductDialogProps> = ({
                 type="number"
                 min="0"
                 step="0.01"
-                value={formData.wholesalePrice || ""}
+                value={formData.wholesalePrice}
                 onChange={(e) =>
-                  setFormData((prev) => ({
-                    ...prev,
-                    wholesalePrice: parseFloat(e.target.value) || 0,
-                  }))
+                  handleInputChange("wholesalePrice", e.target.value)
                 }
                 placeholder="0.00"
               />
@@ -334,10 +377,7 @@ const AddProductDialog: React.FC<AddProductDialogProps> = ({
                 id="unitOfMeasure"
                 value={formData.unitOfMeasure}
                 onChange={(e) =>
-                  setFormData((prev) => ({
-                    ...prev,
-                    unitOfMeasure: e.target.value,
-                  }))
+                  handleInputChange("unitOfMeasure", e.target.value)
                 }
                 placeholder="PCS"
               />
@@ -350,12 +390,9 @@ const AddProductDialog: React.FC<AddProductDialogProps> = ({
                 type="number"
                 min="0"
                 step="0.001"
-                value={formData.weight || ""}
+                value={formData.weight}
                 onChange={(e) =>
-                  setFormData((prev) => ({
-                    ...prev,
-                    weight: parseFloat(e.target.value) || 0,
-                  }))
+                  handleInputChange("weight", e.target.value)
                 }
                 placeholder="0.000"
               />
@@ -367,12 +404,9 @@ const AddProductDialog: React.FC<AddProductDialogProps> = ({
                 id="warrantyPeriodMonths"
                 type="number"
                 min="0"
-                value={formData.warrantyPeriodMonths || ""}
+                value={formData.warrantyPeriodMonths}
                 onChange={(e) =>
-                  setFormData((prev) => ({
-                    ...prev,
-                    warrantyPeriodMonths: parseInt(e.target.value) || 0,
-                  }))
+                  handleInputChange("warrantyPeriodMonths", e.target.value)
                 }
                 placeholder="0"
               />
@@ -385,12 +419,9 @@ const AddProductDialog: React.FC<AddProductDialogProps> = ({
               id="reorderLevel"
               type="number"
               min="0"
-              value={formData.reorderLevel || ""}
+              value={formData.reorderLevel}
               onChange={(e) =>
-                setFormData((prev) => ({
-                  ...prev,
-                  reorderLevel: parseInt(e.target.value) || 0,
-                }))
+                handleInputChange("reorderLevel", e.target.value)
               }
               placeholder="0"
             />
@@ -402,7 +433,7 @@ const AddProductDialog: React.FC<AddProductDialogProps> = ({
               id="dimensions"
               value={formData.dimensions}
               onChange={(e) =>
-                setFormData((prev) => ({ ...prev, dimensions: e.target.value }))
+                handleInputChange("dimensions", e.target.value)
               }
               placeholder="e.g., 20cm x 15cm x 5cm"
             />
@@ -413,7 +444,7 @@ const AddProductDialog: React.FC<AddProductDialogProps> = ({
               id="isActive"
               checked={formData.isActive}
               onCheckedChange={(checked) =>
-                setFormData((prev) => ({ ...prev, isActive: checked }))
+                handleInputChange("isActive", checked)
               }
             />
             <Label htmlFor="isActive">Active Product</Label>
