@@ -48,11 +48,6 @@ const ActiveJob = () => {
   const queryClient = useQueryClient();
   const isMobile = useIsMobile();
 
-  /**
-   * Supports BOTH routing styles:
-   * 1) /technician/active-job?jobId=xxx
-   * 2) /technician/jobs/:id/work
-   */
   const jobId = useMemo(() => {
     return params.id || searchParams.get("jobId") || undefined;
   }, [params.id, searchParams]);
@@ -74,15 +69,21 @@ const ActiveJob = () => {
       (error) => {
         console.error("Location error:", error);
         toast.error("Unable to get your location");
-      }
+      },
     );
   }, []);
 
   // Fetch job data
-  const { data: job, isLoading } = useQuery({
+  const {
+    data: job,
+    isLoading,
+    refetch,
+  } = useQuery({
     queryKey: jobId ? ["job-by-id", jobId] : ["active-job"],
     queryFn: async () => {
-      if (jobId) return jobsService.getJobById(jobId);
+      if (jobId) {
+        return jobsService.getJobById(jobId);
+      }
       return technicianJobsService.getActiveJob();
     },
     staleTime: 0,
@@ -122,7 +123,6 @@ const ActiveJob = () => {
       return;
     }
 
-    // Validate scheduled date before starting
     if (job?.scheduledDate) {
       const today = new Date();
       today.setHours(0, 0, 0, 0);
@@ -132,7 +132,7 @@ const ActiveJob = () => {
 
       if (scheduledDate > today) {
         toast.error(
-          `Job cannot be started before scheduled date: ${scheduledDate.toLocaleDateString()}`
+          `Job cannot be started before scheduled date: ${scheduledDate.toLocaleDateString()}`,
         );
         return;
       }
@@ -176,10 +176,16 @@ const ActiveJob = () => {
   // Auto-switch tab based on job status
   useEffect(() => {
     if (!job) return;
-    setActiveTab(getActiveTabFromStatus(job.status));
+    const newTab = getActiveTabFromStatus(job.status);
+    setActiveTab(newTab);
   }, [job?.status]);
 
-  // Tab accessibility logic (vehicle & requisition unlocked after assignment)
+  /**
+   * Enhanced tab accessibility logic:
+   * - Tabs are unlocked progressively
+   * - Once unlocked, they remain accessible (can go back)
+   * - Locked only if prerequisite steps not completed
+   */
   const getTabAccessibility = (tabName: string) => {
     if (!job) return { enabled: false, completed: false, locked: true };
 
@@ -205,6 +211,29 @@ const ActiveJob = () => {
       JobStatus.VERIFIED,
     ].includes(job.status as JobStatus);
 
+    const isCompleted = [JobStatus.COMPLETED, JobStatus.VERIFIED].includes(
+      job.status as JobStatus,
+    );
+
+    // Define the progression level
+    const tabOrder = [
+      "info",
+      "requisition",
+      "vehicle",
+      "pre-inspection",
+      "installation",
+      "post-inspection",
+      "completion",
+    ];
+
+    const currentTabIndex = tabOrder.indexOf(
+      getActiveTabFromStatus(job.status),
+    );
+    const requestedTabIndex = tabOrder.indexOf(tabName);
+
+    // Allow access to current tab and all previous tabs
+    const canAccessBasedOnProgression = requestedTabIndex <= currentTabIndex;
+
     switch (tabName) {
       case "info":
         return { enabled: true, completed: true, locked: false };
@@ -218,37 +247,36 @@ const ActiveJob = () => {
 
       case "vehicle":
         return {
-          enabled: isJobAssigned,
+          enabled: isJobAssigned && canAccessBasedOnProgression,
           completed: hasVehicle,
           locked: !isJobAssigned,
         };
 
       case "pre-inspection":
         return {
-          enabled: hasVehicle,
+          enabled: hasVehicle && canAccessBasedOnProgression,
           completed: hasPreInspection,
           locked: !hasVehicle,
         };
 
       case "installation":
         return {
-          enabled: hasPreInspection,
+          enabled: hasPreInspection && canAccessBasedOnProgression,
           completed: hasInstallationData,
           locked: !hasPreInspection,
         };
 
       case "post-inspection":
         return {
-          enabled: hasInstallationData,
+          enabled: hasInstallationData && canAccessBasedOnProgression,
           completed: hasPostInspection,
           locked: !hasInstallationData,
         };
 
       case "completion":
         return {
-          enabled: hasPostInspection,
-          completed:
-            job.status === JobStatus.COMPLETED || job.status === JobStatus.VERIFIED,
+          enabled: hasPostInspection && canAccessBasedOnProgression,
+          completed: isCompleted,
           locked: !hasPostInspection,
         };
 
@@ -266,10 +294,13 @@ const ActiveJob = () => {
     setActiveTab(tabName);
   };
 
-  const handleStepComplete = (completedStep: string) => {
-    queryClient.invalidateQueries({
+  const handleStepComplete = async (completedStep: string) => {
+    await queryClient.invalidateQueries({
       queryKey: jobId ? ["job-by-id", jobId] : ["active-job"],
     });
+
+    await new Promise((resolve) => setTimeout(resolve, 300));
+    await refetch();
 
     const tabOrder = [
       "info",
@@ -334,7 +365,7 @@ const ActiveJob = () => {
 
     if (scheduledDate > today) {
       const daysUntil = Math.ceil(
-        (scheduledDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24)
+        (scheduledDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24),
       );
       return {
         allowed: false,
@@ -359,12 +390,37 @@ const ActiveJob = () => {
 
   const tabs = [
     { value: "info", icon: Briefcase, label: "Info", shortLabel: "Info" },
-    { value: "requisition", icon: Package, label: "Materials", shortLabel: "Materials" },
+    {
+      value: "requisition",
+      icon: Package,
+      label: "Materials",
+      shortLabel: "Materials",
+    },
     { value: "vehicle", icon: Car, label: "Vehicle", shortLabel: "Vehicle" },
-    { value: "pre-inspection", icon: ClipboardCheck, label: "Pre-Check", shortLabel: "Pre" },
-    { value: "installation", icon: Play, label: "Install", shortLabel: "Install" },
-    { value: "post-inspection", icon: CheckCircle, label: "Final Check", shortLabel: "Final" },
-    { value: "completion", icon: CheckCircle2, label: "Complete", shortLabel: "Done" },
+    {
+      value: "pre-inspection",
+      icon: ClipboardCheck,
+      label: "Pre-Check",
+      shortLabel: "Pre",
+    },
+    {
+      value: "installation",
+      icon: Play,
+      label: "Install",
+      shortLabel: "Install",
+    },
+    {
+      value: "post-inspection",
+      icon: CheckCircle,
+      label: "Final Check",
+      shortLabel: "Final",
+    },
+    {
+      value: "completion",
+      icon: CheckCircle2,
+      label: "Complete",
+      shortLabel: "Done",
+    },
   ];
 
   const isCompleted =
@@ -461,7 +517,11 @@ const ActiveJob = () => {
                   const Icon = tab.icon;
 
                   return (
-                    <SelectItem key={tab.value} value={tab.value} disabled={locked}>
+                    <SelectItem
+                      key={tab.value}
+                      value={tab.value}
+                      disabled={locked}
+                    >
                       <div className="flex items-center gap-2 w-full">
                         <Icon className="h-4 w-4" />
                         <span>{tab.label}</span>
@@ -509,23 +569,38 @@ const ActiveJob = () => {
         </TabsContent>
 
         <TabsContent value="requisition">
-          <RequisitionForm job={job} onComplete={() => handleStepComplete("requisition")} />
+          <RequisitionForm
+            job={job}
+            onComplete={() => handleStepComplete("requisition")}
+          />
         </TabsContent>
 
         <TabsContent value="vehicle">
-          <VehicleForm job={job} onComplete={() => handleStepComplete("vehicle")} />
+          <VehicleForm
+            job={job}
+            onComplete={() => handleStepComplete("vehicle")}
+          />
         </TabsContent>
 
         <TabsContent value="pre-inspection">
-          <PreInspection job={job} onComplete={() => handleStepComplete("pre-inspection")} />
+          <PreInspection
+            job={job}
+            onComplete={() => handleStepComplete("pre-inspection")}
+          />
         </TabsContent>
 
         <TabsContent value="installation">
-          <InstallationProgress job={job} onComplete={() => handleStepComplete("installation")} />
+          <InstallationProgress
+            job={job}
+            onComplete={() => handleStepComplete("installation")}
+          />
         </TabsContent>
 
         <TabsContent value="post-inspection">
-          <PostInspection job={job} onComplete={() => handleStepComplete("post-inspection")} />
+          <PostInspection
+            job={job}
+            onComplete={() => handleStepComplete("post-inspection")}
+          />
         </TabsContent>
 
         <TabsContent value="completion">
@@ -556,7 +631,11 @@ const getStatusColor = (status: string) => {
 const JobProgressSteps = ({ currentStatus }: { currentStatus: string }) => {
   const steps = [
     { key: "ASSIGNED", label: "Start Job", icon: Play },
-    { key: "PRE_INSPECTION_APPROVED", label: "Pre-Inspection", icon: ClipboardCheck },
+    {
+      key: "PRE_INSPECTION_APPROVED",
+      label: "Pre-Inspection",
+      icon: ClipboardCheck,
+    },
     { key: "IN_PROGRESS", label: "Installation", icon: Briefcase },
     { key: "POST_INSPECTION_PENDING", label: "Final Check", icon: CheckCircle },
     { key: "COMPLETED", label: "Completed", icon: CheckCircle2 },
