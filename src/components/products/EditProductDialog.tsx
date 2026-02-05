@@ -37,6 +37,24 @@ interface EditProductDialogProps {
   brands: Brand[];
 }
 
+// UI form state (allows empty strings for better UX)
+interface FormState {
+  sku: string;
+  name: string;
+  description: string;
+  categoryId: string;
+  brandId: string;
+  unitOfMeasure: string;
+  sellingPrice: string;
+  wholesalePrice: string;
+  subscriptionFee: string;
+  weight: string;
+  dimensions: string;
+  warrantyPeriodMonths: string;
+  reorderLevel: string;
+  isActive: boolean;
+}
+
 const EditProductDialog: React.FC<EditProductDialogProps> = ({
   open,
   onOpenChange,
@@ -46,7 +64,22 @@ const EditProductDialog: React.FC<EditProductDialogProps> = ({
   brands,
 }) => {
   const [loading, setLoading] = useState(false);
-  const [formData, setFormData] = useState<UpdateProductRequest>({});
+  const [formData, setFormData] = useState<FormState>({
+    sku: "",
+    name: "",
+    description: "",
+    categoryId: "",
+    brandId: "no-brand",
+    unitOfMeasure: "",
+    sellingPrice: "",
+    wholesalePrice: "",
+    subscriptionFee: "",
+    weight: "",
+    dimensions: "",
+    warrantyPeriodMonths: "",
+    reorderLevel: "",
+    isActive: false,
+  });
   const [errors, setErrors] = useState<Record<string, string>>({});
 
   useEffect(() => {
@@ -58,41 +91,60 @@ const EditProductDialog: React.FC<EditProductDialogProps> = ({
         categoryId: product.categoryId,
         brandId: product.brandId || "no-brand",
         unitOfMeasure: product.unitOfMeasure,
-        sellingPrice: product.sellingPrice,
-        wholesalePrice: product.wholesalePrice || 0,
-
-        subscriptionFee: product.subscriptionFee,
-
-        weight: product.weight || 0,
+        sellingPrice: String(product.sellingPrice),
+        wholesalePrice: product.wholesalePrice
+          ? String(product.wholesalePrice)
+          : "",
+        subscriptionFee: product.subscriptionFee
+          ? String(product.subscriptionFee)
+          : "",
+        weight: product.weight ? String(product.weight) : "",
         dimensions: product.dimensions || "",
-        warrantyPeriodMonths: product.warrantyPeriodMonths,
-        reorderLevel: product.reorderLevel,
+        warrantyPeriodMonths: product.warrantyPeriodMonths
+          ? String(product.warrantyPeriodMonths)
+          : "",
+        reorderLevel: product.reorderLevel ? String(product.reorderLevel) : "",
         isActive: product.isActive,
       });
       setErrors({});
     }
   }, [product, open]);
 
+  const getNumericValues = () => ({
+    sellingPrice:
+      formData.sellingPrice === "" ? 0 : Number(formData.sellingPrice),
+    wholesalePrice:
+      formData.wholesalePrice === "" ? 0 : Number(formData.wholesalePrice),
+    subscriptionFee:
+      formData.subscriptionFee === "" ? 0 : Number(formData.subscriptionFee),
+    weight: formData.weight === "" ? 0 : Number(formData.weight),
+    warrantyPeriodMonths:
+      formData.warrantyPeriodMonths === ""
+        ? 0
+        : Number(formData.warrantyPeriodMonths),
+    reorderLevel:
+      formData.reorderLevel === "" ? 0 : Number(formData.reorderLevel),
+  });
+
   const validateForm = (): boolean => {
     const newErrors: Record<string, string> = {};
 
-    const skuError = validateRequired(formData.sku || "", "SKU");
+    const skuError = validateRequired(formData.sku, "SKU");
     if (skuError) newErrors.sku = skuError;
 
-    const nameError = validateRequired(formData.name || "", "Product name");
+    const nameError = validateRequired(formData.name, "Product name");
     if (nameError) newErrors.name = nameError;
 
-    const categoryError = validateRequired(
-      formData.categoryId || "",
-      "Category"
-    );
+    const categoryError = validateRequired(formData.categoryId, "Category");
     if (categoryError) newErrors.categoryId = categoryError;
 
-    if ((formData.sellingPrice || 0) <= 0) {
+    const { sellingPrice, subscriptionFee } = getNumericValues();
+
+    if (sellingPrice <= 0) {
       newErrors.sellingPrice = "Selling price must be greater than 0";
     }
 
-    if ((formData.subscriptionFee ?? 0) < 0) {
+    if (subscriptionFee < 0) {
       newErrors.subscriptionFee = "Subscription fee cannot be negative";
     }
 
@@ -107,18 +159,35 @@ const EditProductDialog: React.FC<EditProductDialogProps> = ({
 
     setLoading(true);
     try {
+      const {
+        sellingPrice,
+        wholesalePrice,
+        subscriptionFee,
+        weight,
+        warrantyPeriodMonths,
+        reorderLevel,
+      } = getNumericValues();
+
       const requestData: UpdateProductRequest = {
-        ...formData,
+        sku: formData.sku,
+        name: formData.name,
         description: formData.description || undefined,
+        categoryId: formData.categoryId,
         brandId: formData.brandId === "no-brand" ? undefined : formData.brandId,
-        wholesalePrice: formData.wholesalePrice || undefined,
-        weight: formData.weight || undefined,
+        unitOfMeasure: formData.unitOfMeasure,
+        sellingPrice,
+        wholesalePrice: wholesalePrice || undefined,
+        subscriptionFee,
+        weight: weight || undefined,
         dimensions: formData.dimensions || undefined,
+        warrantyPeriodMonths,
+        reorderLevel,
+        isActive: formData.isActive,
       };
 
       const updatedProduct = await productsService.update(
         product.id,
-        requestData
+        requestData,
       );
       onProductUpdated(updatedProduct);
       onOpenChange(false);
@@ -129,6 +198,13 @@ const EditProductDialog: React.FC<EditProductDialogProps> = ({
       toast.error(errorMessage);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleInputChange = (field: keyof FormState, value: any) => {
+    setFormData((prev) => ({ ...prev, [field]: value }));
+    if (errors[field]) {
+      setErrors((prev) => ({ ...prev, [field]: "" }));
     }
   };
 
@@ -153,10 +229,8 @@ const EditProductDialog: React.FC<EditProductDialogProps> = ({
               </Label>
               <Input
                 id="sku"
-                value={formData.sku || ""}
-                onChange={(e) =>
-                  setFormData((prev) => ({ ...prev, sku: e.target.value }))
-                }
+                value={formData.sku}
+                onChange={(e) => handleInputChange("sku", e.target.value)}
                 placeholder="e.g., SKU-TP-WR841N"
                 className={errors.sku ? "border-destructive" : ""}
               />
@@ -172,10 +246,8 @@ const EditProductDialog: React.FC<EditProductDialogProps> = ({
               </Label>
               <Input
                 id="name"
-                value={formData.name || ""}
-                onChange={(e) =>
-                  setFormData((prev) => ({ ...prev, name: e.target.value }))
-                }
+                value={formData.name}
+                onChange={(e) => handleInputChange("name", e.target.value)}
                 placeholder="Product name"
                 className={errors.name ? "border-destructive" : ""}
               />
@@ -190,13 +262,8 @@ const EditProductDialog: React.FC<EditProductDialogProps> = ({
             <Label htmlFor="description">Description</Label>
             <Textarea
               id="description"
-              value={formData.description || ""}
-              onChange={(e) =>
-                setFormData((prev) => ({
-                  ...prev,
-                  description: e.target.value,
-                }))
-              }
+              value={formData.description}
+              onChange={(e) => handleInputChange("description", e.target.value)}
               placeholder="Product description (optional)"
               rows={3}
             />
@@ -209,9 +276,9 @@ const EditProductDialog: React.FC<EditProductDialogProps> = ({
                 Category <span className="text-destructive">*</span>
               </Label>
               <Select
-                value={formData.categoryId || ""}
+                value={formData.categoryId}
                 onValueChange={(value) =>
-                  setFormData((prev) => ({ ...prev, categoryId: value }))
+                  handleInputChange("categoryId", value)
                 }
               >
                 <SelectTrigger
@@ -238,10 +305,8 @@ const EditProductDialog: React.FC<EditProductDialogProps> = ({
             <div className="space-y-2">
               <Label htmlFor="brandId">Brand</Label>
               <Select
-                value={formData.brandId || "no-brand"}
-                onValueChange={(value) =>
-                  setFormData((prev) => ({ ...prev, brandId: value }))
-                }
+                value={formData.brandId}
+                onValueChange={(value) => handleInputChange("brandId", value)}
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Select brand (optional)" />
@@ -260,7 +325,7 @@ const EditProductDialog: React.FC<EditProductDialogProps> = ({
             </div>
           </div>
 
-          {/* ✅ Pricing row incl Subscription Fee */}
+          {/* Pricing row incl Subscription Fee */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             {/* Selling Price */}
             <div className="space-y-2">
@@ -272,12 +337,9 @@ const EditProductDialog: React.FC<EditProductDialogProps> = ({
                 type="number"
                 min="0"
                 step="0.01"
-                value={formData.sellingPrice || ""}
+                value={formData.sellingPrice}
                 onChange={(e) =>
-                  setFormData((prev) => ({
-                    ...prev,
-                    sellingPrice: parseFloat(e.target.value) || 0,
-                  }))
+                  handleInputChange("sellingPrice", e.target.value)
                 }
                 placeholder="0.00"
                 className={errors.sellingPrice ? "border-destructive" : ""}
@@ -299,12 +361,9 @@ const EditProductDialog: React.FC<EditProductDialogProps> = ({
                 type="number"
                 min="0"
                 step="0.01"
-                value={(formData.subscriptionFee as number) ?? ""}
+                value={formData.subscriptionFee}
                 onChange={(e) =>
-                  setFormData((prev) => ({
-                    ...prev,
-                    subscriptionFee: parseFloat(e.target.value) || 0,
-                  }))
+                  handleInputChange("subscriptionFee", e.target.value)
                 }
                 placeholder="0.00"
                 className={errors.subscriptionFee ? "border-destructive" : ""}
@@ -324,12 +383,9 @@ const EditProductDialog: React.FC<EditProductDialogProps> = ({
                 type="number"
                 min="0"
                 step="0.01"
-                value={formData.wholesalePrice || ""}
+                value={formData.wholesalePrice}
                 onChange={(e) =>
-                  setFormData((prev) => ({
-                    ...prev,
-                    wholesalePrice: parseFloat(e.target.value) || 0,
-                  }))
+                  handleInputChange("wholesalePrice", e.target.value)
                 }
                 placeholder="0.00"
               />
@@ -343,12 +399,9 @@ const EditProductDialog: React.FC<EditProductDialogProps> = ({
               <Label htmlFor="unitOfMeasure">Unit of Measure</Label>
               <Input
                 id="unitOfMeasure"
-                value={formData.unitOfMeasure || ""}
+                value={formData.unitOfMeasure}
                 onChange={(e) =>
-                  setFormData((prev) => ({
-                    ...prev,
-                    unitOfMeasure: e.target.value,
-                  }))
+                  handleInputChange("unitOfMeasure", e.target.value)
                 }
                 placeholder="PCS"
               />
@@ -362,13 +415,8 @@ const EditProductDialog: React.FC<EditProductDialogProps> = ({
                 type="number"
                 min="0"
                 step="0.001"
-                value={formData.weight || ""}
-                onChange={(e) =>
-                  setFormData((prev) => ({
-                    ...prev,
-                    weight: parseFloat(e.target.value) || 0,
-                  }))
-                }
+                value={formData.weight}
+                onChange={(e) => handleInputChange("weight", e.target.value)}
                 placeholder="0.000"
               />
             </div>
@@ -380,12 +428,9 @@ const EditProductDialog: React.FC<EditProductDialogProps> = ({
                 id="warrantyPeriodMonths"
                 type="number"
                 min="0"
-                value={formData.warrantyPeriodMonths || ""}
+                value={formData.warrantyPeriodMonths}
                 onChange={(e) =>
-                  setFormData((prev) => ({
-                    ...prev,
-                    warrantyPeriodMonths: parseInt(e.target.value) || 0,
-                  }))
+                  handleInputChange("warrantyPeriodMonths", e.target.value)
                 }
                 placeholder="0"
               />
@@ -399,12 +444,9 @@ const EditProductDialog: React.FC<EditProductDialogProps> = ({
               id="reorderLevel"
               type="number"
               min="0"
-              value={formData.reorderLevel || ""}
+              value={formData.reorderLevel}
               onChange={(e) =>
-                setFormData((prev) => ({
-                  ...prev,
-                  reorderLevel: parseInt(e.target.value) || 0,
-                }))
+                handleInputChange("reorderLevel", e.target.value)
               }
               placeholder="0"
             />
@@ -415,10 +457,8 @@ const EditProductDialog: React.FC<EditProductDialogProps> = ({
             <Label htmlFor="dimensions">Dimensions</Label>
             <Input
               id="dimensions"
-              value={formData.dimensions || ""}
-              onChange={(e) =>
-                setFormData((prev) => ({ ...prev, dimensions: e.target.value }))
-              }
+              value={formData.dimensions}
+              onChange={(e) => handleInputChange("dimensions", e.target.value)}
               placeholder="e.g., 20cm x 15cm x 5cm"
             />
           </div>
@@ -427,9 +467,9 @@ const EditProductDialog: React.FC<EditProductDialogProps> = ({
           <div className="flex items-center space-x-2">
             <Switch
               id="isActive"
-              checked={formData.isActive || false}
+              checked={formData.isActive}
               onCheckedChange={(checked) =>
-                setFormData((prev) => ({ ...prev, isActive: checked }))
+                handleInputChange("isActive", checked)
               }
             />
             <Label htmlFor="isActive">Active Product</Label>
