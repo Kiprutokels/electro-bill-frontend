@@ -34,18 +34,26 @@ import {
   DollarSign,
   CreditCard,
   MessageSquare,
-  Send,
+  Upload,
+  Image as ImageIcon,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { PERMISSIONS } from "@/utils/constants";
 import { useSettings } from "@/hooks/useSettings";
 import { NotificationMethod } from "@/api/types/settings.types";
+import { uploadsService } from "@/api/services/uploads.service";
+import { toast } from "sonner";
 
 const settingsSchema = z.object({
   businessName: z.string().min(1, "Business name is required").max(255),
   businessType: z.string().max(100).optional(),
   taxNumber: z.string().max(50).optional(),
-  email: z.string().email("Invalid email").max(100).optional().or(z.literal("")),
+  email: z
+    .string()
+    .email("Invalid email")
+    .max(100)
+    .optional()
+    .or(z.literal("")),
   phone: z.string().max(20).optional(),
   addressLine1: z.string().max(255).optional(),
   addressLine2: z.string().max(255).optional(),
@@ -56,18 +64,50 @@ const settingsSchema = z.object({
   quotationPrefix: z.string().min(1).max(10).default("QUO"),
   invoicePrefix: z.string().min(1).max(10).default("INV"),
   receiptPrefix: z.string().min(1).max(10).default("RCP"),
-  logoUrl: z.string().url("Invalid URL").max(255).optional().or(z.literal("")),
+  logoUrl: z.string().max(255).optional().or(z.literal("")),
   processingFeeEnabled: z.boolean().default(true),
   processingFeeAmount: z.number().min(0).default(1000),
   serviceFeeEnabled: z.boolean().default(false),
   serviceFeePercentage: z.number().min(0).max(100).default(0),
-  
+
   // SMS Settings
   smsEnabled: z.boolean().default(false),
   smsApiKey: z.string().max(255).optional().or(z.literal("")),
   smsPartnerId: z.string().max(100).optional().or(z.literal("")),
   smsShortcode: z.string().max(20).optional().or(z.literal("")),
   notificationMethod: z.enum(["EMAIL", "SMS", "BOTH"]).default("EMAIL"),
+
+  // Invoice footer/payment/admin emails
+  accountsEmail: z
+    .string()
+    .email("Invalid email")
+    .max(100)
+    .optional()
+    .or(z.literal("")),
+  accountsPhone: z.string().max(50).optional().or(z.literal("")),
+
+  bankName: z.string().max(100).optional().or(z.literal("")),
+  bankBranch: z.string().max(100).optional().or(z.literal("")),
+  bankAccountName: z.string().max(255).optional().or(z.literal("")),
+  bankAccountNumber: z.string().max(50).optional().or(z.literal("")),
+  bankSwiftCode: z.string().max(50).optional().or(z.literal("")),
+  bankBranchCode: z.string().max(50).optional().or(z.literal("")),
+
+  mpesaPaybillNumber: z.string().max(50).optional().or(z.literal("")),
+  mpesaAccountNumber: z.string().max(50).optional().or(z.literal("")),
+
+  adminInvoiceEmail1: z
+    .string()
+    .email("Invalid email")
+    .max(100)
+    .optional()
+    .or(z.literal("")),
+  adminInvoiceEmail2: z
+    .string()
+    .email("Invalid email")
+    .max(100)
+    .optional()
+    .or(z.literal("")),
 });
 
 type SettingsFormData = z.infer<typeof settingsSchema>;
@@ -76,6 +116,7 @@ const Settings = () => {
   const { hasPermission } = useAuth();
   const { settings, loading, updating, error, updateSettings } = useSettings();
   const [activeTab, setActiveTab] = useState("business");
+  const [uploadingLogo, setUploadingLogo] = useState(false);
 
   const form = useForm<SettingsFormData>({
     resolver: zodResolver(settingsSchema),
@@ -96,7 +137,7 @@ const Settings = () => {
       receiptPrefix: "RCP",
       logoUrl: "",
       processingFeeEnabled: true,
-      processingFeeAmount: 1000,
+      processingFeeAmount: 50,
       serviceFeeEnabled: false,
       serviceFeePercentage: 0,
       smsEnabled: false,
@@ -104,10 +145,22 @@ const Settings = () => {
       smsPartnerId: "",
       smsShortcode: "AUTOMILE",
       notificationMethod: "EMAIL",
+
+      accountsEmail: "",
+      accountsPhone: "",
+      bankName: "",
+      bankBranch: "",
+      bankAccountName: "",
+      bankAccountNumber: "",
+      bankSwiftCode: "",
+      bankBranchCode: "",
+      mpesaPaybillNumber: "",
+      mpesaAccountNumber: "",
+      adminInvoiceEmail1: "",
+      adminInvoiceEmail2: "",
     },
   });
 
-  // Populate form when settings are loaded
   useEffect(() => {
     if (settings) {
       form.reset({
@@ -127,7 +180,7 @@ const Settings = () => {
         receiptPrefix: settings.receiptPrefix || "RCP",
         logoUrl: settings.logoUrl || "",
         processingFeeEnabled: settings.processingFeeEnabled ?? true,
-        processingFeeAmount: settings.processingFeeAmount || 200,
+        processingFeeAmount: settings.processingFeeAmount || 50,
         serviceFeeEnabled: settings.serviceFeeEnabled ?? false,
         serviceFeePercentage: settings.serviceFeePercentage || 0,
         smsEnabled: settings.smsEnabled ?? false,
@@ -135,24 +188,67 @@ const Settings = () => {
         smsPartnerId: settings.smsPartnerId || "",
         smsShortcode: settings.smsShortcode || "AUTOMILE",
         notificationMethod: (settings.notificationMethod as any) || "EMAIL",
+
+        // Invoice footer/payment/admin emails
+        accountsEmail: settings.accountsEmail || "",
+        accountsPhone: settings.accountsPhone || "",
+
+        bankName: settings.bankName || "",
+        bankBranch: settings.bankBranch || "",
+        bankAccountName: settings.bankAccountName || "",
+        bankAccountNumber: settings.bankAccountNumber || "",
+        bankSwiftCode: settings.bankSwiftCode || "",
+        bankBranchCode: settings.bankBranchCode || "",
+
+        mpesaPaybillNumber: settings.mpesaPaybillNumber || "",
+        mpesaAccountNumber: settings.mpesaAccountNumber || "",
+
+        adminInvoiceEmail1: settings.adminInvoiceEmail1 || "",
+        adminInvoiceEmail2: settings.adminInvoiceEmail2 || "",
       });
     }
   }, [settings, form]);
 
+  const canUpdate = hasPermission(PERMISSIONS.SETTINGS_UPDATE);
+
   const onSubmit = async (data: SettingsFormData) => {
     if (!settings?.id) return;
 
-    try {
-      const cleanData = Object.fromEntries(
-        Object.entries(data).map(([key, value]) => [key, value === "" ? undefined : value])
-      ) as Partial<SettingsFormData>;
+    const cleanData = Object.fromEntries(
+      Object.entries(data).map(([key, value]) => [
+        key,
+        value === "" ? undefined : value,
+      ]),
+    ) as Partial<SettingsFormData>;
 
-      await updateSettings(settings.id, {
-        ...cleanData,
-        notificationMethod: cleanData.notificationMethod as NotificationMethod,
-      });
-    } catch (err) {
-      // Error handled in hook
+    await updateSettings(settings.id, {
+      ...cleanData,
+      notificationMethod: cleanData.notificationMethod as NotificationMethod,
+    });
+  };
+
+  const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith("image/")) {
+      toast.error("Please select an image file");
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error("Logo must be less than 5MB");
+      return;
+    }
+
+    setUploadingLogo(true);
+    try {
+      const url = await uploadsService.uploadSingle(file);
+      form.setValue("logoUrl", url, { shouldDirty: true });
+      toast.success("Logo uploaded. Click Save Settings to apply.");
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || "Failed to upload logo");
+    } finally {
+      setUploadingLogo(false);
     }
   };
 
@@ -197,27 +293,30 @@ const Settings = () => {
     );
   }
 
-  const canUpdate = hasPermission(PERMISSIONS.SETTINGS_UPDATE);
+  const logoUrl = form.watch("logoUrl");
 
   return (
     <div className="space-y-4 sm:space-y-6 p-4 sm:p-6">
-      {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h1 className="text-2xl sm:text-3xl font-bold text-foreground">
             System Settings
           </h1>
           <p className="text-sm text-muted-foreground mt-1">
-            Configure your business information and system preferences
+            Configure your business information and invoice settings
           </p>
         </div>
       </div>
 
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-          <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
+          <Tabs
+            value={activeTab}
+            onValueChange={setActiveTab}
+            className="space-y-6"
+          >
             <div className="overflow-x-auto">
-              <TabsList className="grid w-full grid-cols-5 lg:w-[600px]">
+              <TabsList className="grid w-full grid-cols-5 lg:w-[720px]">
                 <TabsTrigger value="business" className="text-xs sm:text-sm">
                   <Building2 className="w-4 h-4 mr-1 sm:mr-2" />
                   <span className="hidden sm:inline">Business</span>
@@ -226,22 +325,25 @@ const Settings = () => {
                   <FileText className="w-4 h-4 mr-1 sm:mr-2" />
                   <span className="hidden sm:inline">Documents</span>
                 </TabsTrigger>
+                <TabsTrigger value="invoice" className="text-xs sm:text-sm">
+                  <CreditCard className="w-4 h-4 mr-1 sm:mr-2" />
+                  <span className="hidden sm:inline">Invoice</span>
+                </TabsTrigger>
                 <TabsTrigger value="fees" className="text-xs sm:text-sm">
                   <DollarSign className="w-4 h-4 mr-1 sm:mr-2" />
                   <span className="hidden sm:inline">Fees</span>
                 </TabsTrigger>
-                <TabsTrigger value="notifications" className="text-xs sm:text-sm">
+                <TabsTrigger
+                  value="notifications"
+                  className="text-xs sm:text-sm"
+                >
                   <MessageSquare className="w-4 h-4 mr-1 sm:mr-2" />
                   <span className="hidden sm:inline">SMS</span>
-                </TabsTrigger>
-                <TabsTrigger value="system" className="text-xs sm:text-sm">
-                  <SettingsIcon className="w-4 h-4 mr-1 sm:mr-2" />
-                  <span className="hidden sm:inline">System</span>
                 </TabsTrigger>
               </TabsList>
             </div>
 
-            {/* Business Information Tab */}
+            {/* Business Tab */}
             <TabsContent value="business" className="space-y-6">
               <Card>
                 <CardHeader>
@@ -298,7 +400,9 @@ const Settings = () => {
                   <Separator />
 
                   <div>
-                    <h3 className="text-lg font-medium mb-4">Contact Information</h3>
+                    <h3 className="text-lg font-medium mb-4">
+                      Contact Information
+                    </h3>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
                       <FormField
                         control={form.control}
@@ -307,7 +411,11 @@ const Settings = () => {
                           <FormItem>
                             <FormLabel>Email</FormLabel>
                             <FormControl>
-                              <Input type="email" {...field} disabled={!canUpdate} />
+                              <Input
+                                type="email"
+                                {...field}
+                                disabled={!canUpdate}
+                              />
                             </FormControl>
                             <FormMessage />
                           </FormItem>
@@ -333,7 +441,9 @@ const Settings = () => {
                   <Separator />
 
                   <div>
-                    <h3 className="text-lg font-medium mb-4">Address Information</h3>
+                    <h3 className="text-lg font-medium mb-4">
+                      Address Information
+                    </h3>
                     <div className="grid grid-cols-1 gap-4 sm:gap-6">
                       <FormField
                         control={form.control}
@@ -422,7 +532,6 @@ const Settings = () => {
                         </FormItem>
                       )}
                     />
-
                     <FormField
                       control={form.control}
                       name="invoicePrefix"
@@ -436,7 +545,6 @@ const Settings = () => {
                         </FormItem>
                       )}
                     />
-
                     <FormField
                       control={form.control}
                       name="receiptPrefix"
@@ -454,19 +562,297 @@ const Settings = () => {
 
                   <Separator />
 
-                  <FormField
-                    control={form.control}
-                    name="logoUrl"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Logo URL</FormLabel>
-                        <FormControl>
-                          <Input {...field} disabled={!canUpdate} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
+                    <div className="space-y-3">
+                      <FormField
+                        control={form.control}
+                        name="logoUrl"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Company Logo URL</FormLabel>
+                            <FormControl>
+                              <Input {...field} disabled={!canUpdate} />
+                            </FormControl>
+                            <FormDescription>
+                              You can paste a URL or upload an image below.
+                            </FormDescription>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+
+                      <div className="flex items-center gap-3">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          disabled={!canUpdate || uploadingLogo}
+                          onClick={() =>
+                            document
+                              .getElementById("logo-upload-input")
+                              ?.click()
+                          }
+                        >
+                          {uploadingLogo ? (
+                            <>
+                              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                              Uploading...
+                            </>
+                          ) : (
+                            <>
+                              <Upload className="h-4 w-4 mr-2" />
+                              Upload Logo
+                            </>
+                          )}
+                        </Button>
+
+                        <input
+                          id="logo-upload-input"
+                          type="file"
+                          accept="image/*"
+                          className="hidden"
+                          onChange={handleLogoUpload}
+                          disabled={!canUpdate || uploadingLogo}
+                        />
+                      </div>
+                    </div>
+
+                    <div className="border rounded-lg p-4">
+                      <div className="flex items-center gap-2 mb-3">
+                        <ImageIcon className="h-4 w-4" />
+                        <p className="font-medium">Logo Preview</p>
+                      </div>
+                      {logoUrl ? (
+                        <img
+                          src={logoUrl}
+                          alt="Company logo"
+                          className="max-h-32 w-auto object-contain"
+                        />
+                      ) : (
+                        <p className="text-sm text-muted-foreground">
+                          No logo set.
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            {/* Invoice Tab */}
+            <TabsContent value="invoice" className="space-y-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center space-x-2">
+                    <CreditCard className="h-5 w-5" />
+                    <span>Invoice & Payment Details</span>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-8">
+                  <div className="space-y-4">
+                    <h3 className="text-lg font-medium">
+                      Accounts Contact (Invoice Footer)
+                    </h3>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <FormField
+                        control={form.control}
+                        name="accountsEmail"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Accounts Email</FormLabel>
+                            <FormControl>
+                              <Input
+                                type="email"
+                                {...field}
+                                disabled={!canUpdate}
+                              />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={form.control}
+                        name="accountsPhone"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Accounts Phone</FormLabel>
+                            <FormControl>
+                              <Input {...field} disabled={!canUpdate} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </div>
+                  </div>
+
+                  <Separator />
+
+                  <div className="space-y-4">
+                    <h3 className="text-lg font-medium">Bank Details</h3>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <FormField
+                        control={form.control}
+                        name="bankAccountName"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Account Name</FormLabel>
+                            <FormControl>
+                              <Input {...field} disabled={!canUpdate} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={form.control}
+                        name="bankAccountNumber"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Account Number</FormLabel>
+                            <FormControl>
+                              <Input {...field} disabled={!canUpdate} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={form.control}
+                        name="bankName"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Bank Name</FormLabel>
+                            <FormControl>
+                              <Input {...field} disabled={!canUpdate} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={form.control}
+                        name="bankBranch"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Branch</FormLabel>
+                            <FormControl>
+                              <Input {...field} disabled={!canUpdate} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={form.control}
+                        name="bankSwiftCode"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Swift Code</FormLabel>
+                            <FormControl>
+                              <Input {...field} disabled={!canUpdate} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={form.control}
+                        name="bankBranchCode"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Branch Code</FormLabel>
+                            <FormControl>
+                              <Input {...field} disabled={!canUpdate} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </div>
+                  </div>
+
+                  <Separator />
+
+                  <div className="space-y-4">
+                    <h3 className="text-lg font-medium">Mpesa Details</h3>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <FormField
+                        control={form.control}
+                        name="mpesaPaybillNumber"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Paybill Number</FormLabel>
+                            <FormControl>
+                              <Input {...field} disabled={!canUpdate} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={form.control}
+                        name="mpesaAccountNumber"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Account Number</FormLabel>
+                            <FormControl>
+                              <Input {...field} disabled={!canUpdate} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </div>
+                  </div>
+
+                  <Separator />
+
+                  <div className="space-y-4">
+                    <h3 className="text-lg font-medium">
+                      Admin Invoice Emails
+                    </h3>
+                    <p className="text-sm text-muted-foreground">
+                      These emails will receive invoice PDFs when invoices are
+                      sent.
+                    </p>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <FormField
+                        control={form.control}
+                        name="adminInvoiceEmail1"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Admin Email (Primary)</FormLabel>
+                            <FormControl>
+                              <Input
+                                type="email"
+                                {...field}
+                                disabled={!canUpdate}
+                              />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={form.control}
+                        name="adminInvoiceEmail2"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Admin Email (Secondary)</FormLabel>
+                            <FormControl>
+                              <Input
+                                type="email"
+                                {...field}
+                                disabled={!canUpdate}
+                              />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </div>
+                  </div>
                 </CardContent>
               </Card>
             </TabsContent>
@@ -481,12 +867,13 @@ const Settings = () => {
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-6">
-                  {/* Processing Fee */}
                   <div className="space-y-4">
                     <div>
-                      <h3 className="text-lg font-medium mb-2">Processing Fee</h3>
+                      <h3 className="text-lg font-medium mb-2">
+                        Processing Fee
+                      </h3>
                       <p className="text-sm text-muted-foreground">
-                        Fixed processing fee added to job-generated invoices
+                        Fixed processing fee added to invoices (if enabled)
                       </p>
                     </div>
 
@@ -496,9 +883,11 @@ const Settings = () => {
                       render={({ field }) => (
                         <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
                           <div className="space-y-0.5">
-                            <FormLabel className="text-base">Enable Processing Fee</FormLabel>
+                            <FormLabel className="text-base">
+                              Enable Processing Fee
+                            </FormLabel>
                             <FormDescription>
-                              Add a fixed processing fee to all job invoices
+                              Add a fixed processing fee to all invoices
                             </FormDescription>
                           </div>
                           <FormControl>
@@ -517,19 +906,27 @@ const Settings = () => {
                       name="processingFeeAmount"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Processing Fee Amount ({form.watch('defaultCurrency')})</FormLabel>
+                          <FormLabel>
+                            Processing Fee Amount (
+                            {form.watch("defaultCurrency")})
+                          </FormLabel>
                           <FormControl>
                             <Input
                               type="number"
                               step="0.01"
                               min="0"
                               {...field}
-                              onChange={(e) => field.onChange(Number(e.target.value))}
-                              disabled={!canUpdate || !form.watch('processingFeeEnabled')}
+                              onChange={(e) =>
+                                field.onChange(Number(e.target.value))
+                              }
+                              disabled={
+                                !canUpdate ||
+                                !form.watch("processingFeeEnabled")
+                              }
                             />
                           </FormControl>
                           <FormDescription>
-                            Fixed amount added to each job invoice
+                            Fixed amount added to each invoice
                           </FormDescription>
                           <FormMessage />
                         </FormItem>
@@ -539,10 +936,11 @@ const Settings = () => {
 
                   <Separator />
 
-                  {/* Service Charge */}
                   <div className="space-y-4">
                     <div>
-                      <h3 className="text-lg font-medium mb-2">Service Charge</h3>
+                      <h3 className="text-lg font-medium mb-2">
+                        Service Charge
+                      </h3>
                       <p className="text-sm text-muted-foreground">
                         Percentage-based service charge applied to subtotal
                       </p>
@@ -554,7 +952,9 @@ const Settings = () => {
                       render={({ field }) => (
                         <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
                           <div className="space-y-0.5">
-                            <FormLabel className="text-base">Enable Service Charge</FormLabel>
+                            <FormLabel className="text-base">
+                              Enable Service Charge
+                            </FormLabel>
                             <FormDescription>
                               Add a percentage-based service charge to invoices
                             </FormDescription>
@@ -583,56 +983,28 @@ const Settings = () => {
                               min="0"
                               max="100"
                               {...field}
-                              onChange={(e) => field.onChange(Number(e.target.value))}
-                              disabled={!canUpdate || !form.watch('serviceFeeEnabled')}
+                              onChange={(e) =>
+                                field.onChange(Number(e.target.value))
+                              }
+                              disabled={
+                                !canUpdate || !form.watch("serviceFeeEnabled")
+                              }
                             />
                           </FormControl>
                           <FormDescription>
-                            Percentage of subtotal (after discount) added as service charge
+                            Percentage of subtotal (after discount) added as
+                            service charge
                           </FormDescription>
                           <FormMessage />
                         </FormItem>
                       )}
                     />
                   </div>
-
-                  {/* Fee Calculation Preview */}
-                  <div className="rounded-lg border bg-muted p-4">
-                    <h4 className="font-medium mb-2">Fee Calculation Preview</h4>
-                    <div className="space-y-1 text-sm">
-                      <p>Example Invoice: {form.watch('defaultCurrency')} 10,000</p>
-                      {form.watch('serviceFeeEnabled') && (
-                        <p>
-                          + Service Charge ({form.watch('serviceFeePercentage')}%):{' '}
-                          {form.watch('defaultCurrency')}{' '}
-                          {(10000 * (form.watch('serviceFeePercentage') / 100)).toFixed(2)}
-                        </p>
-                      )}
-                      {form.watch('processingFeeEnabled') && (
-                        <p>
-                          + Processing Fee: {form.watch('defaultCurrency')}{' '}
-                          {form.watch('processingFeeAmount').toFixed(2)}
-                        </p>
-                      )}
-                      <p className="font-medium pt-2 border-t">
-                        Total: {form.watch('defaultCurrency')}{' '}
-                        {(
-                          10000 +
-                          (form.watch('serviceFeeEnabled')
-                            ? 10000 * (form.watch('serviceFeePercentage') / 100)
-                            : 0) +
-                          (form.watch('processingFeeEnabled')
-                            ? form.watch('processingFeeAmount')
-                            : 0)
-                        ).toFixed(2)}
-                      </p>
-                    </div>
-                  </div>
                 </CardContent>
               </Card>
             </TabsContent>
 
-            {/* SMS/Notifications Tab */}
+            {/* Notifications/SMS Tab */}
             <TabsContent value="notifications" className="space-y-6">
               <Card>
                 <CardHeader>
@@ -642,7 +1014,6 @@ const Settings = () => {
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-6">
-                  {/* Notification Method */}
                   <FormField
                     control={form.control}
                     name="notificationMethod"
@@ -666,7 +1037,8 @@ const Settings = () => {
                           </SelectContent>
                         </Select>
                         <FormDescription>
-                          Choose how to send notifications to customers and technicians
+                          Choose how to send notifications to customers and
+                          technicians
                         </FormDescription>
                         <FormMessage />
                       </FormItem>
@@ -675,176 +1047,89 @@ const Settings = () => {
 
                   <Separator />
 
-                  {/* SMS Configuration */}
-                  <div className="space-y-4">
-                    <div>
-                      <h3 className="text-lg font-medium mb-2">TextSMS Configuration</h3>
-                      <p className="text-sm text-muted-foreground">
-                        Configure your TextSMS API credentials
-                      </p>
-                    </div>
-
-                    <FormField
-                      control={form.control}
-                      name="smsEnabled"
-                      render={({ field }) => (
-                        <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
-                          <div className="space-y-0.5">
-                            <FormLabel className="text-base">Enable SMS Notifications</FormLabel>
-                            <FormDescription>
-                              Allow sending SMS notifications via TextSMS API
-                            </FormDescription>
-                          </div>
-                          <FormControl>
-                            <Switch
-                              checked={field.value}
-                              onCheckedChange={field.onChange}
-                              disabled={!canUpdate}
-                            />
-                          </FormControl>
-                        </FormItem>
-                      )}
-                    />
-
-                    <FormField
-                      control={form.control}
-                      name="smsApiKey"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>TextSMS API Key</FormLabel>
-                          <FormControl>
-                            <Input
-                              type="password"
-                              placeholder="Enter your TextSMS API key"
-                              {...field}
-                              disabled={!canUpdate || !form.watch('smsEnabled')}
-                            />
-                          </FormControl>
+                  <FormField
+                    control={form.control}
+                    name="smsEnabled"
+                    render={({ field }) => (
+                      <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
+                        <div className="space-y-0.5">
+                          <FormLabel className="text-base">
+                            Enable SMS Notifications
+                          </FormLabel>
                           <FormDescription>
-                            Get this from your TextSMS account dashboard
+                            Allow sending SMS notifications via TextSMS API
                           </FormDescription>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
+                        </div>
+                        <FormControl>
+                          <Switch
+                            checked={field.value}
+                            onCheckedChange={field.onChange}
+                            disabled={!canUpdate}
+                          />
+                        </FormControl>
+                      </FormItem>
+                    )}
+                  />
 
-                    <FormField
-                      control={form.control}
-                      name="smsPartnerId"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>TextSMS Partner ID</FormLabel>
-                          <FormControl>
-                            <Input
-                              placeholder="Enter your Partner ID"
-                              {...field}
-                              disabled={!canUpdate || !form.watch('smsEnabled')}
-                            />
-                          </FormControl>
-                          <FormDescription>
-                            Your TextSMS Partner ID from the dashboard
-                          </FormDescription>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
+                  <FormField
+                    control={form.control}
+                    name="smsApiKey"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>TextSMS API Key</FormLabel>
+                        <FormControl>
+                          <Input
+                            type="password"
+                            placeholder="Enter your TextSMS API key"
+                            {...field}
+                            disabled={!canUpdate || !form.watch("smsEnabled")}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
 
-                    <FormField
-                      control={form.control}
-                      name="smsShortcode"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>SMS Sender ID / Shortcode</FormLabel>
-                          <FormControl>
-                            <Input
-                              placeholder="AUTOMILE"
-                              {...field}
-                              disabled={!canUpdate || !form.watch('smsEnabled')}
-                            />
-                          </FormControl>
-                          <FormDescription>
-                            The name that appears as the sender (max 11 characters)
-                          </FormDescription>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                  </div>
+                  <FormField
+                    control={form.control}
+                    name="smsPartnerId"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>TextSMS Partner ID</FormLabel>
+                        <FormControl>
+                          <Input
+                            placeholder="Enter your Partner ID"
+                            {...field}
+                            disabled={!canUpdate || !form.watch("smsEnabled")}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
 
-                  {/* Info Box */}
-                  <div className="rounded-lg border bg-blue-50 dark:bg-blue-950 p-4">
-                    <div className="flex items-start space-x-3">
-                      <Send className="h-5 w-5 text-blue-600 dark:text-blue-400 mt-0.5" />
-                      <div className="flex-1 space-y-2">
-                        <h4 className="font-medium text-blue-900 dark:text-blue-100">
-                          SMS Features
-                        </h4>
-                        <ul className="text-sm text-blue-800 dark:text-blue-200 space-y-1">
-                          <li>• Job assignments sent to technicians</li>
-                          <li>• Job started/completed notifications to customers</li>
-                          <li>• Invoice generation alerts</li>
-                          <li>• Comprehensive SMS logging and delivery tracking</li>
-                        </ul>
-                      </div>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            </TabsContent>
-
-            {/* System Tab */}
-            <TabsContent value="system" className="space-y-6">
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center space-x-2">
-                    <SettingsIcon className="h-5 w-5" />
-                    <span>System Configuration</span>
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-6">
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
-                    <FormField
-                      control={form.control}
-                      name="defaultCurrency"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Default Currency</FormLabel>
-                          <FormControl>
-                            <Input {...field} disabled={!canUpdate} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-
-                    <FormField
-                      control={form.control}
-                      name="taxRate"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Tax Rate (%)</FormLabel>
-                          <FormControl>
-                            <Input
-                              type="number"
-                              step="0.01"
-                              min="0"
-                              max="100"
-                              {...field}
-                              onChange={(e) => field.onChange(Number(e.target.value))}
-                              disabled={!canUpdate}
-                            />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                  </div>
+                  <FormField
+                    control={form.control}
+                    name="smsShortcode"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>SMS Sender ID / Shortcode</FormLabel>
+                        <FormControl>
+                          <Input
+                            placeholder="AUTOMILE"
+                            {...field}
+                            disabled={!canUpdate || !form.watch("smsEnabled")}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
                 </CardContent>
               </Card>
             </TabsContent>
           </Tabs>
 
-          {/* Save Button */}
           {canUpdate && (
             <div className="sticky bottom-4 sm:static sm:bottom-auto bg-background pt-4 border-t sm:border-t-0">
               <Button
