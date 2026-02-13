@@ -34,6 +34,7 @@ import {
   ArrowUp,
   Zap,
   CheckCircle2,
+  History,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
@@ -78,12 +79,51 @@ const CreateJobDialog = ({ open, onOpenChange }: CreateJobDialogProps) => {
 
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
 
+  // Check if selected date is in the past
+  const isBackdatedJob = () => {
+    if (!formData.scheduledDate) return false;
+    const selectedDate = new Date(formData.scheduledDate);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    return selectedDate < today;
+  };
+
+  // Get how many days ago the selected date is
+  const getDaysAgo = () => {
+    if (!formData.scheduledDate) return 0;
+    const selectedDate = new Date(formData.scheduledDate);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    selectedDate.setHours(0, 0, 0, 0);
+    const diffTime = today.getTime() - selectedDate.getTime();
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    return diffDays;
+  };
+
+  // Format the backdate info message
+  const getBackdateMessage = () => {
+    const daysAgo = getDaysAgo();
+    if (daysAgo <= 0) return null;
+    
+    if (daysAgo === 1) return "1 day ago";
+    if (daysAgo < 7) return `${daysAgo} days ago`;
+    if (daysAgo < 30) {
+      const weeks = Math.floor(daysAgo / 7);
+      return weeks === 1 ? "1 week ago" : `${weeks} weeks ago`;
+    }
+    const months = Math.floor(daysAgo / 30);
+    return months === 1 ? "1 month ago" : `${months} months ago`;
+  };
+
   const createMutation = useMutation({
     mutationFn: jobsService.createJob,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["jobs"] });
       queryClient.invalidateQueries({ queryKey: ["job-statistics"] });
-      toast.success("✓ Job created successfully!");
+      
+      const backdateInfo = isBackdatedJob() ? ` (backdated to ${getBackdateMessage()})` : "";
+      toast.success(`✓ Job created successfully${backdateInfo}!`);
+      
       onOpenChange(false);
       resetForm();
     },
@@ -110,8 +150,9 @@ const CreateJobDialog = ({ open, onOpenChange }: CreateJobDialogProps) => {
     const errors: Record<string, string> = {};
     if (!formData.customerId) errors.customerId = "Customer is required";
     if (!formData.jobType) errors.jobType = "Job type is required";
-    if (!formData.scheduledDate)
+    if (!formData.scheduledDate) {
       errors.scheduledDate = "Scheduled date is required";
+    }
     if (!formData.serviceDescription)
       errors.serviceDescription = "Service description is required";
     setFormErrors(errors);
@@ -256,7 +297,7 @@ const CreateJobDialog = ({ open, onOpenChange }: CreateJobDialogProps) => {
                     Scheduled Date <span className="text-red-500">*</span>
                   </Label>
                   <div className="relative">
-                 <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 dark:text-slate-300 pointer-events-none" />
+                    <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 dark:text-slate-300 pointer-events-none" />
                     <Input
                       id="scheduledDate"
                       type="date"
@@ -268,7 +309,6 @@ const CreateJobDialog = ({ open, onOpenChange }: CreateJobDialogProps) => {
                         });
                         setFormErrors({ ...formErrors, scheduledDate: "" });
                       }}
-                      min={new Date().toISOString().split("T")[0]}
                       className="h-11 pl-10 text-base font-medium"
                     />
                   </div>
@@ -277,6 +317,17 @@ const CreateJobDialog = ({ open, onOpenChange }: CreateJobDialogProps) => {
                       {formErrors.scheduledDate}
                     </p>
                   )}
+                  {isBackdatedJob() && (
+                    <div className="flex items-center gap-2 p-2 bg-orange-50 dark:bg-orange-900/20 rounded-md border border-orange-200 dark:border-orange-800">
+                      <History className="h-3.5 w-3.5 text-orange-600 dark:text-orange-400 flex-shrink-0" />
+                      <p className="text-xs text-orange-700 dark:text-orange-300 font-medium">
+                        Backdated job: {getBackdateMessage()}
+                      </p>
+                    </div>
+                  )}
+                  <p className="text-xs text-slate-500 dark:text-slate-400">
+                    You can select past dates to create backdated jobs
+                  </p>
                 </div>
               </div>
 

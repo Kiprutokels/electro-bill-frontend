@@ -1,105 +1,65 @@
-import React, { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { useParams, useNavigate } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
+import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import { Textarea } from "@/components/ui/textarea";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
-
-import {
-  ArrowLeft,
-  Clock,
-  Package,
-  ClipboardCheck,
-  CheckCircle,
-  XCircle,
-  AlertCircle,
-  FileText,
-  DollarSign,
-  Loader2,
-  Eye,
-  Send,
-  Smartphone,
-} from "lucide-react";
-
 import { toast } from "sonner";
+import { Loader2, AlertCircle } from "lucide-react";
+
 import { jobsService } from "@/api/services/jobs.service";
 import { invoicesService } from "@/api/services/invoices.service";
-
 import {
   requisitionsService,
-  RequisitionStatus,
   IssueItemRequest,
 } from "@/api/services/requisitions.service";
-
 import {
   advanceRequestsService,
-  AdvanceRequestStatus,
   DisbursementMethod,
 } from "@/api/services/advance-requests.service";
-
 import {
   ProductBatch,
   productBatchesService,
 } from "@/api/services/product-batches.service";
 
-import DeviceSelectionDialog from "@/components/inventory/DeviceSelectionDialog";
+import WorkflowHeader from "./job-workflow/components/WorkflowHeader";
+import JobSummaryCard from "./job-workflow/components/JobSummaryCard";
+import TimelineTab from "./job-workflow/components/TimelineTab";
+import PreInspectionTab from "./job-workflow/components/PreInspectionTab";
+import PostInspectionTab from "./job-workflow/components/PostInspectionTab";
+import InstallationDetailsTab from "./job-workflow/components/InstallationDetailsTab";
 
-/**
- * Admin-only page: /jobs/:id/workflow
- * - Adds Materials & Advances tabs with full actions
- * - Keeps existing workflow tabs
- * - Mobile responsive (tables -> cards)
- */
+import MaterialsTab from "./job-workflow/tabs/MaterialsTab";
+import AdvancesTab from "./job-workflow/tabs/AdvancesTab";
+
+import RequisitionViewDialog from "./job-workflow/dialogs/RequisitionViewDialog";
+import RequisitionIssueDialog from "./job-workflow/dialogs/RequisitionIssueDialog";
+import RejectRequisitionDialog from "./job-workflow/dialogs/RejectRequisitionDialog";
+
+import AdvanceViewDialog from "./job-workflow/dialogs/AdvanceViewDialog";
+import RejectAdvanceDialog from "./job-workflow/dialogs/RejectAdvanceDialog";
+import DisburseAdvanceDialog from "./job-workflow/dialogs/DisburseAdvanceDialog";
+
+import DeviceSelectionDialog from "@/components/inventory/DeviceSelectionDialog";
 
 const JobWorkflow = () => {
   const { id } = useParams<{ id: string }>();
+  const jobId = id!;
   const navigate = useNavigate();
   const queryClient = useQueryClient();
 
-  // Invoice state (existing)
+  // Invoice
   const [generatingInvoice, setGeneratingInvoice] = useState(false);
   const [checkingInvoice, setCheckingInvoice] = useState(false);
   const [existingInvoiceId, setExistingInvoiceId] = useState<string | null>(
     null,
   );
 
-  // Admin requisitions state
+  // Requisition dialog states
   const [selectedRequisition, setSelectedRequisition] = useState<any>(null);
-  const [isViewReqOpen, setIsViewReqOpen] = useState(false);
-  const [isIssueOpen, setIsIssueOpen] = useState(false);
-  const [isRejectReqOpen, setIsRejectReqOpen] = useState(false);
+  const [viewReqOpen, setViewReqOpen] = useState(false);
+  const [issueOpen, setIssueOpen] = useState(false);
+  const [rejectReqOpen, setRejectReqOpen] = useState(false);
   const [reqRejectReason, setReqRejectReason] = useState("");
 
   const [issueQuantities, setIssueQuantities] = useState<
@@ -112,11 +72,12 @@ const JobWorkflow = () => {
   const [showImeiDialog, setShowImeiDialog] = useState(false);
   const [currentIssuingItem, setCurrentIssuingItem] = useState<any>(null);
 
-  // Admin advances state
+  // Advances dialog states
   const [selectedAdvance, setSelectedAdvance] = useState<any>(null);
-  const [isViewAdvanceOpen, setIsViewAdvanceOpen] = useState(false);
-  const [isRejectAdvanceOpen, setIsRejectAdvanceOpen] = useState(false);
-  const [isDisburseOpen, setIsDisburseOpen] = useState(false);
+  const [viewAdvanceOpen, setViewAdvanceOpen] = useState(false);
+  const [rejectAdvanceOpen, setRejectAdvanceOpen] = useState(false);
+  const [disburseOpen, setDisburseOpen] = useState(false);
+
   const [advanceRejectReason, setAdvanceRejectReason] = useState("");
   const [disbursementData, setDisbursementData] = useState({
     method: DisbursementMethod.MPESA,
@@ -126,28 +87,25 @@ const JobWorkflow = () => {
   // -----------------------------
   // Queries
   // -----------------------------
-
   const { data: jobWorkflow, isLoading } = useQuery({
-    queryKey: ["job-workflow", id],
-    queryFn: () => jobsService.getJobWorkflow(id!),
-    enabled: !!id,
+    queryKey: ["job-workflow", jobId],
+    queryFn: () => jobsService.getJobWorkflow(jobId),
+    enabled: !!jobId,
   });
 
   const { data: jobRequisitionsData, isLoading: loadingJobReqs } = useQuery({
-    queryKey: ["job-requisitions-admin", id],
-    queryFn: () =>
-      requisitionsService.getRequisitions({ jobId: id!, limit: -1 }),
-    enabled: !!id,
+    queryKey: ["job-requisitions-admin", jobId],
+    queryFn: () => requisitionsService.getRequisitions({ jobId, limit: -1 }),
+    enabled: !!jobId,
   });
 
   const { data: jobAdvancesData, isLoading: loadingJobAdvances } = useQuery({
-    queryKey: ["job-advances-admin", id],
+    queryKey: ["job-advances-admin", jobId],
     queryFn: () =>
-      advanceRequestsService.getAdvanceRequests({ jobId: id!, limit: -1 }),
-    enabled: !!id,
+      advanceRequestsService.getAdvanceRequests({ jobId, limit: -1 }),
+    enabled: !!jobId,
   });
 
-  // Fetch product batches for issuing (per requisition selection)
   const { data: batchesData, isLoading: isBatchesLoading } = useQuery({
     queryKey: ["job-req-batches", selectedRequisition?.id],
     queryFn: async () => {
@@ -161,8 +119,7 @@ const JobWorkflow = () => {
               item.productId,
             );
             result[item.id] = batches;
-          } catch (e) {
-            console.error("Failed to fetch available batches:", e);
+          } catch {
             result[item.id] = [];
           }
         }),
@@ -170,41 +127,38 @@ const JobWorkflow = () => {
 
       return result;
     },
-    enabled: isIssueOpen && !!selectedRequisition,
+    enabled: issueOpen && !!selectedRequisition,
   });
 
   // -----------------------------
   // Invoice check
   // -----------------------------
   useEffect(() => {
-    if (jobWorkflow?.status === "COMPLETED" && id) {
+    if (jobWorkflow?.status === "COMPLETED" && jobId) {
       checkForExistingInvoice();
     }
-  }, [jobWorkflow?.status, id]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [jobWorkflow?.status, jobId]);
 
   const checkForExistingInvoice = async () => {
-    if (!id) return;
-
     setCheckingInvoice(true);
     try {
-      const hasInvoice = await invoicesService.hasInvoiceForJob(id);
+      const hasInvoice = await invoicesService.hasInvoiceForJob(jobId);
       if (hasInvoice) {
-        const invoice = await invoicesService.getByJobId(id);
+        const invoice = await invoicesService.getByJobId(jobId);
         if (invoice) setExistingInvoiceId(invoice.id);
       }
-    } catch (error) {
-      console.error("Error checking invoice:", error);
+    } catch {
+      // ignore
     } finally {
       setCheckingInvoice(false);
     }
   };
 
   const handleGenerateInvoice = async () => {
-    if (!id) return;
-
     setGeneratingInvoice(true);
     try {
-      const invoice = await invoicesService.createFromJob(id);
+      const invoice = await invoicesService.createFromJob(jobId);
       toast.success("Invoice generated successfully");
       navigate(`/invoices/${invoice.id}`);
     } catch (error: any) {
@@ -221,7 +175,7 @@ const JobWorkflow = () => {
   };
 
   // -----------------------------
-  // Admin requisition mutations
+  // Mutations — requisitions
   // -----------------------------
   const approveReqMutation = useMutation({
     mutationFn: (reqId: string) =>
@@ -230,14 +184,13 @@ const JobWorkflow = () => {
       toast.success("Requisition approved");
       await Promise.all([
         queryClient.invalidateQueries({
-          queryKey: ["job-requisitions-admin", id],
+          queryKey: ["job-requisitions-admin", jobId],
         }),
-        queryClient.invalidateQueries({ queryKey: ["job-workflow", id] }),
+        queryClient.invalidateQueries({ queryKey: ["job-workflow", jobId] }),
       ]);
     },
-    onError: (e: any) => {
-      toast.error(e.response?.data?.message || "Failed to approve requisition");
-    },
+    onError: (e: any) =>
+      toast.error(e.response?.data?.message || "Failed to approve requisition"),
   });
 
   const rejectReqMutation = useMutation({
@@ -245,19 +198,18 @@ const JobWorkflow = () => {
       requisitionsService.rejectRequisition(reqId, reason),
     onSuccess: async () => {
       toast.success("Requisition rejected");
-      setIsRejectReqOpen(false);
+      setRejectReqOpen(false);
       setSelectedRequisition(null);
       setReqRejectReason("");
       await Promise.all([
         queryClient.invalidateQueries({
-          queryKey: ["job-requisitions-admin", id],
+          queryKey: ["job-requisitions-admin", jobId],
         }),
-        queryClient.invalidateQueries({ queryKey: ["job-workflow", id] }),
+        queryClient.invalidateQueries({ queryKey: ["job-workflow", jobId] }),
       ]);
     },
-    onError: (e: any) => {
-      toast.error(e.response?.data?.message || "Failed to reject requisition");
-    },
+    onError: (e: any) =>
+      toast.error(e.response?.data?.message || "Failed to reject requisition"),
   });
 
   const issueReqMutation = useMutation({
@@ -270,26 +222,23 @@ const JobWorkflow = () => {
     }) => requisitionsService.issueItems(reqId, items),
     onSuccess: async () => {
       toast.success("Items issued successfully");
-      setIsIssueOpen(false);
-      setSelectedRequisition(null);
-      setIssueQuantities({});
-      setIssueBatches({});
-      setSelectedItemImeis({});
+      closeIssueDialog();
       await Promise.all([
         queryClient.invalidateQueries({
-          queryKey: ["job-requisitions-admin", id],
+          queryKey: ["job-requisitions-admin", jobId],
         }),
-        queryClient.invalidateQueries({ queryKey: ["job-workflow", id] }),
-        queryClient.invalidateQueries({ queryKey: ["job-by-id", id] as any }),
+        queryClient.invalidateQueries({ queryKey: ["job-workflow", jobId] }),
+        queryClient.invalidateQueries({
+          queryKey: ["job-by-id", jobId] as any,
+        }),
       ]);
     },
-    onError: (e: any) => {
-      toast.error(e.response?.data?.message || "Failed to issue items");
-    },
+    onError: (e: any) =>
+      toast.error(e.response?.data?.message || "Failed to issue items"),
   });
 
   // -----------------------------
-  // Admin advances mutations
+  // Mutations — advances
   // -----------------------------
   const approveAdvanceMutation = useMutation({
     mutationFn: (advanceId: string) =>
@@ -297,13 +246,14 @@ const JobWorkflow = () => {
     onSuccess: async () => {
       toast.success("Advance request approved");
       await Promise.all([
-        queryClient.invalidateQueries({ queryKey: ["job-advances-admin", id] }),
-        queryClient.invalidateQueries({ queryKey: ["job-workflow", id] }),
+        queryClient.invalidateQueries({
+          queryKey: ["job-advances-admin", jobId],
+        }),
+        queryClient.invalidateQueries({ queryKey: ["job-workflow", jobId] }),
       ]);
     },
-    onError: (e: any) => {
-      toast.error(e.response?.data?.message || "Failed to approve advance");
-    },
+    onError: (e: any) =>
+      toast.error(e.response?.data?.message || "Failed to approve advance"),
   });
 
   const rejectAdvanceMutation = useMutation({
@@ -316,17 +266,18 @@ const JobWorkflow = () => {
     }) => advanceRequestsService.rejectAdvanceRequest(advanceId, reason),
     onSuccess: async () => {
       toast.success("Advance request rejected");
-      setIsRejectAdvanceOpen(false);
+      setRejectAdvanceOpen(false);
       setSelectedAdvance(null);
       setAdvanceRejectReason("");
       await Promise.all([
-        queryClient.invalidateQueries({ queryKey: ["job-advances-admin", id] }),
-        queryClient.invalidateQueries({ queryKey: ["job-workflow", id] }),
+        queryClient.invalidateQueries({
+          queryKey: ["job-advances-admin", jobId],
+        }),
+        queryClient.invalidateQueries({ queryKey: ["job-workflow", jobId] }),
       ]);
     },
-    onError: (e: any) => {
-      toast.error(e.response?.data?.message || "Failed to reject advance");
-    },
+    onError: (e: any) =>
+      toast.error(e.response?.data?.message || "Failed to reject advance"),
   });
 
   const disburseMutation = useMutation({
@@ -334,17 +285,18 @@ const JobWorkflow = () => {
       advanceRequestsService.disburseAdvanceRequest(advanceId, data),
     onSuccess: async () => {
       toast.success("Advance disbursed");
-      setIsDisburseOpen(false);
+      setDisburseOpen(false);
       setSelectedAdvance(null);
       setDisbursementData({ method: DisbursementMethod.MPESA, reference: "" });
       await Promise.all([
-        queryClient.invalidateQueries({ queryKey: ["job-advances-admin", id] }),
-        queryClient.invalidateQueries({ queryKey: ["job-workflow", id] }),
+        queryClient.invalidateQueries({
+          queryKey: ["job-advances-admin", jobId],
+        }),
+        queryClient.invalidateQueries({ queryKey: ["job-workflow", jobId] }),
       ]);
     },
-    onError: (e: any) => {
-      toast.error(e.response?.data?.message || "Failed to disburse advance");
-    },
+    onError: (e: any) =>
+      toast.error(e.response?.data?.message || "Failed to disburse advance"),
   });
 
   // -----------------------------
@@ -362,34 +314,47 @@ const JobWorkflow = () => {
 
   const openViewReq = (req: any) => {
     setSelectedRequisition(req);
-    setIsViewReqOpen(true);
+    setViewReqOpen(true);
   };
 
   const openIssueReq = (req: any) => {
     setSelectedRequisition(req);
-    // initialize remaining quantities
+
     const q: Record<string, number> = {};
     const b: Record<string, string> = {};
     req.items.forEach((item: any) => {
       q[item.id] = Math.max(0, item.quantityRequested - item.quantityIssued);
       b[item.id] = item.batchId || "";
     });
+
     setIssueQuantities(q);
     setIssueBatches(b);
-    setIsIssueOpen(true);
+    setIssueOpen(true);
   };
 
   const openRejectReq = (req: any) => {
     setSelectedRequisition(req);
-    setIsRejectReqOpen(true);
+    setRejectReqOpen(true);
+  };
+
+  const closeIssueDialog = () => {
+    setIssueOpen(false);
+    setSelectedRequisition(null);
+    setIssueQuantities({});
+    setIssueBatches({});
+    setSelectedItemImeis({});
+    setCurrentIssuingItem(null);
+    setShowImeiDialog(false);
   };
 
   const handleIssueSubmit = () => {
     if (!selectedRequisition) return;
 
     const items: IssueItemRequest[] = [];
+
     for (const item of selectedRequisition.items) {
-      const qty = issueQuantities[item.id] || 0;
+      const remaining = item.quantityRequested - item.quantityIssued;
+      const qty = Math.min(issueQuantities[item.id] || 0, remaining);
       if (qty <= 0) continue;
 
       const batchId = issueBatches[item.id];
@@ -398,11 +363,17 @@ const JobWorkflow = () => {
         return;
       }
 
+      const imeis = selectedItemImeis[item.id] || [];
+      if (imeis.length !== qty) {
+        toast.error(`Select exactly ${qty} IMEI(s) for ${item.product.name}`);
+        return;
+      }
+
       items.push({
         requisitionItemId: item.id,
         quantityIssued: qty,
         batchId,
-        imeiNumbers: selectedItemImeis[item.id] || undefined,
+        imeiNumbers: imeis,
       });
     }
 
@@ -416,17 +387,17 @@ const JobWorkflow = () => {
 
   const openViewAdvance = (adv: any) => {
     setSelectedAdvance(adv);
-    setIsViewAdvanceOpen(true);
+    setViewAdvanceOpen(true);
   };
 
   const openRejectAdvance = (adv: any) => {
     setSelectedAdvance(adv);
-    setIsRejectAdvanceOpen(true);
+    setRejectAdvanceOpen(true);
   };
 
   const openDisburseAdvance = (adv: any) => {
     setSelectedAdvance(adv);
-    setIsDisburseOpen(true);
+    setDisburseOpen(true);
   };
 
   // -----------------------------
@@ -442,7 +413,7 @@ const JobWorkflow = () => {
 
   if (!jobWorkflow) {
     return (
-      <div className="p-6">
+      <div className="p-4 sm:p-6">
         <Card>
           <CardContent className="py-12 text-center">
             <AlertCircle className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
@@ -456,1470 +427,269 @@ const JobWorkflow = () => {
   const { workflow } = jobWorkflow;
 
   return (
-    <div className="space-y-6 p-4 sm:p-6">
-      {/* Header */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex items-start gap-3">
-          <Button variant="ghost" onClick={() => navigate("/jobs")}>
-            <ArrowLeft className="h-4 w-4 mr-2" />
-            Back
-          </Button>
-          <div>
-            <h1 className="text-2xl sm:text-3xl font-bold">Job Workflow</h1>
-            <p className="text-muted-foreground text-sm">{jobTitle}</p>
-          </div>
-        </div>
-
-        <div className="flex items-center gap-2 flex-wrap">
-          <Badge className={getStatusColor(jobWorkflow.status)}>
-            {jobWorkflow.status.replace(/_/g, " ")}
-          </Badge>
-
-          {jobWorkflow.status === "COMPLETED" && (
-            <>
-              {checkingInvoice ? (
-                <Button disabled>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Checking...
-                </Button>
-              ) : existingInvoiceId ? (
-                <Button onClick={handleViewInvoice}>
-                  <Eye className="mr-2 h-4 w-4" />
-                  View Invoice
-                </Button>
-              ) : (
-                <Button
-                  onClick={handleGenerateInvoice}
-                  disabled={generatingInvoice}
-                >
-                  {generatingInvoice ? (
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  ) : (
-                    <DollarSign className="mr-2 h-4 w-4" />
-                  )}
-                  Generate Invoice
-                </Button>
-              )}
-            </>
-          )}
-        </div>
-      </div>
-
-      {/* Job Summary */}
-      <Card>
-        <CardHeader className="pb-3">
-          <CardTitle className="text-base sm:text-lg">Job Summary</CardTitle>
-        </CardHeader>
-        <CardContent className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 text-sm">
-          <div>
-            <Label className="text-muted-foreground">Customer</Label>
-            <div className="font-medium">
-              {jobWorkflow.customer?.businessName ||
-                jobWorkflow.customer?.contactPerson ||
-                "—"}
-            </div>
-          </div>
-
-          <div>
-            <Label className="text-muted-foreground">Vehicle</Label>
-            <div className="font-medium">
-              {jobWorkflow.vehicle?.vehicleReg
-                ? `${jobWorkflow.vehicle.vehicleReg} (${jobWorkflow.vehicle.make || ""} ${jobWorkflow.vehicle.model || ""})`
-                : "Not assigned"}
-            </div>
-          </div>
-
-          <div>
-            <Label className="text-muted-foreground">Scheduled</Label>
-            <div className="font-medium">
-              {jobWorkflow.scheduledDate
-                ? new Date(jobWorkflow.scheduledDate).toLocaleDateString()
-                : "—"}
-            </div>
-          </div>
-
-          <div>
-            <Label className="text-muted-foreground">Type</Label>
-            <div className="font-medium">
-              {jobWorkflow.jobType?.replace(/_/g, " ") || "—"}
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Tabs */}
-      <Tabs defaultValue="timeline" className="w-full">
-        <TabsList className="grid w-full grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-1">
-          <TabsTrigger value="timeline" className="text-xs sm:text-sm">
-            <Clock className="h-4 w-4 mr-2" />
-            Timeline
-          </TabsTrigger>
-
-          <TabsTrigger value="materials" className="text-xs sm:text-sm">
-            <Package className="h-4 w-4 mr-2" />
-            Materials
-          </TabsTrigger>
-
-          <TabsTrigger value="advances" className="text-xs sm:text-sm">
-            <DollarSign className="h-4 w-4 mr-2" />
-            Advances
-          </TabsTrigger>
-
-          <TabsTrigger value="pre-inspection" className="text-xs sm:text-sm">
-            <ClipboardCheck className="h-4 w-4 mr-2" />
-            Pre
-          </TabsTrigger>
-
-          <TabsTrigger value="installation" className="text-xs sm:text-sm">
-            <FileText className="h-4 w-4 mr-2" />
-            Install
-          </TabsTrigger>
-
-          <TabsTrigger value="post-inspection" className="text-xs sm:text-sm">
-            <CheckCircle className="h-4 w-4 mr-2" />
-            Post
-          </TabsTrigger>
-        </TabsList>
-
-        {/* Timeline */}
-        <TabsContent value="timeline">
-          <Card>
-            <CardHeader>
-              <CardTitle>Job Timeline</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                {workflow.timeline.map((update: any, idx: number) => (
-                  <div
-                    key={idx}
-                    className="flex items-start gap-4 border-l-2 border-primary pl-4 pb-4"
-                  >
-                    <div className="flex-shrink-0 mt-1">
-                      {getStatusIcon(update.status)}
-                    </div>
-                    <div className="flex-1">
-                      <div className="flex items-center justify-between gap-2 flex-wrap">
-                        <p className="font-medium">{update.message}</p>
-                        <Badge variant="outline">
-                          {update.status.replace(/_/g, " ")}
-                        </Badge>
-                      </div>
-                      <p className="text-sm text-muted-foreground">
-                        By {update.user.firstName} {update.user.lastName} •{" "}
-                        {new Date(update.createdAt).toLocaleString()}
-                      </p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        {/* Materials (Admin actions) */}
-        <TabsContent value="materials">
-          <Card>
-            <CardHeader>
-              <CardTitle>Material Requisitions (This Job)</CardTitle>
-            </CardHeader>
-            <CardContent>
-              {loadingJobReqs ? (
-                <div className="flex justify-center py-10">
-                  <Loader2 className="h-6 w-6 animate-spin" />
-                </div>
-              ) : requisitions.length === 0 ? (
-                <p className="text-center text-muted-foreground py-8">
-                  No requisitions for this job
-                </p>
-              ) : (
-                <>
-                  {/* Mobile: cards */}
-                  <div className="space-y-3 sm:hidden">
-                    {requisitions.map((req: any) => (
-                      <Card key={req.id} className="border">
-                        <CardContent className="pt-4 space-y-3">
-                          <div className="flex items-start justify-between gap-2">
-                            <div>
-                              <div className="font-mono font-medium">
-                                {req.requisitionNumber}
-                              </div>
-                              <div className="text-xs text-muted-foreground">
-                                {new Date(req.requestedDate).toLocaleString()}
-                              </div>
-                            </div>
-                            <Badge
-                              className={getRequisitionStatusColor(req.status)}
-                            >
-                              {req.status.replace(/_/g, " ")}
-                            </Badge>
-                          </div>
-
-                          <div className="text-sm">
-                            Items:{" "}
-                            <span className="font-medium">
-                              {req.items.length}
-                            </span>
-                          </div>
-
-                          <div className="flex gap-2 flex-wrap">
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => openViewReq(req)}
-                            >
-                              <Eye className="h-4 w-4 mr-1" />
-                              View
-                            </Button>
-
-                            {req.status === RequisitionStatus.PENDING && (
-                              <>
-                                <Button
-                                  size="sm"
-                                  onClick={() =>
-                                    approveReqMutation.mutate(req.id)
-                                  }
-                                  disabled={approveReqMutation.isPending}
-                                >
-                                  Approve
-                                </Button>
-                                <Button
-                                  size="sm"
-                                  variant="destructive"
-                                  onClick={() => openRejectReq(req)}
-                                >
-                                  Reject
-                                </Button>
-                              </>
-                            )}
-
-                            {(req.status === RequisitionStatus.APPROVED ||
-                              req.status ===
-                                RequisitionStatus.PARTIALLY_ISSUED) && (
-                              <Button
-                                size="sm"
-                                onClick={() => openIssueReq(req)}
-                              >
-                                Issue
-                              </Button>
-                            )}
-                          </div>
-                        </CardContent>
-                      </Card>
-                    ))}
-                  </div>
-
-                  {/* Desktop: table */}
-                  <div className="hidden sm:block rounded-md border overflow-x-auto">
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>Req #</TableHead>
-                          <TableHead>Technician</TableHead>
-                          <TableHead>Items</TableHead>
-                          <TableHead>Requested</TableHead>
-                          <TableHead>Status</TableHead>
-                          <TableHead className="text-right">Actions</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {requisitions.map((req: any) => (
-                          <TableRow key={req.id}>
-                            <TableCell className="font-mono font-medium">
-                              {req.requisitionNumber}
-                            </TableCell>
-                            <TableCell className="text-sm">
-                              {req.technician?.user?.firstName}{" "}
-                              {req.technician?.user?.lastName}
-                            </TableCell>
-                            <TableCell>{req.items.length}</TableCell>
-                            <TableCell className="text-sm">
-                              {new Date(req.requestedDate).toLocaleDateString()}
-                            </TableCell>
-                            <TableCell>
-                              <Badge
-                                className={getRequisitionStatusColor(
-                                  req.status,
-                                )}
-                              >
-                                {req.status.replace(/_/g, " ")}
-                              </Badge>
-                            </TableCell>
-                            <TableCell className="text-right">
-                              <div className="flex justify-end gap-2 flex-wrap">
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  onClick={() => openViewReq(req)}
-                                >
-                                  <Eye className="h-4 w-4 mr-1" />
-                                  View
-                                </Button>
-
-                                {req.status === RequisitionStatus.PENDING && (
-                                  <>
-                                    <Button
-                                      size="sm"
-                                      onClick={() =>
-                                        approveReqMutation.mutate(req.id)
-                                      }
-                                      disabled={approveReqMutation.isPending}
-                                    >
-                                      Approve
-                                    </Button>
-                                    <Button
-                                      size="sm"
-                                      variant="destructive"
-                                      onClick={() => openRejectReq(req)}
-                                    >
-                                      Reject
-                                    </Button>
-                                  </>
-                                )}
-
-                                {(req.status === RequisitionStatus.APPROVED ||
-                                  req.status ===
-                                    RequisitionStatus.PARTIALLY_ISSUED) && (
-                                  <Button
-                                    size="sm"
-                                    onClick={() => openIssueReq(req)}
-                                  >
-                                    Issue Items
-                                  </Button>
-                                )}
-                              </div>
-                            </TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  </div>
-                </>
-              )}
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        {/* Advances (Admin actions) */}
-        <TabsContent value="advances">
-          <Card>
-            <CardHeader>
-              <CardTitle>Financial Advances (This Job)</CardTitle>
-            </CardHeader>
-            <CardContent>
-              {loadingJobAdvances ? (
-                <div className="flex justify-center py-10">
-                  <Loader2 className="h-6 w-6 animate-spin" />
-                </div>
-              ) : advances.length === 0 ? (
-                <p className="text-center text-muted-foreground py-8">
-                  No advance requests for this job
-                </p>
-              ) : (
-                <>
-                  {/* Mobile cards */}
-                  <div className="space-y-3 sm:hidden">
-                    {advances.map((req: any) => (
-                      <Card key={req.id} className="border">
-                        <CardContent className="pt-4 space-y-3">
-                          <div className="flex items-start justify-between gap-2">
-                            <div>
-                              <div className="font-mono font-medium">
-                                {req.requestNumber}
-                              </div>
-                              <div className="text-xs text-muted-foreground">
-                                {new Date(req.requestedDate).toLocaleString()}
-                              </div>
-                            </div>
-                            <Badge
-                              className={getAdvanceStatusColor(req.status)}
-                            >
-                              {req.status.replace(/_/g, " ")}
-                            </Badge>
-                          </div>
-
-                          <div className="flex items-center justify-between">
-                            <div className="text-sm text-muted-foreground">
-                              {req.requestType.replace(/_/g, " ")}
-                            </div>
-                            <div className="font-bold text-primary">
-                              KES{" "}
-                              {parseFloat(String(req.amount)).toLocaleString()}
-                            </div>
-                          </div>
-
-                          <div className="flex gap-2 flex-wrap">
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => openViewAdvance(req)}
-                            >
-                              <Eye className="h-4 w-4 mr-1" />
-                              View
-                            </Button>
-
-                            {req.status === AdvanceRequestStatus.PENDING && (
-                              <>
-                                <Button
-                                  size="sm"
-                                  onClick={() =>
-                                    approveAdvanceMutation.mutate(req.id)
-                                  }
-                                  disabled={approveAdvanceMutation.isPending}
-                                >
-                                  Approve
-                                </Button>
-                                <Button
-                                  size="sm"
-                                  variant="destructive"
-                                  onClick={() => openRejectAdvance(req)}
-                                >
-                                  Reject
-                                </Button>
-                              </>
-                            )}
-
-                            {req.status === AdvanceRequestStatus.APPROVED && (
-                              <Button
-                                size="sm"
-                                className="bg-green-600 hover:bg-green-700"
-                                onClick={() => openDisburseAdvance(req)}
-                              >
-                                <Send className="h-4 w-4 mr-1" />
-                                Disburse
-                              </Button>
-                            )}
-                          </div>
-                        </CardContent>
-                      </Card>
-                    ))}
-                  </div>
-
-                  {/* Desktop table */}
-                  <div className="hidden sm:block rounded-md border overflow-x-auto">
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>Request #</TableHead>
-                          <TableHead>Type</TableHead>
-                          <TableHead>Amount</TableHead>
-                          <TableHead>Requested</TableHead>
-                          <TableHead>Status</TableHead>
-                          <TableHead className="text-right">Actions</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {advances.map((req: any) => (
-                          <TableRow key={req.id}>
-                            <TableCell className="font-mono font-medium">
-                              {req.requestNumber}
-                            </TableCell>
-                            <TableCell>
-                              <Badge variant="outline">
-                                {req.requestType.replace(/_/g, " ")}
-                              </Badge>
-                            </TableCell>
-                            <TableCell className="font-bold text-primary">
-                              KES{" "}
-                              {parseFloat(String(req.amount)).toLocaleString()}
-                            </TableCell>
-                            <TableCell className="text-sm">
-                              {new Date(req.requestedDate).toLocaleDateString()}
-                            </TableCell>
-                            <TableCell>
-                              <Badge
-                                className={getAdvanceStatusColor(req.status)}
-                              >
-                                {req.status.replace(/_/g, " ")}
-                              </Badge>
-                            </TableCell>
-                            <TableCell className="text-right">
-                              <div className="flex justify-end gap-2 flex-wrap">
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  onClick={() => openViewAdvance(req)}
-                                >
-                                  <Eye className="h-4 w-4 mr-1" />
-                                  View
-                                </Button>
-
-                                {req.status ===
-                                  AdvanceRequestStatus.PENDING && (
-                                  <>
-                                    <Button
-                                      size="sm"
-                                      onClick={() =>
-                                        approveAdvanceMutation.mutate(req.id)
-                                      }
-                                      disabled={
-                                        approveAdvanceMutation.isPending
-                                      }
-                                    >
-                                      Approve
-                                    </Button>
-                                    <Button
-                                      size="sm"
-                                      variant="destructive"
-                                      onClick={() => openRejectAdvance(req)}
-                                    >
-                                      Reject
-                                    </Button>
-                                  </>
-                                )}
-
-                                {req.status ===
-                                  AdvanceRequestStatus.APPROVED && (
-                                  <Button
-                                    size="sm"
-                                    className="bg-green-600 hover:bg-green-700"
-                                    onClick={() => openDisburseAdvance(req)}
-                                  >
-                                    <Send className="h-4 w-4 mr-1" />
-                                    Disburse
-                                  </Button>
-                                )}
-                              </div>
-                            </TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  </div>
-                </>
-              )}
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        {/* Pre-Inspection Tab Tab */}
-        <TabsContent value="pre-inspection">
-          <Card>
-            <CardHeader>
-              <CardTitle>Pre-Installation Checklist</CardTitle>
-            </CardHeader>
-            <CardContent>
-              {workflow.preInspectionChecklist.length === 0 ? (
-                <p className="text-center text-muted-foreground py-8">
-                  No pre-inspection data
-                </p>
-              ) : (
-                <div className="rounded-md border overflow-x-auto">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>#</TableHead>
-                        <TableHead>Component</TableHead>
-                        <TableHead>Status</TableHead>
-                        <TableHead>Checked By</TableHead>
-                        <TableHead>Date</TableHead>
-                        <TableHead>Notes</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {workflow.preInspectionChecklist.map(
-                        (check: any, idx: number) => (
-                          <TableRow key={check.id}>
-                            <TableCell>{idx + 1}</TableCell>
-                            <TableCell className="font-medium">
-                              {check.checklistItem.name}
-                            </TableCell>
-                            <TableCell>
-                              <Badge
-                                className={getCheckStatusColor(check.status)}
-                              >
-                                {check.status === "CHECKED" ? (
-                                  <CheckCircle className="h-3 w-3 mr-1" />
-                                ) : check.status === "ISSUE_FOUND" ? (
-                                  <XCircle className="h-3 w-3 mr-1" />
-                                ) : (
-                                  <Clock className="h-3 w-3 mr-1" />
-                                )}
-                                {check.status.replace(/_/g, " ")}
-                              </Badge>
-                            </TableCell>
-                            <TableCell>
-                              {check.technician.user.firstName}{" "}
-                              {check.technician.user.lastName}
-                            </TableCell>
-                            <TableCell>
-                              {new Date(check.checkedAt).toLocaleString()}
-                            </TableCell>
-                            <TableCell className="text-sm text-muted-foreground">
-                              {check.notes || "-"}
-                            </TableCell>
-                          </TableRow>
-                        ),
-                      )}
-                    </TableBody>
-                  </Table>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        {/* Installation */}
-        <TabsContent value="installation">
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-lg md:text-xl">
-                Installation Details
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="space-y-2">
-                  <h3 className="font-semibold text-sm md:text-base">
-                    IMEI Numbers
-                  </h3>
-                  {jobWorkflow.imeiNumbers &&
-                  jobWorkflow.imeiNumbers.length > 0 ? (
-                    <div className="space-y-1">
-                      {jobWorkflow.imeiNumbers.map(
-                        (imei: string, idx: number) => (
-                          <p
-                            key={idx}
-                            className="font-mono text-xs md:text-sm bg-muted p-2 rounded"
-                          >
-                            {imei}
-                          </p>
-                        ),
-                      )}
-                    </div>
-                  ) : (
-                    <p className="text-sm text-muted-foreground">
-                      Not provided
-                    </p>
-                  )}
-                </div>
-
-                <div className="space-y-2">
-                  <h3 className="font-semibold text-sm md:text-base">
-                    SIM Card
-                  </h3>
-                  <p className="font-mono text-xs md:text-sm bg-muted p-2 rounded">
-                    {jobWorkflow.simCardIccid || "Not provided"}
-                  </p>
-                </div>
-
-                <div className="space-y-2">
-                  <h3 className="font-semibold text-sm md:text-base">
-                    MAC Address
-                  </h3>
-                  <p className="font-mono text-xs md:text-sm bg-muted p-2 rounded">
-                    {jobWorkflow.macAddress || "Not provided"}
-                  </p>
-                </div>
-
-                <div className="space-y-2">
-                  <h3 className="font-semibold text-sm md:text-base">
-                    GPS Coordinates
-                  </h3>
-                  <p className="text-xs md:text-sm bg-muted p-2 rounded">
-                    {jobWorkflow.gpsCoordinates || "Not captured"}
-                  </p>
-                </div>
-
-                <div className="col-span-1 md:col-span-2 space-y-2">
-                  <h3 className="font-semibold text-sm md:text-base">
-                    Installation Notes
-                  </h3>
-                  <div className="p-3 bg-muted rounded-lg">
-                    <p className="text-xs md:text-sm whitespace-pre-wrap">
-                      {jobWorkflow.installationNotes || "No notes provided"}
-                    </p>
-                  </div>
-                </div>
-
-                <div className="col-span-1 md:col-span-2 space-y-2">
-                  <h3 className="font-semibold text-sm md:text-base">
-                    Installation Photos
-                  </h3>
-                  {jobWorkflow.photoUrls && jobWorkflow.photoUrls.length > 0 ? (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                      {jobWorkflow.photoUrls.map((url: string, idx: number) => (
-                        <a
-                          key={idx}
-                          href={url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="group relative aspect-video overflow-hidden rounded-lg border hover:border-primary transition-colors"
-                        >
-                          <img
-                            src={url}
-                            alt={`Installation photo ${idx + 1}`}
-                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                            loading="lazy"
-                          />
-                          <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors flex items-center justify-center">
-                            <Eye className="h-6 w-6 text-white opacity-0 group-hover:opacity-100 transition-opacity" />
-                          </div>
-                        </a>
-                      ))}
-                    </div>
-                  ) : (
-                    <p className="text-sm text-muted-foreground">
-                      No photos uploaded
-                    </p>
-                  )}
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        {/* Post-Inspection */}
-        <TabsContent value="post-inspection">
-          <Card>
-            <CardHeader>
-              <CardTitle>Post-Installation Checklist</CardTitle>
-            </CardHeader>
-            <CardContent>
-              {workflow.postInspectionChecklist.length === 0 ? (
-                <p className="text-center text-muted-foreground py-8">
-                  No post-inspection data
-                </p>
-              ) : (
-                <div className="rounded-md border overflow-x-auto">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>#</TableHead>
-                        <TableHead>Component</TableHead>
-                        <TableHead>Status</TableHead>
-                        <TableHead>Checked By</TableHead>
-                        <TableHead>Date</TableHead>
-                        <TableHead>Notes</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {workflow.postInspectionChecklist.map(
-                        (check: any, idx: number) => (
-                          <TableRow key={check.id}>
-                            <TableCell>{idx + 1}</TableCell>
-                            <TableCell className="font-medium">
-                              {check.checklistItem.name}
-                            </TableCell>
-                            <TableCell>
-                              <Badge
-                                className={getCheckStatusColor(check.status)}
-                              >
-                                {check.status === "CHECKED" ? (
-                                  <CheckCircle className="h-3 w-3 mr-1" />
-                                ) : check.status === "ISSUE_FOUND" ? (
-                                  <XCircle className="h-3 w-3 mr-1" />
-                                ) : (
-                                  <Clock className="h-3 w-3 mr-1" />
-                                )}
-                                {check.status.replace(/_/g, " ")}
-                              </Badge>
-                            </TableCell>
-                            <TableCell>
-                              {check.technician.user.firstName}{" "}
-                              {check.technician.user.lastName}
-                            </TableCell>
-                            <TableCell>
-                              {new Date(check.checkedAt).toLocaleString()}
-                            </TableCell>
-                            <TableCell className="text-sm text-muted-foreground">
-                              {check.notes || "-"}
-                            </TableCell>
-                          </TableRow>
-                        ),
-                      )}
-                    </TableBody>
-                  </Table>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </TabsContent>
-      </Tabs>
-
-      {/* -------------------- DIALOGS: Requisition view -------------------- */}
-      <Dialog open={isViewReqOpen} onOpenChange={setIsViewReqOpen}>
-        <DialogContent className="w-[95vw] sm:max-w-3xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>Requisition Details</DialogTitle>
-            <DialogDescription>
-              Review items and take actions (approve/reject/issue)
-            </DialogDescription>
-          </DialogHeader>
-
-          {selectedRequisition && (
-            <div className="space-y-4 py-2">
-              <div className="flex items-start justify-between gap-3 flex-wrap">
-                <div>
-                  <div className="font-mono font-medium text-lg">
-                    {selectedRequisition.requisitionNumber}
-                  </div>
-                  <div className="text-sm text-muted-foreground">
-                    Requested:{" "}
-                    {new Date(
-                      selectedRequisition.requestedDate,
-                    ).toLocaleString()}
-                  </div>
-                </div>
-                <Badge
-                  className={getRequisitionStatusColor(
-                    selectedRequisition.status,
-                  )}
-                >
-                  {selectedRequisition.status.replace(/_/g, " ")}
-                </Badge>
-              </div>
-
-              <div className="rounded-md border overflow-x-auto">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Product</TableHead>
-                      <TableHead className="text-center">Requested</TableHead>
-                      <TableHead className="text-center">Issued</TableHead>
-                      <TableHead className="text-center">Remaining</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {selectedRequisition.items.map((item: any) => (
-                      <TableRow key={item.id}>
-                        <TableCell className="font-medium">
-                          {item.product.name}{" "}
-                          <span className="text-muted-foreground">
-                            ({item.product.sku})
-                          </span>
-                        </TableCell>
-                        <TableCell className="text-center">
-                          {item.quantityRequested}
-                        </TableCell>
-                        <TableCell className="text-center">
-                          {item.quantityIssued}
-                        </TableCell>
-                        <TableCell className="text-center">
-                          {item.quantityRequested - item.quantityIssued}
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
-
-              {selectedRequisition.notes && (
-                <div className="p-3 bg-muted rounded-lg text-sm">
-                  <strong>Notes:</strong> {selectedRequisition.notes}
-                </div>
-              )}
-
-              {selectedRequisition.rejectionReason && (
-                <div className="p-3 bg-destructive/10 rounded-lg text-sm text-destructive">
-                  <strong>Rejection:</strong>{" "}
-                  {selectedRequisition.rejectionReason}
-                </div>
-              )}
-            </div>
-          )}
-
-          <DialogFooter className="gap-2">
-            <Button variant="outline" onClick={() => setIsViewReqOpen(false)}>
-              Close
-            </Button>
-
-            {selectedRequisition?.status === RequisitionStatus.PENDING && (
-              <>
-                <Button
-                  onClick={() => {
-                    setIsViewReqOpen(false);
-                    approveReqMutation.mutate(selectedRequisition.id);
-                  }}
-                  disabled={approveReqMutation.isPending}
-                >
-                  {approveReqMutation.isPending && (
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  )}
-                  Approve
-                </Button>
-                <Button
-                  variant="destructive"
-                  onClick={() => {
-                    setIsViewReqOpen(false);
-                    openRejectReq(selectedRequisition);
-                  }}
-                >
-                  Reject
-                </Button>
-              </>
-            )}
-
-            {(selectedRequisition?.status === RequisitionStatus.APPROVED ||
-              selectedRequisition?.status ===
-                RequisitionStatus.PARTIALLY_ISSUED) && (
-              <Button
-                onClick={() => {
-                  setIsViewReqOpen(false);
-                  openIssueReq(selectedRequisition);
-                }}
-              >
-                Issue Items
-              </Button>
-            )}
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* -------------------- DIALOGS: Requisition issue -------------------- */}
-      <Dialog open={isIssueOpen} onOpenChange={setIsIssueOpen}>
-        <DialogContent className="w-[95vw] sm:max-w-4xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>Issue Items</DialogTitle>
-            <DialogDescription>
-              Select batch, set issue qty, and select IMEIs for each item.
-            </DialogDescription>
-          </DialogHeader>
-
-          {isBatchesLoading ? (
-            <div className="flex items-center justify-center py-10">
-              <Loader2 className="h-8 w-8 animate-spin" />
-            </div>
-          ) : (
-            <div className="space-y-3">
-              {/* Warning for the common mismatch */}
-              <div className="p-3 rounded-lg border bg-muted/30 text-sm">
-                <div className="font-medium">Important</div>
-                <div className="text-muted-foreground">
-                  If batch shows stock but IMEI list is empty, it means the
-                  batch has inventory but no AVAILABLE device records (IMEIs)
-                  were stocked for that batch.
-                </div>
-              </div>
-
-              <div className="rounded-md border overflow-x-auto">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Item</TableHead>
-                      <TableHead className="text-center">Remaining</TableHead>
-                      <TableHead className="text-center">Batch</TableHead>
-                      <TableHead className="text-center">Issue Qty</TableHead>
-                      <TableHead className="text-center">IMEI</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {selectedRequisition?.items.map((item: any) => {
-                      const remaining =
-                        item.quantityRequested - item.quantityIssued;
-                      const batches = (batchesData as any)?.[item.id] || [];
-
-                      const qty = issueQuantities[item.id] || 0;
-                      const batchId = issueBatches[item.id] || "";
-
-                      return (
-                        <TableRow key={item.id}>
-                          <TableCell className="font-medium">
-                            <div>{item.product.name}</div>
-                            <div className="text-xs text-muted-foreground">
-                              {item.product.sku}
-                            </div>
-                          </TableCell>
-
-                          <TableCell className="text-center">
-                            <Badge
-                              variant={
-                                remaining > 0 ? "destructive" : "default"
-                              }
-                            >
-                              {remaining}
-                            </Badge>
-                          </TableCell>
-
-                          <TableCell className="text-center">
-                            <select
-                              className="h-9 rounded-md border bg-background px-2 text-sm w-[220px]"
-                              value={batchId}
-                              onChange={(e) =>
-                                setIssueBatches((prev) => ({
-                                  ...prev,
-                                  [item.id]: e.target.value,
-                                }))
-                              }
-                              disabled={remaining === 0}
-                            >
-                              <option value="">Select batch</option>
-                              {batches.map((b: any) => (
-                                <option
-                                  key={b.id}
-                                  value={b.id}
-                                  disabled={b.quantityRemaining === 0}
-                                >
-                                  {b.batchNumber} • {b.quantityRemaining} left
-                                </option>
-                              ))}
-                            </select>
-                          </TableCell>
-
-                          <TableCell className="text-center">
-                            <Input
-                              type="number"
-                              min={0}
-                              max={remaining}
-                              value={qty}
-                              onChange={(e) => {
-                                const v = parseInt(e.target.value) || 0;
-                                setIssueQuantities((prev) => ({
-                                  ...prev,
-                                  [item.id]: Math.min(
-                                    Math.max(0, v),
-                                    remaining,
-                                  ),
-                                }));
-                              }}
-                              className="w-24 text-center"
-                              disabled={remaining === 0}
-                            />
-                          </TableCell>
-
-                          <TableCell className="text-center">
-                            <Button
-                              type="button"
-                              size="sm"
-                              variant="outline"
-                              onClick={() => {
-                                if (!batchId) {
-                                  toast.error("Select batch first");
-                                  return;
-                                }
-                                if (qty <= 0) {
-                                  toast.error("Enter quantity first");
-                                  return;
-                                }
-
-                                setCurrentIssuingItem(item);
-                                setShowImeiDialog(true);
-                              }}
-                              disabled={!batchId || qty <= 0}
-                            >
-                              <Smartphone className="h-4 w-4 mr-1" />
-                              {selectedItemImeis[item.id]?.length
-                                ? `${selectedItemImeis[item.id].length} Selected`
-                                : "Select IMEI"}
-                            </Button>
-                          </TableCell>
-                        </TableRow>
-                      );
-                    })}
-                  </TableBody>
-                </Table>
-              </div>
-            </div>
-          )}
-
-          <DialogFooter className="gap-2">
-            <Button
-              variant="outline"
-              onClick={() => {
-                setIsIssueOpen(false);
-                setSelectedRequisition(null);
-                setIssueQuantities({});
-                setIssueBatches({});
-                setSelectedItemImeis({});
-              }}
-            >
-              Cancel
-            </Button>
-            <Button
-              onClick={handleIssueSubmit}
-              disabled={issueReqMutation.isPending || isBatchesLoading}
-            >
-              {issueReqMutation.isPending && (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              )}
-              Issue Items
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Reject requisition */}
-      <AlertDialog open={isRejectReqOpen} onOpenChange={setIsRejectReqOpen}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Reject Requisition</AlertDialogTitle>
-            <AlertDialogDescription>
-              Provide a reason for rejecting{" "}
-              {selectedRequisition?.requisitionNumber}
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-
-          <div className="py-2 space-y-2">
-            <Label>Reason</Label>
-            <Textarea
-              value={reqRejectReason}
-              onChange={(e) => setReqRejectReason(e.target.value)}
-              rows={4}
-              placeholder="Enter rejection reason..."
-            />
-          </div>
-
-          <AlertDialogFooter>
-            <AlertDialogCancel onClick={() => setReqRejectReason("")}>
-              Cancel
-            </AlertDialogCancel>
-            <AlertDialogAction
-              onClick={() => {
-                if (!selectedRequisition || !reqRejectReason.trim()) {
-                  toast.error("Rejection reason is required");
-                  return;
-                }
-                rejectReqMutation.mutate({
-                  reqId: selectedRequisition.id,
-                  reason: reqRejectReason,
-                });
-              }}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-              disabled={rejectReqMutation.isPending || !reqRejectReason.trim()}
-            >
-              {rejectReqMutation.isPending && (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              )}
-              Reject
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-
-      {/* -------------------- DIALOGS: Advance view/reject/disburse -------------------- */}
-      <Dialog open={isViewAdvanceOpen} onOpenChange={setIsViewAdvanceOpen}>
-        <DialogContent className="w-[95vw] sm:max-w-2xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>Advance Request</DialogTitle>
-          </DialogHeader>
-
-          {selectedAdvance && (
-            <div className="space-y-4 py-2 text-sm">
-              <div className="flex items-start justify-between gap-3 flex-wrap">
-                <div>
-                  <div className="font-mono font-medium text-lg">
-                    {selectedAdvance.requestNumber}
-                  </div>
-                  <div className="text-muted-foreground">
-                    Requested:{" "}
-                    {new Date(selectedAdvance.requestedDate).toLocaleString()}
-                  </div>
-                </div>
-                <Badge
-                  className={getAdvanceStatusColor(selectedAdvance.status)}
-                >
-                  {selectedAdvance.status.replace(/_/g, " ")}
-                </Badge>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <Label className="text-muted-foreground">Type</Label>
-                  <div className="font-medium">
-                    {selectedAdvance.requestType.replace(/_/g, " ")}
-                  </div>
-                </div>
-                <div>
-                  <Label className="text-muted-foreground">Amount</Label>
-                  <div className="font-bold text-primary text-lg">
-                    KES{" "}
-                    {parseFloat(
-                      String(selectedAdvance.amount),
-                    ).toLocaleString()}
-                  </div>
-                </div>
-              </div>
-
-              <div>
-                <Label className="text-muted-foreground">Description</Label>
-                <div className="p-3 bg-muted rounded-lg">
-                  {selectedAdvance.description}
-                </div>
-              </div>
-
-              {selectedAdvance.justification && (
-                <div>
-                  <Label className="text-muted-foreground">Justification</Label>
-                  <div className="p-3 bg-muted rounded-lg">
-                    {selectedAdvance.justification}
-                  </div>
-                </div>
-              )}
-
-              {selectedAdvance.rejectionReason && (
-                <div className="p-3 bg-destructive/10 rounded-lg text-destructive">
-                  <strong>Rejected:</strong> {selectedAdvance.rejectionReason}
-                </div>
-              )}
-            </div>
-          )}
-
-          <DialogFooter className="gap-2">
-            <Button
-              variant="outline"
-              onClick={() => setIsViewAdvanceOpen(false)}
-            >
-              Close
-            </Button>
-
-            {selectedAdvance?.status === AdvanceRequestStatus.PENDING && (
-              <>
-                <Button
-                  onClick={() => {
-                    setIsViewAdvanceOpen(false);
-                    approveAdvanceMutation.mutate(selectedAdvance.id);
-                  }}
-                  disabled={approveAdvanceMutation.isPending}
-                >
-                  Approve
-                </Button>
-                <Button
-                  variant="destructive"
-                  onClick={() => {
-                    setIsViewAdvanceOpen(false);
-                    openRejectAdvance(selectedAdvance);
-                  }}
-                >
-                  Reject
-                </Button>
-              </>
-            )}
-
-            {selectedAdvance?.status === AdvanceRequestStatus.APPROVED && (
-              <Button
-                className="bg-green-600 hover:bg-green-700"
-                onClick={() => {
-                  setIsViewAdvanceOpen(false);
-                  openDisburseAdvance(selectedAdvance);
-                }}
-              >
-                <Send className="mr-2 h-4 w-4" />
-                Disburse
-              </Button>
-            )}
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Reject advance */}
-      <AlertDialog
-        open={isRejectAdvanceOpen}
-        onOpenChange={setIsRejectAdvanceOpen}
-      >
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Reject Advance Request</AlertDialogTitle>
-            <AlertDialogDescription>
-              Provide a reason for rejecting {selectedAdvance?.requestNumber}
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-
-          <div className="py-2 space-y-2">
-            <Label>Reason</Label>
-            <Textarea
-              value={advanceRejectReason}
-              onChange={(e) => setAdvanceRejectReason(e.target.value)}
-              rows={4}
-              placeholder="Enter rejection reason..."
-            />
-          </div>
-
-          <AlertDialogFooter>
-            <AlertDialogCancel onClick={() => setAdvanceRejectReason("")}>
-              Cancel
-            </AlertDialogCancel>
-            <AlertDialogAction
-              onClick={() => {
-                if (!selectedAdvance || !advanceRejectReason.trim()) {
-                  toast.error("Rejection reason is required");
-                  return;
-                }
-                rejectAdvanceMutation.mutate({
-                  advanceId: selectedAdvance.id,
-                  reason: advanceRejectReason,
-                });
-              }}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-              disabled={
-                rejectAdvanceMutation.isPending || !advanceRejectReason.trim()
-              }
-            >
-              {rejectAdvanceMutation.isPending && (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              )}
-              Reject
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-
-      {/* Disburse advance */}
-      <Dialog open={isDisburseOpen} onOpenChange={setIsDisburseOpen}>
-        <DialogContent className="w-[95vw] sm:max-w-lg">
-          <DialogHeader>
-            <DialogTitle>Disburse Advance</DialogTitle>
-            <DialogDescription>
-              Record disbursement details for {selectedAdvance?.requestNumber}
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="space-y-4 py-2">
-            <div className="space-y-2">
-              <Label>Method</Label>
-              <select
-                className="h-10 w-full rounded-md border bg-background px-3 text-sm"
-                value={disbursementData.method}
-                onChange={(e) =>
-                  setDisbursementData((prev) => ({
-                    ...prev,
-                    method: e.target.value as DisbursementMethod,
-                  }))
-                }
-              >
-                <option value={DisbursementMethod.CASH}>Cash</option>
-                <option value={DisbursementMethod.MPESA}>M-Pesa</option>
-                <option value={DisbursementMethod.BANK_TRANSFER}>
-                  Bank Transfer
-                </option>
-              </select>
-            </div>
-
-            <div className="space-y-2">
-              <Label>Reference (optional)</Label>
-              <Input
-                value={disbursementData.reference}
-                onChange={(e) =>
-                  setDisbursementData((prev) => ({
-                    ...prev,
-                    reference: e.target.value,
-                  }))
-                }
-                placeholder="Transaction reference"
-              />
-            </div>
-
-            {selectedAdvance && (
-              <div className="bg-muted p-4 rounded-lg flex items-center justify-between">
-                <span className="text-sm text-muted-foreground">Amount:</span>
-                <span className="text-xl font-bold text-primary">
-                  KES{" "}
-                  {parseFloat(String(selectedAdvance.amount)).toLocaleString()}
-                </span>
-              </div>
-            )}
-          </div>
-
-          <DialogFooter className="gap-2">
-            <Button
-              variant="outline"
-              onClick={() => {
-                setIsDisburseOpen(false);
-                setDisbursementData({
-                  method: DisbursementMethod.MPESA,
-                  reference: "",
-                });
-              }}
-            >
-              Cancel
-            </Button>
-            <Button
-              className="bg-green-600 hover:bg-green-700"
-              onClick={() => {
-                if (!selectedAdvance) return;
-                disburseMutation.mutate({
-                  advanceId: selectedAdvance.id,
-                  data: {
-                    disbursementMethod: disbursementData.method,
-                    referenceNumber: disbursementData.reference || undefined,
-                  },
-                });
-              }}
-              disabled={disburseMutation.isPending}
-            >
-              {disburseMutation.isPending && (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              )}
-              Confirm Disbursement
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* IMEI selection dialog */}
-      {currentIssuingItem && (
-        <DeviceSelectionDialog
-          open={showImeiDialog}
-          onOpenChange={setShowImeiDialog}
-          productId={currentIssuingItem.productId}
-          productName={currentIssuingItem.product.name}
-          batchId={issueBatches[currentIssuingItem.id]}
-          requiredCount={issueQuantities[currentIssuingItem.id] || 0}
-          allowSkip={false}
-          onConfirm={(imeis) => {
-            setSelectedItemImeis((prev) => ({
-              ...prev,
-              [currentIssuingItem.id]: imeis,
-            }));
-            setCurrentIssuingItem(null);
+    <div className="min-h-screen bg-background">
+      <div className="space-y-4 sm:space-y-6 p-3 sm:p-4 md:p-6 max-w-7xl mx-auto">
+        <WorkflowHeader
+          jobTitle={jobTitle}
+          status={jobWorkflow.status}
+          onBack={() => navigate("/jobs")}
+          invoice={{
+            isCompleted: jobWorkflow.status === "COMPLETED",
+            checkingInvoice,
+            generatingInvoice,
+            existingInvoiceId,
+            onGenerate: handleGenerateInvoice,
+            onView: handleViewInvoice,
           }}
         />
-      )}
+
+        <JobSummaryCard job={jobWorkflow} />
+
+        {/* Tabs Container with responsive design */}
+        <div className="w-full">
+          <Tabs defaultValue="timeline" className="w-full">
+            {/* Responsive TabsList */}
+            <div className="w-full overflow-x-auto">
+              <TabsList className="inline-flex w-full min-w-max sm:w-full sm:inline-grid sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-1 p-1 bg-muted rounded-lg">
+                <TabsTrigger
+                  value="timeline"
+                  className="flex-shrink-0 sm:flex-1 text-[11px] xs:text-xs sm:text-sm whitespace-nowrap sm:whitespace-normal px-2 sm:px-3 py-2"
+                >
+                  Timeline
+                </TabsTrigger>
+
+                <TabsTrigger
+                  value="materials"
+                  className="flex-shrink-0 sm:flex-1 text-[11px] xs:text-xs sm:text-sm whitespace-nowrap sm:whitespace-normal px-2 sm:px-3 py-2"
+                >
+                  Materials
+                </TabsTrigger>
+
+                <TabsTrigger
+                  value="advances"
+                  className="flex-shrink-0 sm:flex-1 text-[11px] xs:text-xs sm:text-sm whitespace-nowrap sm:whitespace-normal px-2 sm:px-3 py-2"
+                >
+                  Advances
+                </TabsTrigger>
+
+                <TabsTrigger
+                  value="pre-inspection"
+                  className="flex-shrink-0 sm:flex-1 text-[11px] xs:text-xs sm:text-sm whitespace-nowrap sm:whitespace-normal px-2 sm:px-3 py-2"
+                >
+                  <span className="hidden xs:inline">Pre-Insp</span>
+                  <span className="inline xs:hidden">Pre</span>
+                </TabsTrigger>
+
+                <TabsTrigger
+                  value="installation"
+                  className="flex-shrink-0 sm:flex-1 text-[11px] xs:text-xs sm:text-sm whitespace-nowrap sm:whitespace-normal px-2 sm:px-3 py-2"
+                >
+                  <span className="hidden xs:inline">Install</span>
+                  <span className="inline xs:hidden">Inst</span>
+                </TabsTrigger>
+
+                <TabsTrigger
+                  value="post-inspection"
+                  className="flex-shrink-0 sm:flex-1 text-[11px] xs:text-xs sm:text-sm whitespace-nowrap sm:whitespace-normal px-2 sm:px-3 py-2"
+                >
+                  <span className="hidden xs:inline">Post-Insp</span>
+                  <span className="inline xs:hidden">Post</span>
+                </TabsTrigger>
+              </TabsList>
+            </div>
+
+            {/* Tab Contents */}
+            <div className="mt-4 sm:mt-6 w-full">
+              <TabsContent value="timeline" className="mt-0 w-full">
+                <TimelineTab timeline={workflow.timeline} />
+              </TabsContent>
+
+              <TabsContent value="materials" className="mt-0 w-full">
+                <MaterialsTab
+                  loading={loadingJobReqs}
+                  requisitions={requisitions}
+                  onView={openViewReq}
+                  onApprove={(reqId) => approveReqMutation.mutate(reqId)}
+                  onReject={openRejectReq}
+                  onIssue={openIssueReq}
+                  approving={approveReqMutation.isPending}
+                />
+              </TabsContent>
+
+              <TabsContent value="advances" className="mt-0 w-full">
+                <AdvancesTab
+                  loading={loadingJobAdvances}
+                  advances={advances}
+                  onView={openViewAdvance}
+                  onApprove={(id) => approveAdvanceMutation.mutate(id)}
+                  onReject={openRejectAdvance}
+                  onDisburse={openDisburseAdvance}
+                  approving={approveAdvanceMutation.isPending}
+                />
+              </TabsContent>
+
+              <TabsContent value="pre-inspection" className="mt-0 w-full">
+                <PreInspectionTab checklist={workflow.preInspectionChecklist} />
+              </TabsContent>
+
+              <TabsContent value="installation" className="mt-0 w-full">
+                <InstallationDetailsTab job={jobWorkflow} />
+              </TabsContent>
+
+              <TabsContent value="post-inspection" className="mt-0 w-full">
+                <PostInspectionTab
+                  checklist={workflow.postInspectionChecklist}
+                />
+              </TabsContent>
+            </div>
+          </Tabs>
+        </div>
+
+        {/* Requisition dialogs */}
+        <RequisitionViewDialog
+          open={viewReqOpen}
+          onOpenChange={setViewReqOpen}
+          requisition={selectedRequisition}
+          onApprove={(reqId) => approveReqMutation.mutate(reqId)}
+          onReject={(req) => {
+            setViewReqOpen(false);
+            openRejectReq(req);
+          }}
+          onIssue={(req) => {
+            setViewReqOpen(false);
+            openIssueReq(req);
+          }}
+          approving={approveReqMutation.isPending}
+        />
+
+        <RequisitionIssueDialog
+          open={issueOpen}
+          onOpenChange={(v) => {
+            if (!v) closeIssueDialog();
+            else setIssueOpen(true);
+          }}
+          requisition={selectedRequisition}
+          batchesData={batchesData as any}
+          batchesLoading={isBatchesLoading}
+          issueQuantities={issueQuantities}
+          setIssueQuantities={setIssueQuantities}
+          issueBatches={issueBatches}
+          setIssueBatches={setIssueBatches}
+          selectedItemImeis={selectedItemImeis}
+          onSelectImei={(item) => {
+            const batchId = issueBatches[item.id];
+            const qty = issueQuantities[item.id] || 0;
+
+            if (!batchId) return toast.error("Select batch first");
+            if (qty <= 0) return toast.error("Enter quantity first");
+
+            setCurrentIssuingItem(item);
+            setShowImeiDialog(true);
+          }}
+          onSubmit={handleIssueSubmit}
+          submitting={issueReqMutation.isPending}
+        />
+
+        <RejectRequisitionDialog
+          open={rejectReqOpen}
+          onOpenChange={setRejectReqOpen}
+          requisition={selectedRequisition}
+          reason={reqRejectReason}
+          setReason={setReqRejectReason}
+          onConfirm={() => {
+            if (!selectedRequisition || !reqRejectReason.trim()) {
+              toast.error("Rejection reason is required");
+              return;
+            }
+            rejectReqMutation.mutate({
+              reqId: selectedRequisition.id,
+              reason: reqRejectReason,
+            });
+          }}
+          submitting={rejectReqMutation.isPending}
+        />
+
+        {/* Advance dialogs */}
+        <AdvanceViewDialog
+          open={viewAdvanceOpen}
+          onOpenChange={setViewAdvanceOpen}
+          advance={selectedAdvance}
+          onApprove={(id) => approveAdvanceMutation.mutate(id)}
+          onReject={(adv) => {
+            setViewAdvanceOpen(false);
+            openRejectAdvance(adv);
+          }}
+          onDisburse={(adv) => {
+            setViewAdvanceOpen(false);
+            openDisburseAdvance(adv);
+          }}
+          approving={approveAdvanceMutation.isPending}
+        />
+
+        <RejectAdvanceDialog
+          open={rejectAdvanceOpen}
+          onOpenChange={setRejectAdvanceOpen}
+          advance={selectedAdvance}
+          reason={advanceRejectReason}
+          setReason={setAdvanceRejectReason}
+          onConfirm={() => {
+            if (!selectedAdvance || !advanceRejectReason.trim()) {
+              toast.error("Rejection reason is required");
+              return;
+            }
+            rejectAdvanceMutation.mutate({
+              advanceId: selectedAdvance.id,
+              reason: advanceRejectReason,
+            });
+          }}
+          submitting={rejectAdvanceMutation.isPending}
+        />
+
+        <DisburseAdvanceDialog
+          open={disburseOpen}
+          onOpenChange={setDisburseOpen}
+          advance={selectedAdvance}
+          data={disbursementData}
+          setData={setDisbursementData}
+          onConfirm={() => {
+            if (!selectedAdvance) return;
+            disburseMutation.mutate({
+              advanceId: selectedAdvance.id,
+              data: {
+                disbursementMethod: disbursementData.method,
+                referenceNumber: disbursementData.reference || undefined,
+              },
+            });
+          }}
+          submitting={disburseMutation.isPending}
+        />
+
+        {/* IMEI selection */}
+        {currentIssuingItem && (
+          <DeviceSelectionDialog
+            open={showImeiDialog}
+            onOpenChange={(v) => {
+              setShowImeiDialog(v);
+              if (!v) setCurrentIssuingItem(null);
+            }}
+            productId={currentIssuingItem.productId}
+            productName={currentIssuingItem.product.name}
+            batchId={issueBatches[currentIssuingItem.id]}
+            requiredCount={issueQuantities[currentIssuingItem.id] || 0}
+            allowSkip={false}
+            onConfirm={(imeis) => {
+              setSelectedItemImeis((prev) => ({
+                ...prev,
+                [currentIssuingItem.id]: imeis,
+              }));
+              setShowImeiDialog(false);
+              setCurrentIssuingItem(null);
+            }}
+          />
+        )}
+      </div>
     </div>
   );
-};
-
-// ---------------- Helpers ----------------
-const getStatusColor = (status: string) => {
-  const colors: Record<string, string> = {
-    PENDING: "bg-gray-500",
-    SCHEDULED: "bg-indigo-500",
-    ASSIGNED: "bg-blue-500",
-    IN_PROGRESS: "bg-purple-500",
-    COMPLETED: "bg-green-500",
-    VERIFIED: "bg-green-600",
-    CANCELLED: "bg-red-500",
-    REQUISITION_PENDING: "bg-yellow-500",
-    REQUISITION_APPROVED: "bg-blue-500",
-  };
-  return colors[status] || "bg-gray-500";
-};
-
-const getRequisitionStatusColor = (status: string) => {
-  const colors: Record<string, string> = {
-    PENDING: "bg-yellow-500",
-    APPROVED: "bg-blue-500",
-    PARTIALLY_ISSUED: "bg-orange-500",
-    FULLY_ISSUED: "bg-green-500",
-    REJECTED: "bg-red-500",
-  };
-  return colors[status] || "bg-gray-500";
-};
-
-const getAdvanceStatusColor = (status: string) => {
-  const colors: Record<string, string> = {
-    PENDING: "bg-yellow-500",
-    APPROVED: "bg-blue-500",
-    DISBURSED: "bg-green-500",
-    REJECTED: "bg-red-500",
-  };
-  return colors[status] || "bg-gray-500";
-};
-
-const getCheckStatusColor = (status: string) => {
-  const colors: Record<string, string> = {
-    CHECKED: "bg-green-500",
-    NOT_CHECKED: "bg-gray-500",
-    ISSUE_FOUND: "bg-red-500",
-  };
-  return colors[status] || "bg-gray-500";
-};
-
-const getStatusIcon = (status: string) => {
-  const icons: Record<string, any> = {
-    COMPLETED: <CheckCircle className="h-5 w-5 text-green-600" />,
-    CANCELLED: <XCircle className="h-5 w-5 text-red-600" />,
-    IN_PROGRESS: <Clock className="h-5 w-5 text-purple-600" />,
-  };
-  return icons[status] || <Clock className="h-5 w-5 text-blue-600" />;
 };
 
 export default JobWorkflow;

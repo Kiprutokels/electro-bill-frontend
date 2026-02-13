@@ -9,7 +9,14 @@ import { Badge } from "@/components/ui/badge";
 import { FileUpload } from "@/components/ui/file-upload";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { toast } from "sonner";
-import { MapPin, Save, Loader2, RotateCcw, Plus, X, Info } from "lucide-react";
+import {
+  MapPin,
+  Save,
+  Loader2,
+  RotateCcw,
+  Info,
+  CheckCircle2,
+} from "lucide-react";
 import { technicianJobsService } from "@/api/services/technician-jobs.service";
 import { JobType } from "@/api/services/jobs.service";
 
@@ -18,7 +25,7 @@ interface InstallationProgressProps {
   onComplete?: () => void;
 }
 
-const normalizeImei = (s: string) => s.trim();
+const normalizeImei = (s: string) => String(s || "").trim();
 
 const InstallationProgress = ({
   job,
@@ -26,17 +33,16 @@ const InstallationProgress = ({
 }: InstallationProgressProps) => {
   const queryClient = useQueryClient();
 
-  // Issued IMEIs
+  // Issued IMEIs come from requisition-issued devices that backend mapped to jobDevices
   const issuedImeis: string[] = useMemo(() => {
-    const arr = Array.isArray(job.imeiNumbers) ? job.imeiNumbers : [];
+    const arr = Array.isArray(job?.jobDevices) ? job.jobDevices : [];
     const normalized = arr
-      .filter((item): item is string => typeof item === "string")
+      .map((jd: any) => jd?.deviceImei || jd?.device?.imeiNumber)
       .map(normalizeImei)
       .filter(Boolean);
     return Array.from(new Set(normalized));
-  }, [job.imeiNumbers]);
+  }, [job?.jobDevices]);
 
-  // REPAIR/MAINTENANCE: ask technician "was device changed?"
   const isRepairOrMaintenance = [JobType.REPAIR, JobType.MAINTENANCE].includes(
     job.jobType,
   );
@@ -44,8 +50,9 @@ const InstallationProgress = ({
   const [deviceChanged, setDeviceChanged] = useState(
     job.deviceChanged ?? false,
   );
-  const [imeiList, setImeiList] = useState<string[]>(issuedImeis);
-  const [imeiDraft, setImeiDraft] = useState("");
+
+  // Default select all issued (you can change to none if you prefer)
+  const [selectedImeis, setSelectedImeis] = useState<string[]>(issuedImeis);
 
   const [formData, setFormData] = useState({
     simCardIccid: job.simCardIccid || "",
@@ -61,7 +68,7 @@ const InstallationProgress = ({
   const updateMutation = useMutation({
     mutationFn: async () => {
       return technicianJobsService.updateJobProgress(job.id, {
-        imeiNumbers: imeiList,
+        imeiNumbers: selectedImeis,
         simCardIccid: formData.simCardIccid || undefined,
         macAddress: formData.macAddress || undefined,
         gpsCoordinates: formData.gpsCoordinates || undefined,
@@ -76,7 +83,7 @@ const InstallationProgress = ({
       await queryClient.invalidateQueries({ queryKey: ["active-job"] });
       await queryClient.invalidateQueries({ queryKey: ["job-by-id", job.id] });
       toast.success("Installation progress saved");
-      if (onComplete) onComplete();
+      onComplete?.();
     },
     onError: (error: any) => {
       toast.error(error.response?.data?.message || "Failed to update progress");
@@ -101,33 +108,17 @@ const InstallationProgress = ({
     );
   };
 
-  const addImei = () => {
-    const cleaned = normalizeImei(imeiDraft);
+  const imeiRequired = !isRepairOrMaintenance || deviceChanged;
 
-    if (!cleaned) {
-      return;
-    }
-
-    if (imeiList.includes(cleaned)) {
-      toast.error("IMEI already added");
-      return;
-    }
-
-    setImeiList((p) => [...p, cleaned]);
-    setImeiDraft("");
-  };
-
-  const removeImei = (imei: string) => {
-    setImeiList((p) => p.filter((x) => x !== imei));
+  const toggleImei = (imei: string) => {
+    setSelectedImeis((prev) =>
+      prev.includes(imei) ? prev.filter((x) => x !== imei) : [...prev, imei],
+    );
   };
 
   const resetToIssued = () => {
-    setImeiList(issuedImeis);
-    toast.success("Reset to issued IMEIs");
-  };
-
-  const prefillImei = (imei: string) => {
-    setImeiDraft(imei);
+    setSelectedImeis(issuedImeis);
+    toast.success("Reset to issued devices");
   };
 
   const handleSave = () => {
@@ -136,10 +127,8 @@ const InstallationProgress = ({
       return;
     }
 
-    const imeiRequired = !isRepairOrMaintenance || deviceChanged;
-
-    if (imeiRequired && imeiList.length === 0) {
-      toast.error("Please add at least one IMEI");
+    if (imeiRequired && selectedImeis.length === 0) {
+      toast.error("Please select at least one IMEI");
       return;
     }
 
@@ -200,17 +189,18 @@ const InstallationProgress = ({
         </CardHeader>
 
         <CardContent className="space-y-5">
-          {/* IMEIs (conditionally hidden) */}
-          {(!isRepairOrMaintenance || deviceChanged) && (
-            <div className="space-y-2">
+          {/* IMEI selection */}
+          {imeiRequired && (
+            <div className="space-y-3">
               <div className="flex items-center justify-between gap-2 flex-wrap">
                 <Label className="text-sm">
-                  IMEI Numbers <span className="text-destructive">*</span>
+                  Issued Devices (IMEIs){" "}
+                  <span className="text-destructive">*</span>
                 </Label>
 
                 <div className="flex items-center gap-2 flex-wrap">
                   <Badge variant="secondary" className="font-semibold">
-                    {imeiList.length} IMEI{imeiList.length !== 1 ? "s" : ""}
+                    {selectedImeis.length} selected
                   </Badge>
                   {issuedImeis.length > 0 && (
                     <Button
@@ -226,54 +216,62 @@ const InstallationProgress = ({
                 </div>
               </div>
 
-              {issuedImeis.length > 0 && (
-                <div className="text-xs text-muted-foreground bg-blue-50 dark:bg-blue-900/20 p-2 rounded">
-                  Preloaded from issued devices. Tap an IMEI below to confirm.
-                </div>
-              )}
+              <Alert className="border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-900/20">
+                <Info className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                <AlertDescription className="text-xs text-blue-700 dark:text-blue-300 ml-2">
+                  You can only confirm devices that were issued to this job via
+                  requisitions. If you need more devices, request them first.
+                </AlertDescription>
+              </Alert>
 
-              <div className="flex gap-2">
-                <Input
-                  value={imeiDraft}
-                  onChange={(e) => setImeiDraft(e.target.value)}
-                  placeholder="Enter IMEI then tap Add"
-                  className="font-mono text-sm"
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") {
-                      e.preventDefault();
-                      addImei();
-                    }
-                  }}
-                />
-                <Button type="button" onClick={addImei} variant="outline">
-                  <Plus className="h-4 w-4 mr-1" />
-                  Add
-                </Button>
-              </div>
-
-              {imeiList.length > 0 && (
-                <div className="flex flex-wrap gap-2 pt-2">
-                  {imeiList.map((imei) => (
-                    <span
-                      key={imei}
-                      className="inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-mono bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800 cursor-pointer hover:bg-green-100 dark:hover:bg-green-900/30 transition-colors"
-                      onClick={() => prefillImei(imei)}
-                      title="Click to edit this IMEI"
-                    >
-                      ✅ {imei}
+              {issuedImeis.length === 0 ? (
+                <Alert className="border-orange-200 dark:border-orange-800 bg-orange-50 dark:bg-orange-900/20">
+                  <AlertDescription className="text-sm text-orange-700 dark:text-orange-300">
+                    No devices have been issued for this job yet. Ask
+                    admin/store to issue devices against your requisition.
+                  </AlertDescription>
+                </Alert>
+              ) : (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  {issuedImeis.map((imei) => {
+                    const active = selectedImeis.includes(imei);
+                    return (
                       <button
+                        key={imei}
                         type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          removeImei(imei);
-                        }}
-                        className="text-muted-foreground hover:text-destructive"
-                        aria-label={`Remove ${imei}`}
+                        onClick={() => toggleImei(imei)}
+                        className={[
+                          "w-full text-left rounded-lg border p-3 transition-colors",
+                          "flex items-center justify-between gap-3",
+                          active
+                            ? "border-green-500 bg-green-50 dark:bg-green-900/20"
+                            : "border-border bg-background hover:bg-muted/40",
+                        ].join(" ")}
                       >
-                        <X className="h-3 w-3" />
+                        <div className="flex items-center gap-2 min-w-0">
+                          <CheckCircle2
+                            className={[
+                              "h-5 w-5 flex-shrink-0",
+                              active
+                                ? "text-green-600"
+                                : "text-muted-foreground",
+                            ].join(" ")}
+                          />
+                          <div className="min-w-0">
+                            <div className="font-mono text-sm truncate">
+                              {imei}
+                            </div>
+                            <div className="text-xs text-muted-foreground">
+                              {active ? "Selected" : "Tap to select"}
+                            </div>
+                          </div>
+                        </div>
+                        <Badge variant={active ? "default" : "outline"}>
+                          {active ? "Use" : "Skip"}
+                        </Badge>
                       </button>
-                    </span>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
             </div>
