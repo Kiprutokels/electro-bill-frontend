@@ -60,6 +60,7 @@ import { useInvoiceActions } from "@/hooks/useInvoiceActions";
 import AddInvoiceDialog from "@/components/invoices/AddInvoiceDialog";
 import EditInvoiceDialog from "@/components/invoices/EditInvoiceDialog";
 import InvoiceViewDialog from "@/components/invoices/InvoiceViewDialog";
+import SendInvoiceDialog from "@/components/invoices/SendInvoiceDialog";
 
 const Invoices = () => {
   const { hasPermission } = useAuth();
@@ -93,6 +94,7 @@ const Invoices = () => {
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
+  const [isSendDialogOpen, setIsSendDialogOpen] = useState(false);
   const [invoiceToDelete, setInvoiceToDelete] = useState<Invoice | null>(null);
   const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null);
 
@@ -104,6 +106,11 @@ const Invoices = () => {
   const handleEdit = (invoice: Invoice) => {
     setSelectedInvoice(invoice);
     setIsEditDialogOpen(true);
+  };
+
+  const handleSendClick = (invoice: Invoice) => {
+    setSelectedInvoice(invoice);
+    setIsSendDialogOpen(true);
   };
 
   const handleDeleteClick = (invoice: Invoice) => {
@@ -145,6 +152,11 @@ const Invoices = () => {
 
   const handleInvoiceUpdated = (updatedInvoice: Invoice) => {
     updateInvoiceInList(updatedInvoice);
+  };
+
+  const handleInvoiceSent = () => {
+    fetchInvoices(currentPage); // Refresh current page
+    setIsSendDialogOpen(false);
   };
 
   const handleStatusFilterChange = (value: string) => {
@@ -499,12 +511,7 @@ const Invoices = () => {
                               {hasPermission(PERMISSIONS.SALES_UPDATE) &&
                                 invoice.status === InvoiceStatus.DRAFT && (
                                   <DropdownMenuItem
-                                    onClick={() =>
-                                      handleStatusUpdate(
-                                        invoice,
-                                        InvoiceStatus.SENT
-                                      )
-                                    }
+                                    onClick={() => handleSendClick(invoice)}
                                   >
                                     <Send className="mr-2 h-4 w-4" />
                                     Send to Customer
@@ -621,6 +628,17 @@ const Invoices = () => {
             }}
             onStatusUpdate={handleStatusUpdate}
             onPayment={handlePayment}
+          />
+
+          <SendInvoiceDialog
+            open={isSendDialogOpen}
+            onOpenChange={setIsSendDialogOpen}
+            invoice={selectedInvoice}
+            onAfterSent={handleInvoiceSent}
+            onAfterStatusUpdated={(updated) => {
+              updateInvoiceInList(updated);
+              setIsSendDialogOpen(false);
+            }}
           />
         </>
       )}
