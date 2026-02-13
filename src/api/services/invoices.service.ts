@@ -11,18 +11,20 @@ import {
   ProductSearchResult,
 } from "../types/invoice.types";
 
+export type SendInvoiceRequest = {
+  sendToEmail?: string;
+  message?: string;
+};
+
 export const invoicesService = {
   // Get all invoices with pagination and filters
   getAll: async (
     page = 1,
     limit = 10,
     search?: string,
-    filters: InvoiceFilters = {}
+    filters: InvoiceFilters = {},
   ): Promise<InvoicePaginatedResponse> => {
-    const params: any = {
-      page,
-      limit,
-    };
+    const params: any = { page, limit };
 
     if (search) params.search = search;
     if (filters.customerId) params.customerId = filters.customerId;
@@ -39,7 +41,7 @@ export const invoicesService = {
   // Get invoice by ID
   getById: async (id: string): Promise<Invoice> => {
     const response = await apiClient.get<Invoice>(
-      API_ENDPOINTS.INVOICES.BY_ID(id)
+      API_ENDPOINTS.INVOICES.BY_ID(id),
     );
     return response.data;
   },
@@ -48,13 +50,11 @@ export const invoicesService = {
   getByJobId: async (jobId: string): Promise<Invoice | null> => {
     try {
       const response = await apiClient.get<Invoice>(
-        `${API_ENDPOINTS.INVOICES.BASE}/job/${jobId}`
+        `${API_ENDPOINTS.INVOICES.BASE}/job/${jobId}`,
       );
       return response.data;
     } catch (error: any) {
-      if (error.response?.status === 404) {
-        return null;
-      }
+      if (error.response?.status === 404) return null;
       throw error;
     }
   },
@@ -63,10 +63,10 @@ export const invoicesService = {
   hasInvoiceForJob: async (jobId: string): Promise<boolean> => {
     try {
       const response = await apiClient.get<{ hasInvoice: boolean }>(
-        `${API_ENDPOINTS.INVOICES.BASE}/job/${jobId}/exists`
+        `${API_ENDPOINTS.INVOICES.BASE}/job/${jobId}/exists`,
       );
       return response.data.hasInvoice;
-    } catch (error) {
+    } catch {
       return false;
     }
   },
@@ -75,7 +75,7 @@ export const invoicesService = {
   create: async (data: CreateInvoiceRequest): Promise<Invoice> => {
     const response = await apiClient.post<Invoice>(
       API_ENDPOINTS.INVOICES.BASE,
-      data
+      data,
     );
     return response.data;
   },
@@ -83,7 +83,7 @@ export const invoicesService = {
   // Create invoice from job
   createFromJob: async (jobId: string): Promise<Invoice> => {
     const response = await apiClient.post<Invoice>(
-      API_ENDPOINTS.INVOICES.CREATE_FROM_JOB(jobId)
+      API_ENDPOINTS.INVOICES.CREATE_FROM_JOB(jobId),
     );
     return response.data;
   },
@@ -92,7 +92,7 @@ export const invoicesService = {
   update: async (id: string, data: UpdateInvoiceRequest): Promise<Invoice> => {
     const response = await apiClient.patch<Invoice>(
       API_ENDPOINTS.INVOICES.BY_ID(id),
-      data
+      data,
     );
     return response.data;
   },
@@ -100,7 +100,7 @@ export const invoicesService = {
   // Update invoice status
   updateStatus: async (id: string, status: InvoiceStatus): Promise<Invoice> => {
     const response = await apiClient.patch<Invoice>(
-      `${API_ENDPOINTS.INVOICES.BY_ID(id)}/status?status=${status}`
+      `${API_ENDPOINTS.INVOICES.BY_ID(id)}/status?status=${status}`,
     );
     return response.data;
   },
@@ -108,7 +108,7 @@ export const invoicesService = {
   // Delete invoice
   delete: async (id: string): Promise<ApiResponse> => {
     const response = await apiClient.delete<ApiResponse>(
-      API_ENDPOINTS.INVOICES.BY_ID(id)
+      API_ENDPOINTS.INVOICES.BY_ID(id),
     );
     return response.data;
   },
@@ -117,8 +117,25 @@ export const invoicesService = {
   searchProducts: async (search: string): Promise<ProductSearchResult[]> => {
     const response = await apiClient.get<ProductSearchResult[]>(
       API_ENDPOINTS.INVOICES.SEARCH_PRODUCTS,
-      { params: { search } }
+      { params: { search } },
     );
+    return response.data;
+  },
+
+  // Send invoice email with PDF attachment
+  sendInvoice: async (id: string, payload: SendInvoiceRequest) => {
+    const response = await apiClient.post(
+      API_ENDPOINTS.INVOICES.SEND(id),
+      payload,
+    );
+    return response.data;
+  },
+
+  // Download PDF (Blob)
+  downloadPdf: async (id: string): Promise<Blob> => {
+    const response = await apiClient.get(API_ENDPOINTS.INVOICES.PDF(id), {
+      responseType: "blob",
+    });
     return response.data;
   },
 };
