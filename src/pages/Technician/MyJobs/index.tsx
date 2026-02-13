@@ -102,7 +102,7 @@ const MyJobs = () => {
       return false;
     }
 
-    // NEW: Check if scheduled date has arrived
+    // Check if scheduled date has arrived
     if (job.scheduledDate) {
       const today = new Date();
       today.setHours(0, 0, 0, 0);
@@ -125,6 +125,10 @@ const MyJobs = () => {
     message?: string;
     daysUntil?: number;
   } => {
+    if (job.status === JobStatus.COMPLETED || job.status === JobStatus.VERIFIED) {
+      return { canStart: false };
+    }
+
     if (!job.scheduledDate) {
       return { canStart: true };
     }
@@ -336,7 +340,7 @@ const MyJobs = () => {
                               <Calendar className="h-4 w-4 mr-1 text-muted-foreground" />
                               {new Date(job.scheduledDate).toLocaleDateString()}
                             </div>
-                            {scheduleInfo.message && (
+                            {!isCompleted && scheduleInfo.message && (
                               <Badge
                                 variant={
                                   scheduleInfo.canStart

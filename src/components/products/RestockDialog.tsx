@@ -43,30 +43,35 @@ const RestockDialog: React.FC<RestockDialogProps> = ({
 
   const [trackImeis, setTrackImeis] = useState(false);
 
-  const [formData, setFormData] = useState<
-    Omit<CreateProductBatchRequest, "productId">
-  >({
+  // UI form state)
+  const [formData, setFormData] = useState({
     supplierBatchRef: "",
-    buyingPrice: 0,
-    quantityReceived: 0,
+    buyingPrice: "",
+    quantityReceived: "",
     expiryDate: "",
     notes: "",
   });
 
   const [errors, setErrors] = useState<Record<string, string>>({});
 
+  const getNumericValues = () => ({
+    buyingPrice: formData.buyingPrice === "" ? 0 : Number(formData.buyingPrice),
+    quantityReceived: formData.quantityReceived === "" ? 0 : Number(formData.quantityReceived),
+  });
+
   const validateForm = (): boolean => {
     const newErrors: Record<string, string> = {};
+    const { buyingPrice, quantityReceived } = getNumericValues();
 
     const buyingPriceError = validateDecimal(
-      formData.buyingPrice,
+      buyingPrice,
       "Buying price",
       { min: 0 },
     );
     if (buyingPriceError) newErrors.buyingPrice = buyingPriceError;
 
     const quantityError = validateNumber(
-      formData.quantityReceived,
+      quantityReceived,
       "Quantity received",
       { min: 1 },
     );
@@ -79,8 +84,8 @@ const RestockDialog: React.FC<RestockDialogProps> = ({
   const resetForm = () => {
     setFormData({
       supplierBatchRef: "",
-      buyingPrice: 0,
-      quantityReceived: 0,
+      buyingPrice: "",
+      quantityReceived: "",
       expiryDate: "",
       notes: "",
     });
@@ -104,9 +109,12 @@ const RestockDialog: React.FC<RestockDialogProps> = ({
 
     setLoading(true);
     try {
+      const { buyingPrice, quantityReceived } = getNumericValues();
+
       const batchData: CreateProductBatchRequest = {
-        ...formData,
         productId: product.id,
+        buyingPrice,
+        quantityReceived,
         supplierBatchRef: formData.supplierBatchRef || undefined,
         expiryDate: formData.expiryDate || undefined,
         notes: formData.notes || undefined,
@@ -117,7 +125,7 @@ const RestockDialog: React.FC<RestockDialogProps> = ({
       toast.success("Batch created successfully");
       onRestockComplete();
 
-      if (trackImeis && formData.quantityReceived > 0) {
+      if (trackImeis && quantityReceived > 0) {
         setCreatedBatch(batch);
         setShowImeiDialog(true);
         return;
@@ -138,9 +146,11 @@ const RestockDialog: React.FC<RestockDialogProps> = ({
   ) => {
     if (!product || !createdBatch) return;
 
-    if (trackImeis && imeis.length !== formData.quantityReceived) {
+    const { quantityReceived } = getNumericValues();
+
+    if (trackImeis && imeis.length !== quantityReceived) {
       toast.error(
-        `Please add exactly ${formData.quantityReceived} IMEI numbers`,
+        `Please add exactly ${quantityReceived} IMEI numbers`,
       );
       return;
     }
@@ -239,11 +249,12 @@ const RestockDialog: React.FC<RestockDialogProps> = ({
                 type="number"
                 min="0"
                 step="0.01"
+                placeholder="0.00"
                 value={formData.buyingPrice}
                 onChange={(e) =>
                   handleInputChange(
                     "buyingPrice",
-                    parseFloat(e.target.value) || 0,
+                    e.target.value === "" ? "" : parseFloat(e.target.value),
                   )
                 }
                 className={errors.buyingPrice ? "border-destructive" : ""}
@@ -263,11 +274,12 @@ const RestockDialog: React.FC<RestockDialogProps> = ({
                 id="quantityReceived"
                 type="number"
                 min="1"
+                placeholder="0"
                 value={formData.quantityReceived}
                 onChange={(e) =>
                   handleInputChange(
                     "quantityReceived",
-                    parseInt(e.target.value) || 0,
+                    e.target.value === "" ? "" : parseInt(e.target.value),
                   )
                 }
                 className={errors.quantityReceived ? "border-destructive" : ""}
@@ -355,7 +367,7 @@ const RestockDialog: React.FC<RestockDialogProps> = ({
           }
           setShowImeiDialog(v);
         }}
-        requiredCount={formData.quantityReceived}
+        requiredCount={getNumericValues().quantityReceived}
         productName={product?.name || "Product"}
         allowSkip={!trackImeis}
         onConfirm={handleConfirmImeis}

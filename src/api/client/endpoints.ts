@@ -126,6 +126,8 @@ export const API_ENDPOINTS = {
     SUMMARY: "/invoices/summary",
     CREATE_FROM_JOB: (jobId: string) => `/invoices/create-from-job/${jobId}`,
     SEARCH_PRODUCTS: "/invoices/search-products",
+    PDF: (id: string) => `/invoices/${id}/pdf`,
+    SEND: (id: string) => `/invoices/${id}/send`,
   },
   DASHBOARD: {
     OVERVIEW: "/dashboard/overview",
