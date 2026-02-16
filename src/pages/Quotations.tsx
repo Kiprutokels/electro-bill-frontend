@@ -4,53 +4,21 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
+  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import {
-  Plus,
-  Search,
-  FileText,
-  Edit,
-  Trash2,
-  Eye,
-  RefreshCw,
-  Loader2,
-  CheckCircle,
-  XCircle,
-  Clock,
-  ArrowRight,
-  MoreHorizontal,
-  Send,
-  Download,
-  Printer,
+  Plus, Search, FileText, Edit, Trash2, Eye, RefreshCw, Loader2, CheckCircle,
+  XCircle, Clock, ArrowRight, MoreHorizontal, Download, Printer, Send,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { PERMISSIONS } from "@/utils/constants";
@@ -62,6 +30,7 @@ import { useQuotationPdf } from "@/hooks/useQuotationPdf";
 import AddQuotationDialog from "@/components/quotations/AddQuotationDialog";
 import EditQuotationDialog from "@/components/quotations/EditQuotationDialog";
 import QuotationViewDialog from "@/components/quotations/QuotationViewDialog";
+import SendQuotationDialog from "@/components/quotations/SendQuotationDialog";
 
 const Quotations = () => {
   const { hasPermission } = useAuth();
@@ -81,7 +50,6 @@ const Quotations = () => {
     updateFilters,
     updateQuotationInList,
     removeQuotationFromList,
-    setCurrentPage,
   } = useQuotations();
 
   const {
@@ -97,12 +65,11 @@ const Quotations = () => {
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
-  const [quotationToDelete, setQuotationToDelete] = useState<Quotation | null>(
-    null
-  );
-  const [selectedQuotation, setSelectedQuotation] = useState<Quotation | null>(
-    null
-  );
+
+  const [sendDialogOpen, setSendDialogOpen] = useState(false);
+
+  const [quotationToDelete, setQuotationToDelete] = useState<Quotation | null>(null);
+  const [selectedQuotation, setSelectedQuotation] = useState<Quotation | null>(null);
 
   const handleView = (quotation: Quotation) => {
     setSelectedQuotation(quotation);
@@ -114,42 +81,32 @@ const Quotations = () => {
     setIsEditDialogOpen(true);
   };
 
+  const handleSendClick = (quotation: Quotation) => {
+    setSelectedQuotation(quotation);
+    setSendDialogOpen(true);
+  };
+
   const handleDeleteClick = (quotation: Quotation) => {
     setQuotationToDelete(quotation);
   };
 
   const handleDeleteConfirm = async () => {
     if (!quotationToDelete) return;
-
-    try {
-      await deleteQuotation(quotationToDelete.id);
-      removeQuotationFromList(quotationToDelete.id);
-      setQuotationToDelete(null);
-    } catch (err) {
-      // Error handled in hook
-    }
+    await deleteQuotation(quotationToDelete.id);
+    removeQuotationFromList(quotationToDelete.id);
+    setQuotationToDelete(null);
   };
 
-  const handleStatusUpdate = async (
-    quotation: Quotation,
-    status: QuotationStatus
-  ) => {
-    try {
-      const updatedQuotation = await updateStatus(quotation, status);
-      updateQuotationInList(updatedQuotation);
-      setIsViewDialogOpen(false);
-    } catch (err) {
-      // Error handled in hook
-    }
+  const handleStatusUpdate = async (quotation: Quotation, status: QuotationStatus) => {
+    const updated = await updateStatus(quotation, status);
+    updateQuotationInList(updated);
+    setIsViewDialogOpen(false);
   };
 
   const handleConvertToInvoice = async (quotation: Quotation) => {
-    try {
-      await convertToInvoice(quotation);
-      setIsViewDialogOpen(false);
-    } catch (err) {
-      // Error handled in hook
-    }
+    // backend now creates PROFORMA invoice
+    await convertToInvoice(quotation);
+    setIsViewDialogOpen(false);
   };
 
   const handleDownloadPdf = async (quotation: Quotation) => {
@@ -157,13 +114,10 @@ const Quotations = () => {
   };
 
   const handlePrint = (quotation: Quotation) => {
-    // For now, just download the PDF
     handleDownloadPdf(quotation);
   };
 
-  const handleQuotationAdded = (newQuotation: Quotation) => {
-    fetchQuotations(1); // Refresh to get updated data
-  };
+  const handleQuotationAdded = () => fetchQuotations(1);
 
   const handleQuotationUpdated = (updatedQuotation: Quotation) => {
     updateQuotationInList(updatedQuotation);
@@ -171,8 +125,8 @@ const Quotations = () => {
 
   const handleStatusFilterChange = (value: string) => {
     if (value === "all") {
-      const { status, ...restFilters } = filters;
-      updateFilters(restFilters);
+      const { status, ...rest } = filters as any;
+      updateFilters(rest);
     } else {
       updateFilters({ ...filters, status: value as QuotationStatus });
     }
@@ -180,43 +134,19 @@ const Quotations = () => {
 
   const getStatusBadge = (status: QuotationStatus) => {
     const statusConfigs = {
-      [QuotationStatus.DRAFT]: {
-        variant: "secondary" as const,
-        icon: Clock,
-        className: "bg-gray-100 text-gray-800 hover:bg-gray-200",
-      },
-      [QuotationStatus.SENT]: {
-        variant: "default" as const,
-        icon: ArrowRight,
-        className: "bg-blue-500 text-white hover:bg-blue-600",
-      },
-      [QuotationStatus.APPROVED]: {
-        variant: "default" as const,
-        icon: CheckCircle,
-        className: "bg-green-500 text-white hover:bg-green-600",
-      },
-      [QuotationStatus.REJECTED]: {
-        variant: "destructive" as const,
-        icon: XCircle,
-        className: "bg-red-500 text-white hover:bg-red-600",
-      },
-      [QuotationStatus.EXPIRED]: {
-        variant: "secondary" as const,
-        icon: Clock,
-        className: "bg-orange-100 text-orange-800 hover:bg-orange-200",
-      },
-      [QuotationStatus.INVOICED]: {
-        variant: "default" as const,
-        icon: FileText,
-        className: "bg-emerald-500 text-white hover:bg-emerald-600",
-      },
-    };
+      [QuotationStatus.DRAFT]: { icon: Clock, className: "bg-gray-100 text-gray-800 hover:bg-gray-200" },
+      [QuotationStatus.SENT]: { icon: ArrowRight, className: "bg-blue-500 text-white hover:bg-blue-600" },
+      [QuotationStatus.APPROVED]: { icon: CheckCircle, className: "bg-green-500 text-white hover:bg-green-600" },
+      [QuotationStatus.REJECTED]: { icon: XCircle, className: "bg-red-500 text-white hover:bg-red-600" },
+      [QuotationStatus.EXPIRED]: { icon: Clock, className: "bg-orange-100 text-orange-800 hover:bg-orange-200" },
+      [QuotationStatus.INVOICED]: { icon: FileText, className: "bg-emerald-500 text-white hover:bg-emerald-600" },
+    } as const;
 
     const config = statusConfigs[status];
     const Icon = config.icon;
 
     return (
-      <Badge variant={config.variant} className={config.className}>
+      <Badge variant="secondary" className={config.className}>
         <Icon className="w-3 h-3 mr-1" />
         {status.charAt(0) + status.slice(1).toLowerCase()}
       </Badge>
@@ -226,23 +156,11 @@ const Quotations = () => {
   // Calculate stats
   const stats = useMemo(() => {
     const totalQuotations = totalItems;
-    const draftCount = quotations.filter(
-      (q) => q.status === QuotationStatus.DRAFT
-    ).length;
-    const approvedCount = quotations.filter(
-      (q) => q.status === QuotationStatus.APPROVED
-    ).length;
-    const totalValue = quotations.reduce(
-      (sum, q) => sum + Number(q.totalAmount || 0),
-      0
-    );
+    const draftCount = quotations.filter((q) => q.status === QuotationStatus.DRAFT).length;
+    const approvedCount = quotations.filter((q) => q.status === QuotationStatus.APPROVED).length;
+    const totalValue = quotations.reduce((sum, q) => sum + Number(q.totalAmount || 0), 0);
 
-    return {
-      totalQuotations,
-      draftCount,
-      approvedCount,
-      totalValue,
-    };
+    return { totalQuotations, draftCount, approvedCount, totalValue };
   }, [quotations, totalItems]);
 
   if (loading && quotations.length === 0) {
@@ -258,86 +176,54 @@ const Quotations = () => {
 
   return (
     <div className="space-y-4 sm:space-y-6 p-4 sm:p-6">
-      {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-2xl sm:text-3xl font-bold text-foreground">
-            Quotations
-          </h1>
+          <h1 className="text-2xl sm:text-3xl font-bold text-foreground">Quotations</h1>
           <p className="text-sm text-muted-foreground mt-1">
             Manage sales quotations and proposals
           </p>
         </div>
         {hasPermission(PERMISSIONS.SALES_CREATE) && (
-          <Button
-            onClick={() => setIsAddDialogOpen(true)}
-            className="w-full sm:w-auto"
-          >
+          <Button onClick={() => setIsAddDialogOpen(true)} className="w-full sm:w-auto">
             <Plus className="mr-2 h-4 w-4" />
             Create Quotation
           </Button>
         )}
       </div>
 
-      {/* Stats Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <Card className="border-l-4 border-l-primary">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              Total Quotations
-            </CardTitle>
+            <CardTitle className="text-sm font-medium text-muted-foreground">Total Quotations</CardTitle>
             <FileText className="h-4 w-4 text-primary" />
           </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-foreground">
-              {stats.totalQuotations}
-            </div>
-          </CardContent>
+          <CardContent><div className="text-2xl font-bold text-foreground">{stats.totalQuotations}</div></CardContent>
         </Card>
 
         <Card className="border-l-4 border-l-yellow-500">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              Draft Quotations
-            </CardTitle>
+            <CardTitle className="text-sm font-medium text-muted-foreground">Draft Quotations</CardTitle>
             <Clock className="h-4 w-4 text-yellow-500" />
           </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-foreground">
-              {stats.draftCount}
-            </div>
-          </CardContent>
+          <CardContent><div className="text-2xl font-bold text-foreground">{stats.draftCount}</div></CardContent>
         </Card>
 
         <Card className="border-l-4 border-l-green-500">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              Approved
-            </CardTitle>
+            <CardTitle className="text-sm font-medium text-muted-foreground">Approved</CardTitle>
             <CheckCircle className="h-4 w-4 text-green-500" />
           </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-foreground">
-              {stats.approvedCount}
-            </div>
-          </CardContent>
+          <CardContent><div className="text-2xl font-bold text-foreground">{stats.approvedCount}</div></CardContent>
         </Card>
 
         <Card className="border-l-4 border-l-accent">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              Total Value
-            </CardTitle>
+            <CardTitle className="text-sm font-medium text-muted-foreground">Total Value</CardTitle>
           </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-foreground">
-              {formatCurrency(stats.totalValue)}
-            </div>
-          </CardContent>
+          <CardContent><div className="text-2xl font-bold text-foreground">{formatCurrency(stats.totalValue)}</div></CardContent>
         </Card>
       </div>
 
-      {/* Search and Filters */}
       <Card>
         <CardHeader>
           <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
@@ -352,10 +238,8 @@ const Quotations = () => {
                   className="pl-10"
                 />
               </div>
-              <Select
-                value={filters.status || "all"}
-                onValueChange={handleStatusFilterChange}
-              >
+
+              <Select value={filters.status || "all"} onValueChange={handleStatusFilterChange}>
                 <SelectTrigger className="w-full sm:w-40">
                   <SelectValue placeholder="Status" />
                 </SelectTrigger>
@@ -368,30 +252,19 @@ const Quotations = () => {
                   ))}
                 </SelectContent>
               </Select>
-              <Button
-                variant="outline"
-                size="icon"
-                onClick={refresh}
-                disabled={refreshing}
-                title="Refresh"
-              >
-                <RefreshCw
-                  className={`h-4 w-4 ${refreshing ? "animate-spin" : ""}`}
-                />
+
+              <Button variant="outline" size="icon" onClick={refresh} disabled={refreshing} title="Refresh">
+                <RefreshCw className={`h-4 w-4 ${refreshing ? "animate-spin" : ""}`} />
               </Button>
             </div>
           </div>
         </CardHeader>
+
         <CardContent className="p-0 sm:p-6">
           {error && (
             <div className="mb-4 mx-4 sm:mx-0 p-4 border border-destructive/20 rounded-lg bg-destructive/5">
               <p className="text-sm text-destructive">{error}</p>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={refresh}
-                className="mt-2"
-              >
+              <Button variant="outline" size="sm" onClick={refresh} className="mt-2">
                 Try Again
               </Button>
             </div>
@@ -405,73 +278,51 @@ const Quotations = () => {
                     <TableHead className="min-w-[120px]">Quotation #</TableHead>
                     <TableHead className="min-w-[200px]">Customer</TableHead>
                     <TableHead className="hidden sm:table-cell">Date</TableHead>
-                    <TableHead className="hidden md:table-cell">
-                      Valid Until
-                    </TableHead>
-                    <TableHead className="text-right min-w-[100px]">
-                      Amount
-                    </TableHead>
+                    <TableHead className="hidden md:table-cell">Valid Until</TableHead>
+                    <TableHead className="text-right min-w-[100px]">Amount</TableHead>
                     <TableHead className="min-w-[100px]">Status</TableHead>
-                    <TableHead className="text-right min-w-[60px]">
-                      Actions
-                    </TableHead>
+                    <TableHead className="text-right min-w-[60px]">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
+
                 <TableBody>
                   {quotations.length === 0 ? (
                     <TableRow>
                       <TableCell colSpan={7} className="text-center py-8">
                         <div className="text-muted-foreground">
-                          {searchTerm
-                            ? "No quotations found matching your search."
-                            : "No quotations found."}
+                          {searchTerm ? "No quotations found matching your search." : "No quotations found."}
                         </div>
-                        {hasPermission(PERMISSIONS.SALES_CREATE) &&
-                          !searchTerm && (
-                            <Button
-                              variant="outline"
-                              onClick={() => setIsAddDialogOpen(true)}
-                              className="mt-2"
-                            >
-                              <Plus className="mr-2 h-4 w-4" />
-                              Create Your First Quotation
-                            </Button>
-                          )}
+                        {hasPermission(PERMISSIONS.SALES_CREATE) && !searchTerm && (
+                          <Button variant="outline" onClick={() => setIsAddDialogOpen(true)} className="mt-2">
+                            <Plus className="mr-2 h-4 w-4" />
+                            Create Your First Quotation
+                          </Button>
+                        )}
                       </TableCell>
                     </TableRow>
                   ) : (
                     quotations.map((quotation) => (
                       <TableRow key={quotation.id}>
-                        <TableCell className="font-medium">
-                          {quotation.quotationNumber}
-                        </TableCell>
+                        <TableCell className="font-medium">{quotation.quotationNumber}</TableCell>
+
                         <TableCell>
                           <div>
                             <div className="font-medium">
-                              {quotation.customer?.businessName ||
-                                quotation.customer?.contactPerson ||
-                                "N/A"}
+                              {quotation.customer?.businessName || quotation.customer?.contactPerson || "N/A"}
                             </div>
                             <div className="text-sm text-muted-foreground">
-                              {quotation.customer?.contactPerson &&
-                              quotation.customer?.businessName
+                              {quotation.customer?.contactPerson && quotation.customer?.businessName
                                 ? quotation.customer.contactPerson
                                 : quotation.customer?.email || "N/A"}
                             </div>
                           </div>
                         </TableCell>
-                        <TableCell className="hidden sm:table-cell">
-                          {formatDate(quotation.quotationDate)}
-                        </TableCell>
-                        <TableCell className="hidden md:table-cell">
-                          {formatDate(quotation.validUntil)}
-                        </TableCell>
-                        <TableCell className="text-right">
-                          {formatCurrency(Number(quotation.totalAmount || 0))}
-                        </TableCell>
-                        <TableCell>
-                          {getStatusBadge(quotation.status)}
-                        </TableCell>
+
+                        <TableCell className="hidden sm:table-cell">{formatDate(quotation.quotationDate)}</TableCell>
+                        <TableCell className="hidden md:table-cell">{formatDate(quotation.validUntil)}</TableCell>
+                        <TableCell className="text-right">{formatCurrency(Number(quotation.totalAmount || 0))}</TableCell>
+                        <TableCell>{getStatusBadge(quotation.status)}</TableCell>
+
                         <TableCell className="text-right">
                           <DropdownMenu>
                             <DropdownMenuTrigger asChild>
@@ -480,18 +331,14 @@ const Quotations = () => {
                                 <MoreHorizontal className="h-4 w-4" />
                               </Button>
                             </DropdownMenuTrigger>
+
                             <DropdownMenuContent align="end">
-                              <DropdownMenuItem
-                                onClick={() => handleView(quotation)}
-                              >
+                              <DropdownMenuItem onClick={() => handleView(quotation)}>
                                 <Eye className="mr-2 h-4 w-4" />
                                 View
                               </DropdownMenuItem>
 
-                              <DropdownMenuItem
-                                onClick={() => handleDownloadPdf(quotation)}
-                                disabled={downloading}
-                              >
+                              <DropdownMenuItem onClick={() => handleDownloadPdf(quotation)} disabled={downloading}>
                                 {downloading ? (
                                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                                 ) : (
@@ -500,92 +347,57 @@ const Quotations = () => {
                                 Download PDF
                               </DropdownMenuItem>
 
-                              <DropdownMenuItem
-                                onClick={() => handlePrint(quotation)}
-                              >
+                              <DropdownMenuItem onClick={() => handlePrint(quotation)}>
                                 <Printer className="mr-2 h-4 w-4" />
                                 Print
                               </DropdownMenuItem>
 
-                              {hasPermission(PERMISSIONS.SALES_UPDATE) &&
-                                quotation.status === QuotationStatus.DRAFT && (
+                              {hasPermission(PERMISSIONS.SALES_UPDATE) && quotation.status === QuotationStatus.DRAFT && (
+                                <DropdownMenuItem onClick={() => handleEdit(quotation)}>
+                                  <Edit className="mr-2 h-4 w-4" />
+                                  Edit
+                                </DropdownMenuItem>
+                              )}
+
+                              {hasPermission(PERMISSIONS.SALES_UPDATE) && quotation.status === QuotationStatus.DRAFT && (
+                                <DropdownMenuItem onClick={() => handleSendClick(quotation)}>
+                                  <Send className="mr-2 h-4 w-4" />
+                                  Send to Customer
+                                </DropdownMenuItem>
+                              )}
+
+                              {hasPermission(PERMISSIONS.SALES_UPDATE) && quotation.status === QuotationStatus.SENT && (
+                                <>
                                   <DropdownMenuItem
-                                    onClick={() => handleEdit(quotation)}
+                                    onClick={() => handleStatusUpdate(quotation, QuotationStatus.APPROVED)}
+                                    className="text-green-600"
                                   >
-                                    <Edit className="mr-2 h-4 w-4" />
-                                    Edit
+                                    <CheckCircle className="mr-2 h-4 w-4" />
+                                    Approve
                                   </DropdownMenuItem>
-                                )}
-
-                              {hasPermission(PERMISSIONS.SALES_UPDATE) &&
-                                quotation.status === QuotationStatus.DRAFT && (
                                   <DropdownMenuItem
-                                    onClick={() =>
-                                      handleStatusUpdate(
-                                        quotation,
-                                        QuotationStatus.SENT
-                                      )
-                                    }
-                                  >
-                                    <Send className="mr-2 h-4 w-4" />
-                                    Send to Customer
-                                  </DropdownMenuItem>
-                                )}
-
-                              {hasPermission(PERMISSIONS.SALES_UPDATE) &&
-                                quotation.status === QuotationStatus.SENT && (
-                                  <>
-                                    <DropdownMenuItem
-                                      onClick={() =>
-                                        handleStatusUpdate(
-                                          quotation,
-                                          QuotationStatus.APPROVED
-                                        )
-                                      }
-                                      className="text-green-600"
-                                    >
-                                      <CheckCircle className="mr-2 h-4 w-4" />
-                                      Approve
-                                    </DropdownMenuItem>
-                                    <DropdownMenuItem
-                                      onClick={() =>
-                                        handleStatusUpdate(
-                                          quotation,
-                                          QuotationStatus.REJECTED
-                                        )
-                                      }
-                                      className="text-red-600"
-                                    >
-                                      <XCircle className="mr-2 h-4 w-4" />
-                                      Reject
-                                    </DropdownMenuItem>
-                                  </>
-                                )}
-
-                              {hasPermission(PERMISSIONS.SALES_UPDATE) &&
-                                quotation.status ===
-                                  QuotationStatus.APPROVED && (
-                                  <DropdownMenuItem
-                                    onClick={() =>
-                                      handleConvertToInvoice(quotation)
-                                    }
-                                    className="text-blue-600"
-                                  >
-                                    <ArrowRight className="mr-2 h-4 w-4" />
-                                    Convert to Invoice
-                                  </DropdownMenuItem>
-                                )}
-
-                              {hasPermission(PERMISSIONS.SALES_DELETE) &&
-                                quotation.status === QuotationStatus.DRAFT && (
-                                  <DropdownMenuItem
-                                    onClick={() => handleDeleteClick(quotation)}
+                                    onClick={() => handleStatusUpdate(quotation, QuotationStatus.REJECTED)}
                                     className="text-red-600"
                                   >
-                                    <Trash2 className="mr-2 h-4 w-4" />
-                                    Delete
+                                    <XCircle className="mr-2 h-4 w-4" />
+                                    Reject
                                   </DropdownMenuItem>
-                                )}
+                                </>
+                              )}
+
+                              {hasPermission(PERMISSIONS.SALES_UPDATE) && quotation.status === QuotationStatus.APPROVED && (
+                                <DropdownMenuItem onClick={() => handleConvertToInvoice(quotation)} className="text-blue-600">
+                                  <ArrowRight className="mr-2 h-4 w-4" />
+                                  Convert to Proforma Invoice
+                                </DropdownMenuItem>
+                              )}
+
+                              {hasPermission(PERMISSIONS.SALES_DELETE) && quotation.status === QuotationStatus.DRAFT && (
+                                <DropdownMenuItem onClick={() => handleDeleteClick(quotation)} className="text-red-600">
+                                  <Trash2 className="mr-2 h-4 w-4" />
+                                  Delete
+                                </DropdownMenuItem>
+                              )}
                             </DropdownMenuContent>
                           </DropdownMenu>
                         </TableCell>
@@ -597,28 +409,16 @@ const Quotations = () => {
             </div>
           </div>
 
-          {/* Pagination */}
           {totalPages > 1 && (
             <div className="flex flex-col sm:flex-row items-center justify-between pt-4 px-4 sm:px-0 gap-4">
               <p className="text-sm text-muted-foreground">
-                Showing {(currentPage - 1) * 10 + 1} to{" "}
-                {Math.min(currentPage * 10, totalItems)} of {totalItems} entries
+                Showing {(currentPage - 1) * 10 + 1} to {Math.min(currentPage * 10, totalItems)} of {totalItems} entries
               </p>
               <div className="flex gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => fetchQuotations(currentPage - 1)}
-                  disabled={currentPage === 1 || loading}
-                >
+                <Button variant="outline" size="sm" onClick={() => fetchQuotations(currentPage - 1)} disabled={currentPage === 1 || loading}>
                   Previous
                 </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => fetchQuotations(currentPage + 1)}
-                  disabled={currentPage === totalPages || loading}
-                >
+                <Button variant="outline" size="sm" onClick={() => fetchQuotations(currentPage + 1)} disabled={currentPage === totalPages || loading}>
                   Next
                 </Button>
               </div>
@@ -627,7 +427,6 @@ const Quotations = () => {
         </CardContent>
       </Card>
 
-      {/* Dialogs */}
       <AddQuotationDialog
         open={isAddDialogOpen}
         onOpenChange={setIsAddDialogOpen}
@@ -654,21 +453,23 @@ const Quotations = () => {
             onStatusUpdate={handleStatusUpdate}
             onConvertToInvoice={handleConvertToInvoice}
           />
+
+          <SendQuotationDialog
+            open={sendDialogOpen}
+            onOpenChange={setSendDialogOpen}
+            quotation={selectedQuotation}
+            onAfterStatusUpdated={(updated) => updateQuotationInList(updated)}
+            onAfterSent={() => fetchQuotations(currentPage)}
+          />
         </>
       )}
 
-      {/* Delete Confirmation Dialog */}
-      <AlertDialog
-        open={!!quotationToDelete}
-        onOpenChange={() => setQuotationToDelete(null)}
-      >
+      <AlertDialog open={!!quotationToDelete} onOpenChange={() => setQuotationToDelete(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Delete Quotation</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to delete quotation "
-              {quotationToDelete?.quotationNumber}"? This action cannot be
-              undone.
+              Are you sure you want to delete quotation "{quotationToDelete?.quotationNumber}"? This action cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

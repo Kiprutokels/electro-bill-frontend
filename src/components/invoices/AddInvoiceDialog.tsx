@@ -25,12 +25,13 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Receipt, Loader2, Search, Trash2 } from "lucide-react";
+import { Receipt, Loader2, Search, Trash2, FileText } from "lucide-react";
 import {
   invoicesService,
   Invoice,
   CreateInvoiceRequest,
   ProductSearchResult,
+  InvoiceType,
 } from "@/api/services/invoices.service";
 import { customersService, Customer } from "@/api/services/customers.service";
 import { validateRequired } from "@/utils/validation.utils";
@@ -69,6 +70,7 @@ const AddInvoiceDialog: React.FC<AddInvoiceDialogProps> = ({
     paymentTerms: "",
     notes: "",
     discountAmount: 0,
+    type: InvoiceType.STANDARD,
     items: [],
   });
 
@@ -80,6 +82,7 @@ const AddInvoiceDialog: React.FC<AddInvoiceDialogProps> = ({
       fetchCustomers();
       resetForm();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
   const fetchCustomers = async () => {
@@ -113,7 +116,7 @@ const AddInvoiceDialog: React.FC<AddInvoiceDialogProps> = ({
 
   const addProductToInvoice = (product: ProductSearchResult) => {
     const existingItemIndex = invoiceItems.findIndex(
-      (item) => item.productId === product.id
+      (item) => item.productId === product.id,
     );
 
     if (existingItemIndex >= 0) {
@@ -159,8 +162,20 @@ const AddInvoiceDialog: React.FC<AddInvoiceDialogProps> = ({
     const customerError = validateRequired(formData.customerId, "Customer");
     if (customerError) newErrors.customerId = customerError;
 
+    if (!formData.type) {
+      newErrors.type = "Invoice type is required";
+    }
+
     if (invoiceItems.length === 0) {
       newErrors.items = "At least one item is required";
+    }
+
+    const subtotal = invoiceItems.reduce((sum, item) => sum + item.total, 0);
+    const discount = Number(formData.discountAmount || 0);
+    if (discount < 0) {
+      newErrors.discountAmount = "Discount cannot be negative";
+    } else if (discount > subtotal) {
+      newErrors.discountAmount = "Discount cannot exceed subtotal";
     }
 
     setErrors(newErrors);
@@ -169,32 +184,27 @@ const AddInvoiceDialog: React.FC<AddInvoiceDialogProps> = ({
 
   const calculateTotals = () => {
     const subtotal = invoiceItems.reduce((sum, item) => sum + item.total, 0);
-    const discount = formData.discountAmount || 0;
+    const discount = Number(formData.discountAmount || 0);
     const afterDiscount = subtotal - discount;
-    const total = afterDiscount ;
+    const total = afterDiscount;
 
-    return {
-      subtotal,
-      discount,
-      total,
-    };
+    return { subtotal, discount, total };
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!validateForm()) {
-      return;
-    }
+    if (!validateForm()) return;
 
     setLoading(true);
     try {
       const requestData: CreateInvoiceRequest = {
         customerId: formData.customerId,
+        type: formData.type,
         dueDate: formData.dueDate || undefined,
         paymentTerms: formData.paymentTerms || undefined,
         notes: formData.notes || undefined,
-        discountAmount: formData.discountAmount || 0,
+        discountAmount: Number(formData.discountAmount || 0),
         items: invoiceItems.map((item) => ({
           productId: item.productId,
           quantity: item.quantity,
@@ -204,7 +214,12 @@ const AddInvoiceDialog: React.FC<AddInvoiceDialogProps> = ({
       const newInvoice = await invoicesService.create(requestData);
       onInvoiceAdded(newInvoice);
       onOpenChange(false);
-      toast.success("Invoice created successfully");
+
+      toast.success(
+        requestData.type === InvoiceType.PROFORMA
+          ? "Proforma invoice created successfully"
+          : "Invoice created successfully",
+      );
     } catch (err: any) {
       const errorMessage =
         err.response?.data?.message || "Failed to create invoice";
@@ -221,6 +236,7 @@ const AddInvoiceDialog: React.FC<AddInvoiceDialogProps> = ({
       paymentTerms: "Net 30",
       notes: "",
       discountAmount: 0,
+      type: InvoiceType.STANDARD,
       items: [],
     });
     setInvoiceItems([]);
@@ -274,6 +290,50 @@ const AddInvoiceDialog: React.FC<AddInvoiceDialogProps> = ({
               )}
             </div>
 
+            <div>
+              <Label htmlFor="type">
+                Invoice Type <span className="text-destructive">*</span>
+              </Label>
+              <Select
+                value={formData.type || InvoiceType.STANDARD}
+                onValueChange={(value) =>
+                  setFormData((prev) => ({
+                    ...prev,
+                    type: value as InvoiceType,
+                  }))
+                }
+              >
+                <SelectTrigger
+                  className={errors.type ? "border-destructive" : ""}
+                >
+                  <SelectValue placeholder="Select type" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={InvoiceType.STANDARD}>
+                    <span className="flex items-center gap-2">
+                      <Receipt className="h-4 w-4" />
+                      Standard Invoice (Payable)
+                    </span>
+                  </SelectItem>
+                  <SelectItem value={InvoiceType.PROFORMA}>
+                    <span className="flex items-center gap-2">
+                      <FileText className="h-4 w-4" />
+                      Proforma Invoice (Not payable)
+                    </span>
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+              {errors.type && (
+                <p className="text-sm text-destructive mt-1">{errors.type}</p>
+              )}
+              {formData.type === InvoiceType.PROFORMA && (
+                <p className="text-xs text-muted-foreground mt-1">
+                  Proforma invoices are informational only and cannot be paid
+                  until converted to standard.
+                </p>
+              )}
+            </div>
+
             {/* Due Date */}
             <div>
               <Label htmlFor="dueDate">Due Date</Label>
@@ -295,7 +355,10 @@ const AddInvoiceDialog: React.FC<AddInvoiceDialogProps> = ({
               id="paymentTerms"
               value={formData.paymentTerms}
               onChange={(e) =>
-                setFormData((prev) => ({ ...prev, paymentTerms: e.target.value }))
+                setFormData((prev) => ({
+                  ...prev,
+                  paymentTerms: e.target.value,
+                }))
               }
               placeholder="e.g., Net 30, Due on Receipt"
             />
@@ -347,7 +410,7 @@ const AddInvoiceDialog: React.FC<AddInvoiceDialogProps> = ({
                               Stock:{" "}
                               {product.inventory?.reduce(
                                 (sum, inv) => sum + inv.quantityAvailable,
-                                0
+                                0,
                               ) || 0}
                             </p>
                           </div>
@@ -376,7 +439,9 @@ const AddInvoiceDialog: React.FC<AddInvoiceDialogProps> = ({
                     <TableHeader>
                       <TableRow>
                         <TableHead className="min-w-[200px]">Product</TableHead>
-                        <TableHead className="hidden md:table-cell">SKU</TableHead>
+                        <TableHead className="hidden md:table-cell">
+                          SKU
+                        </TableHead>
                         <TableHead className="text-right min-w-[100px]">
                           Unit Price
                         </TableHead>
@@ -414,7 +479,7 @@ const AddInvoiceDialog: React.FC<AddInvoiceDialogProps> = ({
                               onChange={(e) =>
                                 updateItemQuantity(
                                   index,
-                                  parseInt(e.target.value) || 1
+                                  parseInt(e.target.value) || 1,
                                 )
                               }
                               className="w-16 text-center"
@@ -440,6 +505,7 @@ const AddInvoiceDialog: React.FC<AddInvoiceDialogProps> = ({
                   </Table>
                 </div>
               )}
+
               {errors.items && (
                 <p className="text-sm text-destructive mt-2">{errors.items}</p>
               )}
@@ -468,7 +534,15 @@ const AddInvoiceDialog: React.FC<AddInvoiceDialogProps> = ({
                           discountAmount: parseFloat(e.target.value) || 0,
                         }))
                       }
+                      className={
+                        errors.discountAmount ? "border-destructive" : ""
+                      }
                     />
+                    {errors.discountAmount && (
+                      <p className="text-sm text-destructive mt-1">
+                        {errors.discountAmount}
+                      </p>
+                    )}
                   </div>
 
                   <div className="space-y-2">
@@ -508,13 +582,18 @@ const AddInvoiceDialog: React.FC<AddInvoiceDialogProps> = ({
           <div className="flex flex-col sm:flex-row gap-2 pt-4">
             <Button type="submit" disabled={loading} className="flex-1">
               {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              {loading ? "Creating Invoice..." : "Create Invoice"}
+              {loading
+                ? "Creating..."
+                : formData.type === InvoiceType.PROFORMA
+                  ? "Create Proforma Invoice"
+                  : "Create Invoice"}
             </Button>
             <Button
               type="button"
               variant="outline"
               onClick={() => onOpenChange(false)}
               className="flex-1 sm:flex-initial"
+              disabled={loading}
             >
               Cancel
             </Button>

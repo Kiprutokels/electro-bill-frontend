@@ -105,7 +105,13 @@ export const invoicesService = {
     return response.data;
   },
 
-  // Delete invoice
+  convertProformaToStandard: async (id: string): Promise<Invoice> => {
+    const response = await apiClient.post<Invoice>(
+      API_ENDPOINTS.INVOICES.CONVERT_TO_STANDARD(id),
+    );
+    return response.data;
+  },
+
   delete: async (id: string): Promise<ApiResponse> => {
     const response = await apiClient.delete<ApiResponse>(
       API_ENDPOINTS.INVOICES.BY_ID(id),

@@ -115,6 +115,7 @@ export const API_ENDPOINTS = {
     STATUS: (id: string) => `/quotations/${id}/status`,
     CONVERT_TO_INVOICE: (id: string) => `/quotations/${id}/convert-to-invoice`,
     SEARCH_PRODUCTS: "/quotations/search-products",
+    SEND: (id: string) => `/quotations/${id}/send`,
   },
 
   // Invoices
@@ -128,6 +129,7 @@ export const API_ENDPOINTS = {
     SEARCH_PRODUCTS: "/invoices/search-products",
     PDF: (id: string) => `/invoices/${id}/pdf`,
     SEND: (id: string) => `/invoices/${id}/send`,
+    CONVERT_TO_STANDARD: (id: string) => `/invoices/${id}/convert-to-standard`,
   },
   DASHBOARD: {
     OVERVIEW: "/dashboard/overview",
