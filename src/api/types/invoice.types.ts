@@ -1,10 +1,15 @@
 export enum InvoiceStatus {
-  DRAFT = 'DRAFT',
-  SENT = 'SENT',
-  PARTIAL = 'PARTIAL',
-  PAID = 'PAID',
-  OVERDUE = 'OVERDUE',
-  CANCELLED = 'CANCELLED',
+  DRAFT = "DRAFT",
+  SENT = "SENT",
+  PARTIAL = "PARTIAL",
+  PAID = "PAID",
+  OVERDUE = "OVERDUE",
+  CANCELLED = "CANCELLED",
+}
+
+export enum InvoiceType {
+  STANDARD = "STANDARD",
+  PROFORMA = "PROFORMA",
 }
 
 export interface InvoiceCustomer {
@@ -40,12 +45,8 @@ export interface InvoiceProduct {
   sellingPrice: string;
   unitOfMeasure: string;
   warrantyPeriodMonths: number;
-  category: {
-    name: string;
-  };
-  brand?: {
-    name: string;
-  };
+  category: { name: string };
+  brand?: { name: string };
 }
 
 export interface InvoiceItem {
@@ -86,38 +87,60 @@ export interface InvoiceReceipt {
   totalAmount: string;
 }
 
+export interface InvoiceLinkMini {
+  id: string;
+  invoiceNumber: string;
+  status: InvoiceStatus;
+  type: InvoiceType;
+}
+
 export interface Invoice {
   id: string;
   invoiceNumber: string;
+
+  type: InvoiceType;
+
+  proformaInvoiceId?: string | null;
+
   quotationId?: string;
   customerId: string;
   jobId?: string;
+
   invoiceDate: string;
   dueDate: string;
+
   subtotal: string;
   taxAmount: string;
   discountAmount: string;
+
   serviceFee: number;
-  processingFee: number; 
+  processingFee: number;
+
   totalAmount: string;
   amountPaid: string;
+
   status: InvoiceStatus;
+
   paymentTerms?: string;
   notes?: string;
+
   createdBy: string;
   createdAt: string;
   updatedAt: string;
+
   customer: InvoiceCustomer;
   quotation?: InvoiceQuotation;
   job?: InvoiceJob;
+
   createdByUser: InvoiceUser;
   items: InvoiceItem[];
-  receiptItems?: Array<{
-    receipt: InvoiceReceipt;
-  }>;
-  _count?: {
-    items: number;
-  };
+
+  receiptItems?: Array<{ receipt: InvoiceReceipt }>;
+
+  proformaInvoice?: InvoiceLinkMini | null;
+  standardInvoices?: InvoiceLinkMini[];
+
+  _count?: { items: number };
 }
 
 export interface CreateInvoiceRequest {
@@ -127,10 +150,10 @@ export interface CreateInvoiceRequest {
   paymentTerms?: string;
   notes?: string;
   discountAmount?: number;
-  items: Array<{
-    productId: string;
-    quantity: number;
-  }>;
+
+  type?: InvoiceType;
+
+  items: Array<{ productId: string; quantity: number }>;
 }
 
 export interface UpdateInvoiceRequest {
@@ -138,10 +161,7 @@ export interface UpdateInvoiceRequest {
   paymentTerms?: string;
   notes?: string;
   discountAmount?: number;
-  items?: Array<{
-    productId: string;
-    quantity: number;
-  }>;
+  items?: Array<{ productId: string; quantity: number }>;
 }
 
 export interface InvoiceFilters {
@@ -168,13 +188,7 @@ export interface ProductSearchResult {
   sellingPrice: string;
   unitOfMeasure: string;
   warrantyPeriodMonths: number;
-  category?: {
-    name: string;
-  };
-  brand?: {
-    name: string;
-  };
-  inventory?: Array<{
-    quantityAvailable: number;
-  }>;
+  category?: { name: string };
+  brand?: { name: string };
+  inventory?: Array<{ quantityAvailable: number }>;
 }
