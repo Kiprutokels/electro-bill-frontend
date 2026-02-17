@@ -67,6 +67,7 @@ import ManagerTools from "./pages/Crm/ManagerTools";
 import MySubscriptions from "./pages/Crm/MySubscriptions";
 import Locations from "./pages/Inventory/Locations";
 import BatchDevices from "./pages/Inventory/BatchDevices";
+import SubscriptionDetails from "./pages/SubscriptionDetails";
 
 const queryClient = new QueryClient();
 
@@ -163,6 +164,7 @@ const AppRoutes = () => {
             <Route path="jobs/:id/workflow" element={<JobWorkflow />} />
             <Route path="notifications" element={<NotificationsPage />} />
             <Route path="migration-upload" element={<MigrationUpload />} />
+            <Route path="subscriptions/:id" element={<SubscriptionDetails />} />
 
             <Route path="crm/dashboard" element={<CrmDashboard />} />
             <Route path="crm/followups" element={<CrmFollowUps />} />
