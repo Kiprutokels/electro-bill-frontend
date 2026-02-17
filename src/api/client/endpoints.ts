@@ -180,8 +180,7 @@ export const API_ENDPOINTS = {
     TEST: "/sms/test",
   },
 
-
-    // Departments
+  // Departments
   DEPARTMENTS: {
     BASE: "/departments",
     BY_ID: (id: string) => `/departments/${id}`,
@@ -209,6 +208,15 @@ export const API_ENDPOINTS = {
     ALERT_RESOLVE: (id: string) => `/crm/alerts/${id}/resolve`,
   },
 
+  SUBSCRIPTIONS_CRM: {
+    BASE: "/subscriptions-crm",
+    ASSIGN_OWNER: (id: string) => `/subscriptions-crm/${id}/assign-owner`,
+    CRM_CONFIG: (id: string) => `/subscriptions-crm/${id}/crm-config`,
+    BULK_ASSIGN: "/subscriptions-crm/bulk-assign",
+    MY_SUBSCRIPTIONS: "/subscriptions-crm/my-subscriptions",
+    UNASSIGNED: "/subscriptions-crm/unassigned",
+  },
+
   // Tickets
   TICKETS: {
     BASE: "/tickets",
@@ -233,5 +241,4 @@ export const API_ENDPOINTS = {
     PREVIEW_RECIPIENTS: "/campaigns/preview-recipients",
     SCHEDULE: (id: string) => `/campaigns/${id}/schedule`,
   },
-
 } as const;
