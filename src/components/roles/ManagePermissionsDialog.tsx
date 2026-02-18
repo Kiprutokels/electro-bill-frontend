@@ -177,8 +177,7 @@ const ManagePermissionsDialog: React.FC<ManagePermissionsDialogProps> = ({
                       <div className="flex items-center space-x-2">
                         <Checkbox
                           id={`module-${module}`}
-                          checked={isModuleSelected(modulePermissions)}
-                          indeterminate={isModulePartiallySelected(modulePermissions)}
+                          checked={isModuleSelected(modulePermissions) || isModulePartiallySelected(modulePermissions)}
                           onCheckedChange={(checked) => handleModuleToggle(modulePermissions, !!checked)}
                         />
                         <Label 
