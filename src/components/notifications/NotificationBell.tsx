@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { notificationsService } from "@/api/services/notifications.service";
 import { Button } from "@/components/ui/button";
@@ -16,6 +17,7 @@ import { toast } from "sonner";
 const NotificationBell = () => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const [open, setOpen] = useState(false);
 
   const { data, isLoading } = useQuery({
     queryKey: ["notifications-unread"],
@@ -30,14 +32,15 @@ const NotificationBell = () => {
       await queryClient.invalidateQueries({ queryKey: ["notifications-unread"] });
       toast.success("All notifications marked as read");
     },
-    onError: (err: any) => toast.error(err?.response?.data?.message || "Failed to mark all read"),
+    onError: (err: any) =>
+      toast.error(err?.response?.data?.message || "Failed to mark all read"),
   });
 
   const list = data || [];
   const unreadCount = list.length;
 
   return (
-    <DropdownMenu>
+    <DropdownMenu open={open} onOpenChange={setOpen}>
       <DropdownMenuTrigger asChild>
         <Button variant="ghost" className="relative">
           <Bell className="h-5 w-5" />
@@ -70,9 +73,14 @@ const NotificationBell = () => {
                 <DropdownMenuItem
                   key={n.id}
                   className="flex flex-col items-start gap-1"
-                  onClick={() => navigate(`/jobs/${n.jobId}/workflow`)}
+                  onClick={() => {
+                    setOpen(false);
+                    navigate(`/jobs/${n.jobId}/workflow`);
+                  }}
                 >
-                  <div className="text-sm font-medium">{n.subject || "Notification"}</div>
+                  <div className="text-sm font-medium">
+                    {n.subject || "Notification"}
+                  </div>
                   <div className="text-xs text-muted-foreground line-clamp-2">
                     {n.message}
                   </div>
@@ -88,7 +96,10 @@ const NotificationBell = () => {
               <Button
                 variant="outline"
                 className="w-full"
-                onClick={() => navigate("/notifications")}
+                onClick={() => {
+                  setOpen(false);
+                  navigate("/notifications");
+                }}
               >
                 View All
               </Button>
