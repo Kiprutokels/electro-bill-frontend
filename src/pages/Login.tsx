@@ -15,6 +15,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Loader2, Building2, AlertCircle, Eye, EyeOff } from "lucide-react";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { validateEmail } from "@/utils";
+import { getDefaultRouteForRole, getRoleName } from "@/utils/rbac";
 
 const Login = () => {
   const { user, login, isLoading } = useAuth();
@@ -29,12 +30,10 @@ const Login = () => {
   }>({});
 
   if (user) {
-    const isTechnician = user?.role === "TECHNICIAN";
-
-    return (
-      <Navigate to={isTechnician ? "/technician/jobs" : "/dashboard"} replace />
-    );
+    const role = getRoleName(user);
+    return <Navigate to={getDefaultRouteForRole(role)} replace />;
   }
+
   const validateForm = () => {
     const errors: { email?: string; password?: string } = {};
 
@@ -59,9 +58,7 @@ const Login = () => {
     setError("");
     setValidationErrors({});
 
-    if (!validateForm()) {
-      return;
-    }
+    if (!validateForm()) return;
 
     setIsSubmitting(true);
 
@@ -94,6 +91,7 @@ const Login = () => {
       <div className="absolute top-4 right-4">
         <ThemeToggle />
       </div>
+
       <Card className="w-full max-w-md shadow-2xl border-0 bg-card/80 backdrop-blur">
         <CardHeader className="text-center pb-6">
           <div className="flex justify-center mb-4">
@@ -108,6 +106,7 @@ const Login = () => {
             Sign in to access your account
           </CardDescription>
         </CardHeader>
+
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-2">
@@ -200,15 +199,9 @@ const Login = () => {
               {isSubmitting ? "Signing In..." : "Sign In"}
             </Button>
 
-            {/* <div className="text-center text-sm text-muted-foreground mt-4 p-3 bg-muted/50 rounded">
-              <p className="font-medium mb-1">Demo Credentials:</p>
-              <p>Email: admin@electrobill.com</p>
-              <p>Password: Admin@123</p>
-            </div> */}
-
-             <div className="text-center">
-              <Link 
-                to="/forgot-password" 
+            <div className="text-center">
+              <Link
+                to="/forgot-password"
                 className="text-sm text-primary hover:underline"
               >
                 Forgot your password?

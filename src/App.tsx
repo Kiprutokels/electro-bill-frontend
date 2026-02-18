@@ -67,6 +67,10 @@ import ManagerTools from "./pages/Crm/ManagerTools";
 import MySubscriptions from "./pages/Crm/MySubscriptions";
 import Locations from "./pages/Inventory/Locations";
 import BatchDevices from "./pages/Inventory/BatchDevices";
+import SubscriptionDetails from "./pages/SubscriptionDetails";
+
+import RoleGate from "@/components/auth/RoleGate";
+import { getDefaultRouteForRole, getRoleName } from "@/utils/rbac";
 
 const queryClient = new QueryClient();
 
@@ -93,8 +97,8 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
 
 const AppRoutes = () => {
   const { user } = useAuth();
+  const role = user ? getRoleName(user) : null;
 
-  const isTechnician = user?.role === "TECHNICIAN";
   return (
     <Routes>
       <Route path="/login" element={<Login />} />
@@ -105,10 +109,10 @@ const AppRoutes = () => {
       <Route
         path="/"
         element={
-          isTechnician ? (
-            <Navigate to="/technician/jobs" replace />
+          user ? (
+            <Navigate to={getDefaultRouteForRole(getRoleName(user))} replace />
           ) : (
-            <Navigate to="/dashboard" replace />
+            <Navigate to="/login" replace />
           )
         }
       />
@@ -121,96 +125,155 @@ const AppRoutes = () => {
           </ProtectedRoute>
         }
       >
-        {/* Admin Routes */}
-        {!isTechnician && (
-          <>
-            <Route path="dashboard" element={<Dashboard />} />
-            <Route path="roles" element={<Roles />} />
-            <Route path="products" element={<Products />} />
-            <Route path="customers" element={<Customers />} />
-            <Route
-              path="customers/:customerId/detail"
-              element={<CustomerDetail />}
-            />
-            <Route path="users" element={<Users />} />
-            <Route path="categories" element={<Categories />} />
-            <Route path="brands" element={<Brands />} />
-            <Route path="inventory" element={<Inventory />} />
-            <Route path="inventory/batches" element={<ProductBatches />} />
-            <Route path="inventory/devices" element={<Devices />} />
-            <Route path="inventory/batches/:batchId/devices" element={<BatchDevices />} />
-            <Route path="inventory/locations" element={<Locations />} />
-            <Route path="quotations" element={<Quotations />} />
-            <Route path="invoices" element={<Invoices />} />
-            <Route path="invoices/:id" element={<InvoiceView />} />
-            <Route path="payments" element={<Payments />} />
-            <Route path="payments/new" element={<NewPayment />} />
-            <Route path="subscriptions" element={<Subscriptions />} />
-            <Route path="settings/*" element={<Settings />} />
-            <Route path="transactions" element={<Transactions />} />
-            <Route path="reports" element={<Reports />} />
-            <Route path="processing-fees" element={<ProcessingFees />} />
-            <Route path="sms" element={<SmsManagement />} />
-            <Route path="advance-requests" element={<AdvanceRequests />} />
-            <Route path="profile" element={<Profile />} />
+        {/* DASHBOARD: Only ADMIN + MANAGER */}
+        <Route
+          path="dashboard"
+          element={
+            <RoleGate allowedRoles={["ADMIN", "MANAGER"]}>
+              <Dashboard />
+            </RoleGate>
+          }
+        />
 
-            {/* Vehicle Tracking */}
-            <Route path="vehicles" element={<Vehicles />} />
-            <Route path="technicians" element={<Technicians />} />
-            <Route path="jobs" element={<Jobs />} />
-            <Route path="requisitions" element={<Requisitions />} />
-            <Route path="inspections" element={<InspectionChecklist />} />
-            <Route path="jobs/:id/workflow" element={<JobWorkflow />} />
-            <Route path="notifications" element={<NotificationsPage />} />
-            <Route path="migration-upload" element={<MigrationUpload />} />
+        {/* System/Administration routes (lock down hard if desired) */}
+        <Route
+          path="roles"
+          element={
+            <RoleGate allowedRoles={["ADMIN"]}>
+              <Roles />
+            </RoleGate>
+          }
+        />
+        <Route
+          path="users"
+          element={
+            <RoleGate allowedRoles={["ADMIN"]}>
+              <Users />
+            </RoleGate>
+          }
+        />
 
-            <Route path="crm/dashboard" element={<CrmDashboard />} />
-            <Route path="crm/followups" element={<CrmFollowUps />} />
-            <Route path="crm/interactions" element={<CrmInteractions />} />
-            <Route path="crm/alerts" element={<CrmAlerts />} />
-            <Route path="crm/my-subscriptions" element={<MySubscriptions />} />
-            <Route path="crm/manager-tools" element={<ManagerTools />} />
+        {/* still rely on your permission checks in pages/APIs) */}
+        <Route path="products" element={<Products />} />
+        <Route path="customers" element={<Customers />} />
+        <Route path="customers/:customerId/detail" element={<CustomerDetail />} />
+        <Route path="categories" element={<Categories />} />
+        <Route path="brands" element={<Brands />} />
+        <Route path="inventory" element={<Inventory />} />
+        <Route path="inventory/batches" element={<ProductBatches />} />
+        <Route path="inventory/devices" element={<Devices />} />
+        <Route path="inventory/batches/:batchId/devices" element={<BatchDevices />} />
+        <Route path="inventory/locations" element={<Locations />} />
+        <Route path="quotations" element={<Quotations />} />
+        <Route path="invoices" element={<Invoices />} />
+        <Route path="invoices/:id" element={<InvoiceView />} />
+        <Route path="payments" element={<Payments />} />
+        <Route path="payments/new" element={<NewPayment />} />
+        <Route path="subscriptions" element={<Subscriptions />} />
+        <Route path="transactions" element={<Transactions />} />
+        <Route path="reports" element={<Reports />} />
+        <Route path="processing-fees" element={<ProcessingFees />} />
+        <Route path="sms" element={<SmsManagement />} />
+        <Route path="advance-requests" element={<AdvanceRequests />} />
+        <Route path="profile" element={<Profile />} />
+        <Route path="settings/*" element={<Settings />} />
+        <Route path="migration-upload" element={<MigrationUpload />} />
+        <Route path="subscriptions/:id" element={<SubscriptionDetails />} />
 
-            <Route path="tickets" element={<Tickets />} />
-            <Route path="tickets/:id" element={<TicketView />} />
+        {/* Vehicle Tracking */}
+        <Route path="vehicles" element={<Vehicles />} />
+        <Route path="technicians" element={<Technicians />} />
+        <Route path="jobs" element={<Jobs />} />
+        <Route path="requisitions" element={<Requisitions />} />
+        <Route path="inspections" element={<InspectionChecklist />} />
+        <Route path="jobs/:id/workflow" element={<JobWorkflow />} />
+        <Route path="notifications" element={<NotificationsPage />} />
 
-            <Route path="feedback" element={<Feedback />} />
-            <Route path="campaigns" element={<Campaigns />} />
-            <Route path="departments" element={<Departments />} />
+        {/* CRM */}
+        <Route path="crm/dashboard" element={<CrmDashboard />} />
+        <Route path="crm/followups" element={<CrmFollowUps />} />
+        <Route path="crm/interactions" element={<CrmInteractions />} />
+        <Route path="crm/alerts" element={<CrmAlerts />} />
+        <Route path="crm/my-subscriptions" element={<MySubscriptions />} />
+        <Route
+          path="crm/manager-tools"
+          element={
+            <RoleGate allowedRoles={["ADMIN", "CRM_MANAGER", "MANAGER"]}>
+              <ManagerTools />
+            </RoleGate>
+          }
+        />
 
-            <Route path="Test" element={<Test />} />
-          </>
-        )}
+        {/* Support */}
+        <Route path="tickets" element={<Tickets />} />
+        <Route path="tickets/:id" element={<TicketView />} />
+        <Route path="feedback" element={<Feedback />} />
+
+        {/* System/Manager */}
+        <Route
+          path="departments"
+          element={
+            <RoleGate allowedRoles={["ADMIN", "CRM_MANAGER", "MANAGER"]}>
+              <Departments />
+            </RoleGate>
+          }
+        />
+        <Route
+          path="campaigns"
+          element={
+            <RoleGate allowedRoles={["ADMIN", "CRM_MANAGER", "MANAGER"]}>
+              <Campaigns />
+            </RoleGate>
+          }
+        />
 
         {/* Technician Routes */}
-        {isTechnician && (
-          <>
-            <Route path="technician/jobs" element={<TechnicianJobs />} />
+        <Route
+          path="technician/jobs"
+          element={
+            <RoleGate allowedRoles={["TECHNICIAN"]}>
+              <TechnicianJobs />
+            </RoleGate>
+          }
+        />
+        <Route
+          path="technician/jobs/:id"
+          element={
+            <RoleGate allowedRoles={["TECHNICIAN"]}>
+              <TechnicianJobDetails />
+            </RoleGate>
+          }
+        />
+        <Route
+          path="technician/jobs/:id/work"
+          element={
+            <RoleGate allowedRoles={["TECHNICIAN"]}>
+              <TechnicianJobWork />
+            </RoleGate>
+          }
+        />
+        <Route
+          path="technician/active-job"
+          element={
+            <RoleGate allowedRoles={["TECHNICIAN"]}>
+              <TechnicianActiveJob />
+            </RoleGate>
+          }
+        />
 
-            {/* Read-only details page (works for completed/in-progress) */}
-            <Route
-              path="technician/jobs/:id"
-              element={<TechnicianJobDetails />}
-            />
+        <Route path="Test" element={<Test />} />
 
-            {/* Work page (tabs + mutations + start/continue) */}
-            <Route
-              path="technician/jobs/:id/work"
-              element={<TechnicianJobWork />}
-            />
-
-            {/* Keep legacy route, but it should open WORK page using query param jobId */}
-            <Route
-              path="technician/active-job"
-              element={<TechnicianActiveJob />}
-            />
-
-            <Route path="technician/profile" element={<Profile />} />
-            <Route path="notifications" element={<NotificationsPage />} />
-          </>
-        )}
-
-        <Route path="*" element={<NotFound />} />
+        {/* Fallback */}
+        <Route
+          path="*"
+          element={
+            role ? (
+              <Navigate to={getDefaultRouteForRole(getRoleName(user))} replace />
+            ) : (
+              <NotFound />
+            )
+          }
+        />
       </Route>
     </Routes>
   );

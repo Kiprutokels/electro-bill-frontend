@@ -52,6 +52,9 @@ export const Header = () => {
     return role.charAt(0).toUpperCase() + role.slice(1).toLowerCase();
   };
 
+  const isAdminOrManager =
+    user?.role === "ADMIN" || user?.role === "MANAGER";
+
   return (
     <header className="sticky top-0 z-40 border-b border-border bg-muted/50 backdrop-blur supports-[backdrop-filter]:bg-muted/50">
       <div className="flex h-14 items-center justify-between px-4">
@@ -129,13 +132,15 @@ export const Header = () => {
                 <span>Profile Settings</span>
               </DropdownMenuItem>
 
-              <DropdownMenuItem
-                onClick={() => navigate("/settings")}
-                className="flex items-center space-x-2 cursor-pointer"
-              >
-                <Settings className="h-4 w-4" />
-                <span>System Settings</span>
-              </DropdownMenuItem>
+              {isAdminOrManager && (
+                <DropdownMenuItem
+                  onClick={() => navigate("/settings")}
+                  className="flex items-center space-x-2 cursor-pointer"
+                >
+                  <Settings className="h-4 w-4" />
+                  <span>System Settings</span>
+                </DropdownMenuItem>
+              )}
 
               {user?.role === "ADMIN" && (
                 <DropdownMenuItem

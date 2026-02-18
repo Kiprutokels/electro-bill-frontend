@@ -34,7 +34,9 @@ export const subscriptionsService = {
     const response = await apiClient.get<Subscription>(
       API_ENDPOINTS.SUBSCRIPTIONS.BY_ID(id),
     );
+    console.log("API response for getById:", response);
     return response.data;
+
   },
 
   getByCustomer: async (customerId: string): Promise<Subscription[]> => {
@@ -104,12 +106,13 @@ export const subscriptionsService = {
     data: { accountOwnerId: string; followUpFrequencyMonths?: number },
   ) => {
     const res = await apiClient.patch(
-      `${API_ENDPOINTS.SUBSCRIPTIONS.BY_ID(subscriptionId)}/assign-owner`,
+      `${API_ENDPOINTS.SUBSCRIPTIONS_CRM.BASE}/${subscriptionId}/assign-owner`,
       data,
     );
     return res.data;
   },
 
+  // Update CRM config
   updateCrmConfig: async (
     subscriptionId: string,
     data: {
@@ -121,31 +124,34 @@ export const subscriptionsService = {
     },
   ) => {
     const res = await apiClient.patch(
-      `${API_ENDPOINTS.SUBSCRIPTIONS.BY_ID(subscriptionId)}/crm-config`,
+      `${API_ENDPOINTS.SUBSCRIPTIONS_CRM.BASE}/${subscriptionId}/crm-config`,
       data,
     );
     return res.data;
   },
 
+  // Bulk assign
   bulkAssign: async (data: any) => {
     const res = await apiClient.post(
-      `${API_ENDPOINTS.SUBSCRIPTIONS.BASE}/bulk-assign`,
+      `${API_ENDPOINTS.SUBSCRIPTIONS_CRM.BASE}/bulk-assign`,
       data,
     );
     return res.data;
   },
 
+  // My subscriptions portfolio
   mySubscriptions: async (params: any) => {
     const res = await apiClient.get(
-      `${API_ENDPOINTS.SUBSCRIPTIONS.BASE}/my-subscriptions/list`,
+      `${API_ENDPOINTS.SUBSCRIPTIONS_CRM.BASE}/my-subscriptions`,
       { params },
     );
     return res.data;
   },
 
+  // Unassigned queue
   unassigned: async (params: any) => {
     const res = await apiClient.get(
-      `${API_ENDPOINTS.SUBSCRIPTIONS.BASE}/unassigned/list`,
+      `${API_ENDPOINTS.SUBSCRIPTIONS_CRM.BASE}/unassigned`,
       { params },
     );
     return res.data;
