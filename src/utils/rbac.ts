@@ -1,3 +1,5 @@
+import Jobs from "@/pages/Jobs";
+
 export type AppRole =
   | "ADMIN"
   | "SALES"
@@ -42,6 +44,13 @@ export function isMenuItemAllowedForRole(role: AppRole, itemKey: string) {
   const deny: Record<AppRole, Set<string>> = {
     SALES: new Set([
       "dashboard",
+      "inventory",
+      "products",
+      "transactions",
+      "jobs",
+      "requisitions",
+      "advance_requests",
+      "inspections",
       "settings",
       "manager_tools",
       "departments",
