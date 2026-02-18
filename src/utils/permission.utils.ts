@@ -37,7 +37,7 @@ export const getModulePermissions = (
   userPermissions: string[],
   module: keyof typeof PERMISSIONS
 ): string[] => {
-  const modulePerms = Object.values(PERMISSIONS[module] as Record<string, string>);
+  const modulePerms = Object.values(PERMISSIONS[module] as unknown as Record<string, string>);
   return userPermissions.filter(permission => 
     modulePerms.includes(permission)
   );
