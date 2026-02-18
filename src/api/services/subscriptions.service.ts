@@ -34,7 +34,9 @@ export const subscriptionsService = {
     const response = await apiClient.get<Subscription>(
       API_ENDPOINTS.SUBSCRIPTIONS.BY_ID(id),
     );
+    console.log("API response for getById:", response);
     return response.data;
+
   },
 
   getByCustomer: async (customerId: string): Promise<Subscription[]> => {
