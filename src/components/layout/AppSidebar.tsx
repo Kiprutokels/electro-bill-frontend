@@ -87,6 +87,34 @@ const technicianNavigation: NavItem[] = [
     permission: null,
     section: "account",
   },
+    // {
+  //   name: "Requisitions",
+  //   href: "/technician/requisitions",
+  //   icon: PackageSearch,
+  //   permission: null,
+  //   section: "field",
+  // },
+  // {
+  //   name: "Inspections",
+  //   href: "/technician/inspections",
+  //   icon: ClipboardCheck,
+  //   permission: null,
+  //   section: "field",
+  // },
+  // {
+  //   name: "Vehicles",
+  //   href: "/technician/vehicles",
+  //   icon: Car,
+  //   permission: PERMISSIONS.VEHICLES_CREATE,
+  //   section: "field",
+  // },
+  // {
+  //   name: "Location Check-In",
+  //   href: "/technician/location",
+  //   icon: MapPin,
+  //   permission: null,
+  //   section: "field",
+  // },
 ];
 
 const appNavigation: NavItem[] = [
