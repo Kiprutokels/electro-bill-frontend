@@ -15,14 +15,27 @@ export const useDepartments = (includeInactive = false) => {
   });
 
   const update = useMutation({
-    mutationFn: ({ id, data }: { id: string; data: any }) => departmentsService.update(id, data),
+    mutationFn: ({ id, data }: { id: string; data: any }) =>
+      departmentsService.update(id, data),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["departments"] }),
   });
 
   const assignUser = useMutation({
     mutationFn: departmentsService.assignUser,
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["departments"] }),
+    onSuccess: (_, v) => {
+      qc.invalidateQueries({ queryKey: ["departments"] });
+      qc.invalidateQueries({ queryKey: ["department", v.departmentId] });
+    },
   });
 
-  return { list, create, update, assignUser };
+  const removeUser = useMutation({
+    mutationFn: ({ departmentId, userId }: { departmentId: string; userId: string }) =>
+      departmentsService.removeUser(departmentId, userId),
+    onSuccess: (_, v) => {
+      qc.invalidateQueries({ queryKey: ["departments"] });
+      qc.invalidateQueries({ queryKey: ["department", v.departmentId] });
+    },
+  });
+
+  return { list, create, update, assignUser, removeUser };
 };
