@@ -15,17 +15,26 @@ export const useTickets = (params: any = {}) => {
   });
 
   const assign = useMutation({
-    mutationFn: ({ id, data }: { id: string; data: any }) => ticketsService.assign(id, data),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["tickets"] }),
+    mutationFn: ({ id, data }: { id: string; data: any }) =>
+      ticketsService.assign(id, data),
+    onSuccess: (_, v) => {
+      qc.invalidateQueries({ queryKey: ["tickets"] });
+      qc.invalidateQueries({ queryKey: ["ticket", v.id] });
+    },
   });
 
   const updateStatus = useMutation({
-    mutationFn: ({ id, data }: { id: string; data: any }) => ticketsService.updateStatus(id, data),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["tickets"] }),
+    mutationFn: ({ id, data }: { id: string; data: any }) =>
+      ticketsService.updateStatus(id, data),
+    onSuccess: (_, v) => {
+      qc.invalidateQueries({ queryKey: ["tickets"] });
+      qc.invalidateQueries({ queryKey: ["ticket", v.id] });
+    },
   });
 
   const addComment = useMutation({
-    mutationFn: ({ id, data }: { id: string; data: any }) => ticketsService.addComment(id, data),
+    mutationFn: ({ id, data }: { id: string; data: any }) =>
+      ticketsService.addComment(id, data),
     onSuccess: (_, v) => qc.invalidateQueries({ queryKey: ["ticket", v.id] }),
   });
 
