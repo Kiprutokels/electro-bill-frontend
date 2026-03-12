@@ -59,6 +59,7 @@ const EditInvoiceDialog: React.FC<EditInvoiceDialogProps> = ({
   const [fullInvoice, setFullInvoice] = useState<Invoice | null>(null);
 
   const [formData, setFormData] = useState<UpdateInvoiceRequest>({
+    invoiceDate: "",
     dueDate: "",
     paymentTerms: "",
     notes: "",
@@ -109,7 +110,12 @@ const EditInvoiceDialog: React.FC<EditInvoiceDialogProps> = ({
         ? new Date(invoiceToProcess.dueDate).toISOString().split("T")[0]
         : "";
 
+      const invoiceDateFormatted = invoiceToProcess.invoiceDate
+        ? new Date(invoiceToProcess.invoiceDate).toISOString().split("T")[0]
+        : "";
+
       setFormData({
+        invoiceDate: invoiceDateFormatted,
         dueDate: dueDateFormatted,
         paymentTerms: invoiceToProcess.paymentTerms || "",
         notes: invoiceToProcess.notes || "",
@@ -118,14 +124,18 @@ const EditInvoiceDialog: React.FC<EditInvoiceDialogProps> = ({
 
       const items: InvoiceItem[] = [];
 
-      if (Array.isArray(invoiceToProcess.items) && invoiceToProcess.items.length > 0) {
+      if (
+        Array.isArray(invoiceToProcess.items) &&
+        invoiceToProcess.items.length > 0
+      ) {
         invoiceToProcess.items.forEach((item) => {
           const quantity = Number(item.quantity) || 0;
           const unitPrice = Number(item.unitPrice) || 0;
 
           const processedItem: InvoiceItem = {
             productId: item.productId,
-            productName: item.product?.name || item.description || "Unknown Product",
+            productName:
+              item.product?.name || item.description || "Unknown Product",
             productSku: item.product?.sku || "N/A",
             unitPrice: unitPrice,
             quantity: quantity,
@@ -162,7 +172,7 @@ const EditInvoiceDialog: React.FC<EditInvoiceDialogProps> = ({
 
   const addProductToInvoice = (product: ProductSearchResult) => {
     const existingItemIndex = invoiceItems.findIndex(
-      (item) => item.productId === product.id
+      (item) => item.productId === product.id,
     );
 
     if (existingItemIndex >= 0) {
@@ -214,7 +224,10 @@ const EditInvoiceDialog: React.FC<EditInvoiceDialogProps> = ({
   };
 
   const calculateTotals = () => {
-    const subtotal = invoiceItems.reduce((sum, item) => sum + (item.total || 0), 0);
+    const subtotal = invoiceItems.reduce(
+      (sum, item) => sum + (item.total || 0),
+      0,
+    );
     const discount = formData.discountAmount || 0;
     const afterDiscount = subtotal - discount;
     const total = afterDiscount;
@@ -236,6 +249,7 @@ const EditInvoiceDialog: React.FC<EditInvoiceDialogProps> = ({
     setLoading(true);
     try {
       const requestData: UpdateInvoiceRequest = {
+        invoiceDate: formData.invoiceDate || undefined,
         dueDate: formData.dueDate || undefined,
         paymentTerms: formData.paymentTerms || undefined,
         notes: formData.notes || undefined,
@@ -246,12 +260,16 @@ const EditInvoiceDialog: React.FC<EditInvoiceDialogProps> = ({
         })),
       };
 
-      const updatedInvoice = await invoicesService.update(invoice.id, requestData);
+      const updatedInvoice = await invoicesService.update(
+        invoice.id,
+        requestData,
+      );
       onInvoiceUpdated(updatedInvoice);
       onOpenChange(false);
       toast.success("Invoice updated successfully");
     } catch (err: any) {
-      const errorMessage = err.response?.data?.message || "Failed to update invoice";
+      const errorMessage =
+        err.response?.data?.message || "Failed to update invoice";
       toast.error(errorMessage);
     } finally {
       setLoading(false);
@@ -271,7 +289,8 @@ const EditInvoiceDialog: React.FC<EditInvoiceDialogProps> = ({
             Edit Invoice - {invoice.invoiceNumber}
           </DialogTitle>
           <DialogDescription>
-            Modify invoice details and items. Changes will recalculate totals automatically.
+            Modify invoice details and items. Changes will recalculate totals
+            automatically.
           </DialogDescription>
         </DialogHeader>
 
@@ -279,7 +298,9 @@ const EditInvoiceDialog: React.FC<EditInvoiceDialogProps> = ({
           <div className="flex items-center justify-center py-12">
             <div className="flex flex-col items-center space-y-4">
               <Loader2 className="h-8 w-8 animate-spin text-primary" />
-              <p className="text-sm text-muted-foreground">Loading invoice details...</p>
+              <p className="text-sm text-muted-foreground">
+                Loading invoice details...
+              </p>
             </div>
           </div>
         ) : (
@@ -290,12 +311,31 @@ const EditInvoiceDialog: React.FC<EditInvoiceDialogProps> = ({
                 <Label>Customer</Label>
                 <div className="p-3 bg-muted rounded-md">
                   <p className="font-medium">
-                    {invoice.customer?.businessName || invoice.customer?.contactPerson || "N/A"}
+                    {invoice.customer?.businessName ||
+                      invoice.customer?.contactPerson ||
+                      "N/A"}
                   </p>
                   <p className="text-sm text-muted-foreground">
                     {invoice.customer?.email || "N/A"}
                   </p>
                 </div>
+              </div>
+              <div>
+                <Label htmlFor="invoiceDate">Invoice Date</Label>
+                <Input
+                  id="invoiceDate"
+                  type="date"
+                  value={formData.invoiceDate || ""}
+                  onChange={(e) =>
+                    setFormData((prev) => ({
+                      ...prev,
+                      invoiceDate: e.target.value,
+                    }))
+                  }
+                />
+                <p className="text-xs text-muted-foreground mt-1">
+                  Backdating may require Finance/Admin permission.
+                </p>
               </div>
 
               {/* Due Date */}
@@ -306,7 +346,10 @@ const EditInvoiceDialog: React.FC<EditInvoiceDialogProps> = ({
                   type="date"
                   value={formData.dueDate}
                   onChange={(e) =>
-                    setFormData((prev) => ({ ...prev, dueDate: e.target.value }))
+                    setFormData((prev) => ({
+                      ...prev,
+                      dueDate: e.target.value,
+                    }))
                   }
                 />
               </div>
@@ -319,7 +362,10 @@ const EditInvoiceDialog: React.FC<EditInvoiceDialogProps> = ({
                 id="paymentTerms"
                 value={formData.paymentTerms}
                 onChange={(e) =>
-                  setFormData((prev) => ({ ...prev, paymentTerms: e.target.value }))
+                  setFormData((prev) => ({
+                    ...prev,
+                    paymentTerms: e.target.value,
+                  }))
                 }
                 placeholder="e.g., Net 30, Due on Receipt"
               />
@@ -370,13 +416,15 @@ const EditInvoiceDialog: React.FC<EditInvoiceDialogProps> = ({
                             </div>
                             <div className="text-right">
                               <p className="font-medium">
-                                {formatCurrency(Number(product.sellingPrice) || 0)}
+                                {formatCurrency(
+                                  Number(product.sellingPrice) || 0,
+                                )}
                               </p>
                               <p className="text-xs text-muted-foreground">
                                 Stock:{" "}
                                 {product.inventory?.reduce(
                                   (sum, inv) => sum + inv.quantityAvailable,
-                                  0
+                                  0,
                                 ) || 0}
                               </p>
                             </div>
@@ -409,8 +457,12 @@ const EditInvoiceDialog: React.FC<EditInvoiceDialogProps> = ({
                     <Table>
                       <TableHeader>
                         <TableRow>
-                          <TableHead className="min-w-[200px]">Product</TableHead>
-                          <TableHead className="hidden md:table-cell">SKU</TableHead>
+                          <TableHead className="min-w-[200px]">
+                            Product
+                          </TableHead>
+                          <TableHead className="hidden md:table-cell">
+                            SKU
+                          </TableHead>
                           <TableHead className="text-right min-w-[100px]">
                             Unit Price
                           </TableHead>
@@ -428,7 +480,9 @@ const EditInvoiceDialog: React.FC<EditInvoiceDialogProps> = ({
                           <TableRow key={`${item.productId}-${index}`}>
                             <TableCell>
                               <div>
-                                <p className="font-medium">{item.productName}</p>
+                                <p className="font-medium">
+                                  {item.productName}
+                                </p>
                                 <p className="text-sm text-muted-foreground md:hidden">
                                   SKU: {item.productSku}
                                 </p>
@@ -448,7 +502,7 @@ const EditInvoiceDialog: React.FC<EditInvoiceDialogProps> = ({
                                 onChange={(e) =>
                                   updateItemQuantity(
                                     index,
-                                    parseInt(e.target.value) || 1
+                                    parseInt(e.target.value) || 1,
                                   )
                                 }
                                 className="w-16 text-center"
@@ -475,7 +529,9 @@ const EditInvoiceDialog: React.FC<EditInvoiceDialogProps> = ({
                   </div>
                 )}
                 {errors.items && (
-                  <p className="text-sm text-destructive mt-2">{errors.items}</p>
+                  <p className="text-sm text-destructive mt-2">
+                    {errors.items}
+                  </p>
                 )}
               </CardContent>
             </Card>
@@ -540,7 +596,11 @@ const EditInvoiceDialog: React.FC<EditInvoiceDialogProps> = ({
 
             {/* Form Actions */}
             <div className="flex flex-col sm:flex-row gap-2 pt-4">
-              <Button type="submit" disabled={loading || fetchingInvoice} className="flex-1">
+              <Button
+                type="submit"
+                disabled={loading || fetchingInvoice}
+                className="flex-1"
+              >
                 {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 {loading ? "Updating Invoice..." : "Update Invoice"}
               </Button>

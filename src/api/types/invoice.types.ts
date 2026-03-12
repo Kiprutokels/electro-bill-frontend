@@ -146,7 +146,10 @@ export interface Invoice {
 export interface CreateInvoiceRequest {
   quotationId?: string;
   customerId: string;
+
+  invoiceDate?: string;
   dueDate?: string;
+
   paymentTerms?: string;
   notes?: string;
   discountAmount?: number;
@@ -157,7 +160,9 @@ export interface CreateInvoiceRequest {
 }
 
 export interface UpdateInvoiceRequest {
+  invoiceDate?: string;
   dueDate?: string;
+
   paymentTerms?: string;
   notes?: string;
   discountAmount?: number;

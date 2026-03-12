@@ -54,6 +54,13 @@ interface AddInvoiceDialogProps {
   onInvoiceAdded: (invoice: Invoice) => void;
 }
 
+function formatLocalDateInput(d: Date) {
+  const yyyy = d.getFullYear();
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  const dd = String(d.getDate()).padStart(2, "0");
+  return `${yyyy}-${mm}-${dd}`;
+}
+
 const AddInvoiceDialog: React.FC<AddInvoiceDialogProps> = ({
   open,
   onOpenChange,
@@ -66,6 +73,7 @@ const AddInvoiceDialog: React.FC<AddInvoiceDialogProps> = ({
 
   const [formData, setFormData] = useState<CreateInvoiceRequest>({
     customerId: "",
+    invoiceDate: formatLocalDateInput(new Date()),
     dueDate: "",
     paymentTerms: "Net 30",
     notes: "",
@@ -181,6 +189,7 @@ const AddInvoiceDialog: React.FC<AddInvoiceDialogProps> = ({
       const requestData: CreateInvoiceRequest = {
         customerId: formData.customerId,
         type: formData.type,
+        invoiceDate: formData.invoiceDate || undefined, // ✅ NEW
         dueDate: formData.dueDate || undefined,
         paymentTerms: formData.paymentTerms || undefined,
         notes: formData.notes || undefined,
@@ -211,6 +220,7 @@ const AddInvoiceDialog: React.FC<AddInvoiceDialogProps> = ({
   const resetForm = () => {
     setFormData({
       customerId: "",
+      invoiceDate: formatLocalDateInput(new Date()), // ✅ NEW
       dueDate: "",
       paymentTerms: "Net 30",
       notes: "",
@@ -335,6 +345,28 @@ const AddInvoiceDialog: React.FC<AddInvoiceDialogProps> = ({
                     )}
                   </div>
 
+                  {/* Invoice Date (NEW) */}
+                  <div className="space-y-1">
+                    <Label htmlFor="invoiceDate" className="text-sm font-semibold">
+                      Invoice Date
+                    </Label>
+                    <Input
+                      id="invoiceDate"
+                      type="date"
+                      value={formData.invoiceDate || ""}
+                      onChange={(e) =>
+                        setFormData((prev) => ({
+                          ...prev,
+                          invoiceDate: e.target.value,
+                        }))
+                      }
+                      className="h-11"
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      Backdating may require Finance/Admin permission.
+                    </p>
+                  </div>
+
                   {/* Due Date */}
                   <div className="space-y-1">
                     <Label htmlFor="dueDate" className="text-sm font-semibold">
@@ -343,7 +375,7 @@ const AddInvoiceDialog: React.FC<AddInvoiceDialogProps> = ({
                     <Input
                       id="dueDate"
                       type="date"
-                      value={formData.dueDate}
+                      value={formData.dueDate || ""}
                       onChange={(e) =>
                         setFormData((prev) => ({
                           ...prev,
@@ -352,6 +384,9 @@ const AddInvoiceDialog: React.FC<AddInvoiceDialogProps> = ({
                       }
                       className="h-11"
                     />
+                    <p className="text-xs text-muted-foreground">
+                      If left blank, backend sets due date to invoice date + 30 days.
+                    </p>
                   </div>
 
                   {/* Payment Terms */}
@@ -640,7 +675,6 @@ const AddInvoiceDialog: React.FC<AddInvoiceDialogProps> = ({
             </div>
           </div>
 
-          {/* ── Footer ── */}
           <div className="border-t border-slate-200 dark:border-slate-700 pt-4 mt-2 flex flex-col sm:flex-row gap-2 px-1 flex-shrink-0">
             <Button
               type="submit"
