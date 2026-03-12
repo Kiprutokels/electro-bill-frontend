@@ -3,6 +3,7 @@ export type BackupStatus = "SUCCESS" | "FAILED" | "RUNNING" | "PENDING";
 export type BackupTrigger = "CRON" | "MANUAL";
 
 export type LocalBackupKind = "FULL" | "DB_ONLY" | "UPLOADS_ONLY";
+export type RestoreMode = "AUTO" | "FULL" | "DB_ONLY" | "UPLOADS_ONLY";
 
 export type LocalStoreJobStage =
   | "PENDING"
@@ -72,23 +73,22 @@ export interface UpdateBackupSettingsBulkRequest {
 
 // ── Local backup ────────────────────────────────────────────────────────
 
-/** Shape of the manifest.json embedded in every local backup ZIP */
 export interface LocalBackupManifest {
   version: string;
   type: "LOCAL_BACKUP";
-  createdAt: string; // ISO 8601
-  platform: string; // process.platform
+  createdAt: string;
+  platform: string;
   dbName: string;
-  contents: string[]; // ["database.sql", "uploads/"]
+  contents: string[];
 }
 
-/** State held by the UI while a local download/restore is in progress */
 export interface LocalBackupUIState {
   downloading: boolean;
   restoring: boolean;
   restoreFile: File | null;
   restorePassword: string;
 }
+
 export interface LocalStoreJobStatus {
   jobId: string;
   kind: LocalBackupKind;

@@ -23,6 +23,7 @@ import {
   Trash2,
   Download,
   Play,
+  Upload,
 } from "lucide-react";
 
 import { backupService } from "@/api/services/backup.service";
@@ -35,6 +36,7 @@ import type {
   LocalBackupKind,
   LocalStoreJobStatus,
   LocalStoredBackupItem,
+  RestoreMode,
 } from "@/api/types/backup.types";
 
 // ── Small helpers ───────────────────────────────────────────
@@ -71,7 +73,6 @@ function parseDailyCron(cron: string): {
   isDaily: boolean;
   hhmm: string | null;
 } {
-  // matches: "m h * * *"
   const m = cron.trim().match(/^(\d{1,2})\s+(\d{1,2})\s+\*\s+\*\s+\*$/);
   if (!m) return { isDaily: false, hhmm: null };
   const mm = String(Number(m[1])).padStart(2, "0");
@@ -89,10 +90,8 @@ function dailyTimeToCron(hhmm: string) {
 // ── Component ───────────────────────────────────────────────
 
 export default function BackupAdmin() {
-  // global page
   const [pageLoading, setPageLoading] = useState(true);
 
-  // common backend state
   const [settings, setSettings] = useState<BackupSettingPublic[]>([]);
   const [runs, setRuns] = useState<BackupListItem[]>([]);
   const [runStatus, setRunStatus] = useState<BackupRunStatus>({
@@ -144,9 +143,16 @@ export default function BackupAdmin() {
   const [localList, setLocalList] = useState<LocalStoredBackupItem[]>([]);
   const [localLoading, setLocalLoading] = useState(false);
 
-  // restore UX
+  // restore UX — shared
   const [adminPassword, setAdminPassword] = useState("");
+  const [restoreMode, setRestoreMode] = useState<RestoreMode>("AUTO");
+
+  // restore from stored list
   const [selectedLocalFile, setSelectedLocalFile] = useState<string>("");
+
+  // restore from PC upload
+  const [uploadRestoreFile, setUploadRestoreFile] = useState<File | null>(null);
+  const [uploadRestoring, setUploadRestoring] = useState(false);
 
   // derived
   const secretStatus = useMemo(() => {
@@ -237,7 +243,6 @@ export default function BackupAdmin() {
     }
   }, []);
 
-  // init
   useEffect(() => {
     (async () => {
       setPageLoading(true);
@@ -256,14 +261,12 @@ export default function BackupAdmin() {
     })();
   }, []);
 
-  // cloud polling while running
   useEffect(() => {
     if (runStatus.running) startPolling();
     else stopPolling();
     return () => stopPolling();
   }, [runStatus.running]);
 
-  // local job polling
   useEffect(() => {
     if (!localJobId) return;
 
@@ -387,7 +390,6 @@ export default function BackupAdmin() {
       toast.success("Local backup job started", { id: toastId });
 
       if (downloadAfter) {
-        // wait for DONE then download automatically
         const wait = async () => {
           while (true) {
             const st = await backupService.getLocalStoredBackupStatus(
@@ -427,25 +429,35 @@ export default function BackupAdmin() {
     }
   };
 
+  // ── Shared password verify helper ─────────────────────────
+
+  const verifyPassword = async (): Promise<boolean> => {
+    if (!adminPassword.trim()) {
+      toast.error("Enter admin password.");
+      return false;
+    }
+    const vt = toast.loading("Verifying password…");
+    try {
+      await backupService.verifyAdminPassword(adminPassword);
+      toast.success("Password OK", { id: vt });
+      return true;
+    } catch (e: any) {
+      toast.error(e?.response?.data?.message || "Invalid password", { id: vt });
+      return false;
+    }
+  };
+
+  // ── Restore from stored list ──────────────────────────────
+
   const restoreLocalSelected = async () => {
     if (!selectedLocalFile)
       return toast.error("Select a local backup from the list first.");
-    if (!adminPassword.trim()) return toast.error("Enter admin password.");
 
-    const verifyToast = toast.loading("Verifying password…");
-    try {
-      await backupService.verifyAdminPassword(adminPassword);
-      toast.success("Password OK", { id: verifyToast });
-    } catch (e: any) {
-      toast.error(e?.response?.data?.message || "Invalid password", {
-        id: verifyToast,
-      });
-      return;
-    }
+    if (!(await verifyPassword())) return;
 
     if (
       !window.confirm(
-        `Restore from "${selectedLocalFile}"? This will overwrite DB + uploads.`,
+        `Restore from "${selectedLocalFile}" (mode: ${restoreMode})?\nThis will overwrite the selected data.`,
       )
     )
       return;
@@ -455,12 +467,54 @@ export default function BackupAdmin() {
       const res = await backupService.restoreLocalStoredBackup(
         selectedLocalFile,
         adminPassword,
+        restoreMode,
       );
       toast.success(res.message || "Restore completed", { id: toastId });
     } catch (e: any) {
       toast.error(e?.response?.data?.message || "Restore failed", {
         id: toastId,
       });
+    }
+  };
+
+  // ── Restore from uploaded ZIP ─────────────────────────────
+
+  const restoreFromUploadedZip = async () => {
+    if (!uploadRestoreFile)
+      return toast.error("Select a .zip file from your PC first.");
+
+    if (!(await verifyPassword())) return;
+
+    if (
+      !window.confirm(
+        `Upload & restore "${uploadRestoreFile.name}" (mode: ${restoreMode})?\nThis is destructive and cannot be undone.`,
+      )
+    )
+      return;
+
+    setUploadRestoring(true);
+    const toastId = toast.loading(
+      `Uploading ${uploadRestoreFile.name} & restoring…`,
+    );
+    try {
+      const res = await backupService.restoreFromLocalZip(
+        uploadRestoreFile,
+        adminPassword,
+        restoreMode,
+      );
+      toast.success(res.message || "Restore completed", { id: toastId });
+      setUploadRestoreFile(null);
+      // reset file input visually
+      const input = document.getElementById(
+        "upload-restore-input",
+      ) as HTMLInputElement | null;
+      if (input) input.value = "";
+    } catch (e: any) {
+      toast.error(e?.response?.data?.message || "Restore failed", {
+        id: toastId,
+      });
+    } finally {
+      setUploadRestoring(false);
     }
   };
 
@@ -552,7 +606,7 @@ export default function BackupAdmin() {
 
   return (
     <div className="p-4 space-y-4">
-      {/* Header (compact) */}
+      {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
         <div>
           <h1 className="text-xl font-bold flex items-center gap-2">
@@ -560,8 +614,7 @@ export default function BackupAdmin() {
             Backups
           </h1>
           <p className="text-sm text-muted-foreground">
-            Cloud backups (R2/Drive) + Local backup storage (save-first,
-            download later)
+            Cloud backups (R2/Drive) + Local backup storage + Restore from PC
           </p>
         </div>
 
@@ -610,7 +663,7 @@ export default function BackupAdmin() {
           <TabsTrigger value="settings">Settings</TabsTrigger>
         </TabsList>
 
-        {/* ───────────────────────────────────────── Cloud tab ───────────────────────────────────────── */}
+        {/* ── Cloud tab ── */}
         <TabsContent value="cloud" className="space-y-4">
           {preflight && (
             <Card>
@@ -634,7 +687,7 @@ export default function BackupAdmin() {
                       className={`flex items-center gap-2 p-2 rounded border ${
                         ok
                           ? "border-green-200 bg-green-50 text-green-800"
-                          : "border-red-200 bg-red-50 text-red-800"
+                          : "border-amber-200 bg-amber-50 text-amber-800"
                       }`}
                     >
                       {ok ? (
@@ -646,6 +699,18 @@ export default function BackupAdmin() {
                     </div>
                   ))}
                 </div>
+                {(!preflight.mysqldumpAvailable ||
+                  !preflight.mysqlAvailable) && (
+                  <Alert className="mt-3 border-amber-200 bg-amber-50">
+                    <AlertCircle className="h-4 w-4 text-amber-700" />
+                    <AlertDescription className="text-amber-800 text-sm">
+                      <strong>mysqldump / mysql not found</strong> — Railway
+                      Hobby does not include these binaries. The system will
+                      automatically use the built-in JS fallback (mysql2) for
+                      all dump and restore operations.
+                    </AlertDescription>
+                  </Alert>
+                )}
                 {preflight.error && (
                   <div className="mt-2 text-xs font-mono text-red-700 bg-red-50 border border-red-200 rounded p-2">
                     {preflight.error}
@@ -783,7 +848,7 @@ export default function BackupAdmin() {
           </Card>
         </TabsContent>
 
-        {/* ───────────────────────────────────────── Local tab ───────────────────────────────────────── */}
+        {/* ── Local tab ── */}
         <TabsContent value="local" className="space-y-4">
           <Card>
             <CardHeader>
@@ -792,7 +857,7 @@ export default function BackupAdmin() {
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              {/* Create */}
+              {/* ── Create new backup ── */}
               <div className="flex flex-col sm:flex-row sm:items-end gap-3">
                 <div className="w-full sm:w-[220px]">
                   <label className="text-xs text-muted-foreground">
@@ -826,7 +891,7 @@ export default function BackupAdmin() {
                 </Button>
               </div>
 
-              {/* Progress */}
+              {/* ── Job progress ── */}
               {localJob && (
                 <div className="border rounded p-3 bg-muted/20">
                   <div className="flex items-center justify-between text-sm">
@@ -842,7 +907,7 @@ export default function BackupAdmin() {
                   </div>
                   <div className="mt-2 h-2 w-full bg-muted rounded">
                     <div
-                      className="h-2 bg-blue-600 rounded"
+                      className="h-2 bg-blue-600 rounded transition-all"
                       style={{
                         width: `${Math.max(0, Math.min(100, localJob.percent))}%`,
                       }}
@@ -858,8 +923,108 @@ export default function BackupAdmin() {
 
               <Separator />
 
-              {/* Restore controls */}
+              {/* ── Shared admin password + restore mode ── */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs text-muted-foreground">
+                    Admin password (required for all restores)
+                  </label>
+                  <Input
+                    type="password"
+                    value={adminPassword}
+                    onChange={(e) => setAdminPassword(e.target.value)}
+                    placeholder="••••••••"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-xs text-muted-foreground">
+                    Restore mode
+                  </label>
+                  <select
+                    className="w-full border rounded px-2 py-2 text-sm bg-background"
+                    value={restoreMode}
+                    onChange={(e) =>
+                      setRestoreMode(e.target.value as RestoreMode)
+                    }
+                  >
+                    <option value="AUTO">
+                      AUTO — infer from backup contents
+                    </option>
+                    <option value="FULL">FULL — DB + uploads</option>
+                    <option value="DB_ONLY">DB ONLY — database only</option>
+                    <option value="UPLOADS_ONLY">
+                      UPLOADS ONLY — files only
+                    </option>
+                  </select>
+                </div>
+              </div>
+
+              <Separator />
+
+              {/* ── Section A: Restore by uploading ZIP from PC ── */}
+              <div className="border rounded p-4 space-y-3 bg-muted/10">
+                <div className="flex items-center gap-2">
+                  <Upload className="h-4 w-4 text-blue-600" />
+                  <span className="text-sm font-medium">
+                    Restore from ZIP on your PC
+                  </span>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Select a previously downloaded backup ZIP from your computer
+                  and restore it directly to the server. Use the restore mode
+                  above to control what gets restored (DB, uploads, or both).
+                </p>
+
+                <div>
+                  <label className="text-xs text-muted-foreground">
+                    Select .zip backup file
+                  </label>
+                  <Input
+                    id="upload-restore-input"
+                    type="file"
+                    accept=".zip,application/zip,application/octet-stream"
+                    onChange={(e) =>
+                      setUploadRestoreFile(e.target.files?.[0] ?? null)
+                    }
+                    className="cursor-pointer"
+                  />
+                  {uploadRestoreFile && (
+                    <div className="text-xs text-muted-foreground mt-1">
+                      Selected: <strong>{uploadRestoreFile.name}</strong> (
+                      {formatBytes(uploadRestoreFile.size)})
+                    </div>
+                  )}
+                </div>
+
+                <Button
+                  variant="destructive"
+                  size="sm"
+                  onClick={restoreFromUploadedZip}
+                  disabled={uploadRestoring || !uploadRestoreFile}
+                >
+                  {uploadRestoring ? (
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  ) : (
+                    <Upload className="h-4 w-4 mr-2" />
+                  )}
+                  {uploadRestoring
+                    ? "Uploading & restoring…"
+                    : `Restore uploaded ZIP (${restoreMode})`}
+                </Button>
+              </div>
+
+              <Separator />
+
+              {/* ── Section B: Restore from stored backups on server ── */}
+              <div className="space-y-3">
+                <div className="flex items-center gap-2">
+                  <HardDrive className="h-4 w-4" />
+                  <span className="text-sm font-medium">
+                    Restore from server-stored backup
+                  </span>
+                </div>
+
                 <div>
                   <label className="text-xs text-muted-foreground">
                     Select stored backup
@@ -878,62 +1043,53 @@ export default function BackupAdmin() {
                   </select>
                 </div>
 
-                <div>
-                  <label className="text-xs text-muted-foreground">
-                    Admin password (required to restore)
-                  </label>
-                  <Input
-                    type="password"
-                    value={adminPassword}
-                    onChange={(e) => setAdminPassword(e.target.value)}
-                    placeholder="••••••••"
-                  />
+                <div className="flex flex-wrap gap-2">
+                  <Button
+                    variant="destructive"
+                    size="sm"
+                    onClick={restoreLocalSelected}
+                    disabled={!selectedLocalFile}
+                  >
+                    Restore selected ({restoreMode})
+                  </Button>
+
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={async () => {
+                      if (!selectedLocalFile)
+                        return toast.error("Select a backup first.");
+                      await backupService.downloadLocalStoredBackup(
+                        selectedLocalFile,
+                      );
+                    }}
+                    disabled={!selectedLocalFile}
+                  >
+                    <Download className="h-4 w-4 mr-2" /> Download selected
+                  </Button>
+
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={async () => {
+                      if (!selectedLocalFile)
+                        return toast.error("Select a backup first.");
+                      await deleteLocal(selectedLocalFile);
+                    }}
+                    disabled={!selectedLocalFile}
+                    className="text-red-700 border-red-200 hover:bg-red-50"
+                  >
+                    <Trash2 className="h-4 w-4 mr-2" /> Delete selected
+                  </Button>
                 </div>
-              </div>
-
-              <div className="flex flex-wrap gap-2">
-                <Button
-                  variant="destructive"
-                  size="sm"
-                  onClick={restoreLocalSelected}
-                >
-                  Restore selected
-                </Button>
-
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={async () => {
-                    if (!selectedLocalFile)
-                      return toast.error("Select a backup first.");
-                    await backupService.downloadLocalStoredBackup(
-                      selectedLocalFile,
-                    );
-                  }}
-                >
-                  <Download className="h-4 w-4 mr-2" /> Download selected
-                </Button>
-
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={async () => {
-                    if (!selectedLocalFile)
-                      return toast.error("Select a backup first.");
-                    await deleteLocal(selectedLocalFile);
-                  }}
-                  className="text-red-700 border-red-200 hover:bg-red-50"
-                >
-                  <Trash2 className="h-4 w-4 mr-2" /> Delete selected
-                </Button>
               </div>
 
               <Separator />
 
-              {/* Local list */}
+              {/* ── Stored backup list ── */}
               <div className="flex items-center justify-between">
                 <div className="text-sm font-medium flex items-center gap-2">
-                  <Clock className="h-4 w-4" /> Stored backups
+                  <Clock className="h-4 w-4" /> Stored backups on server
                 </div>
                 <Button
                   variant="outline"
@@ -999,14 +1155,15 @@ export default function BackupAdmin() {
                 <AlertDescription className="text-blue-800 text-sm">
                   Local backups are stored on the server in{" "}
                   <code>{"backups/local"}</code>. For Railway persistence, mount
-                  a Volume and point <code>BACKUP_LOCAL_DIR</code> into it.
+                  a Volume and set <code>BACKUP_LOCAL_DIR</code> to the mount
+                  path.
                 </AlertDescription>
               </Alert>
             </CardContent>
           </Card>
         </TabsContent>
 
-        {/* ───────────────────────────────────────── Settings tab ───────────────────────────────────────── */}
+        {/* ── Settings tab ── */}
         <TabsContent value="settings" className="space-y-4">
           <Card>
             <CardHeader>
@@ -1015,7 +1172,7 @@ export default function BackupAdmin() {
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              {/* Cron mode */}
+              {/* Schedule */}
               <div className="space-y-2">
                 <div className="text-sm font-medium">Schedule</div>
                 <div className="flex items-center gap-3 text-sm">
@@ -1164,6 +1321,18 @@ export default function BackupAdmin() {
 
               <Separator />
 
+              <Alert className="border-amber-200 bg-amber-50">
+                <AlertCircle className="h-4 w-4 text-amber-700" />
+                <AlertDescription className="text-amber-800 text-sm">
+                  <strong>Railway Hobby note:</strong> If <code>mysqldump</code>
+                  /<code>mysql</code> are unavailable, all backup and restore
+                  operations automatically use the built-in JS fallback
+                  (mysql2). No configuration needed. Set{" "}
+                  <code>BACKUP_PREFER_NATIVE_MYSQL_TOOLS=false</code> to always
+                  force the JS path.
+                </AlertDescription>
+              </Alert>
+
               <Button onClick={saveSettings} disabled={saving}>
                 {saving ? (
                   <Loader2 className="h-4 w-4 mr-2 animate-spin" />
@@ -1175,10 +1344,8 @@ export default function BackupAdmin() {
         </TabsContent>
       </Tabs>
 
-      {/* Tools action note */}
       <div className="text-xs text-muted-foreground">
-        Tip: click <strong>Tools</strong> to verify <code>mysqldump</code>/
-        <code>mysql</code> availability.
+        Tip: click <strong>Tools</strong> to verify binary availability.
       </div>
     </div>
   );
