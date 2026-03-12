@@ -8,6 +8,7 @@ import type {
   LocalBackupKind,
   LocalStoredBackupItem,
   LocalStoreJobStatus,
+  RestoreMode,
   UpdateBackupSettingsBulkRequest,
 } from "../types/backup.types";
 
@@ -82,24 +83,17 @@ export const backupService = {
     return res.data;
   },
 
-  // ── LOCAL BACKUP────────────────────────────────────────────────────
+  // ── LOCAL BACKUP ────────────────────────────────────────────────────────
 
   /**
    * Download a local backup ZIP directly to the user's machine.
-   *
-   * Calls GET /backup/local/download with the JWT Bearer token,
-   * receives a binary blob, then triggers a browser Save-As download.
-   *
-   * The request may take several minutes for large databases — a 10-minute
-   * timeout is applied.
    */
   downloadLocalBackup: async (): Promise<void> => {
     const response = await apiClient.get(API_ENDPOINTS.BACKUP.LOCAL_DOWNLOAD, {
       responseType: "blob",
-      timeout: 10 * 60 * 1000, // 10 minutes
+      timeout: 10 * 60 * 1000,
     });
 
-    // Try to use the server-provided filename from Content-Disposition
     const disposition =
       (response.headers["content-disposition"] as string | undefined) ?? "";
     const match = disposition.match(/filename[^;=\n]*=(['"]?)([^'"\n;]+)\1/);
@@ -119,7 +113,6 @@ export const backupService = {
     document.body.appendChild(anchor);
     anchor.click();
 
-    // Cleanup after a short delay (browser needs time to initiate download)
     setTimeout(() => {
       document.body.removeChild(anchor);
       window.URL.revokeObjectURL(url);
@@ -127,29 +120,24 @@ export const backupService = {
   },
 
   /**
-   * Restore from a previously downloaded local-backup ZIP.
-   *
-   * Sends as multipart/form-data:
-   *   file          — the .zip file
-   *   adminPassword — the admin's current password (double-confirmation)
-   *
-   * NOTE: axios automatically sets the correct Content-Type boundary
-   * when you pass a FormData object — do NOT set Content-Type manually.
+   * Restore from a ZIP uploaded from the user's PC.
+   * Sends multipart/form-data: file + adminPassword + mode
    */
   restoreFromLocalZip: async (
     file: File,
     adminPassword: string,
+    mode: RestoreMode = "AUTO",
   ): Promise<{ message: string }> => {
     const formData = new FormData();
     formData.append("file", file, file.name);
     formData.append("adminPassword", adminPassword);
+    formData.append("mode", mode);
 
     const res = await apiClient.post<{ message: string }>(
       API_ENDPOINTS.BACKUP.LOCAL_RESTORE,
       formData,
       {
-        timeout: 10 * 60 * 1000, // 10 minutes for large restores
-        // Do NOT set Content-Type — axios handles multipart boundary automatically
+        timeout: 10 * 60 * 1000,
       },
     );
     return res.data;
@@ -220,10 +208,11 @@ export const backupService = {
   restoreLocalStoredBackup: async (
     fileName: string,
     adminPassword: string,
+    mode: RestoreMode = "AUTO",
   ): Promise<{ message: string }> => {
     const res = await apiClient.post<{ message: string }>(
       API_ENDPOINTS.BACKUP.LOCAL_STORE_RESTORE,
-      { fileName, adminPassword },
+      { fileName, adminPassword, mode },
     );
     return res.data;
   },
