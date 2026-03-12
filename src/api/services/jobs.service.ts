@@ -113,6 +113,29 @@ export interface CreateJobRequest {
   scheduledDate: string;
   location?: string;
   installationNotes?: string;
+
+  // (optional)
+  technicianIds?: string[];
+  technicianNotes?: string;
+}
+
+export interface CreateJobBatchItem {
+  vehicleId?: string;
+  jobType: JobType;
+  productIds: string[];
+  serviceDescription: string;
+  scheduledDate: string;
+  location?: string;
+  installationNotes?: string;
+}
+
+export interface CreateJobBatchRequest {
+  customerId: string;
+  jobs: CreateJobBatchItem[];
+
+  // assign same team to all created jobs
+  technicianIds?: string[];
+  technicianNotes?: string;
 }
 
 export interface AssignTechnicianRequest {
@@ -147,6 +170,41 @@ export interface RescheduleJobRequest {
   notifyCustomer?: boolean;
 }
 
+// (optional) lightweight types for modal context
+export interface CustomerVehicleLite {
+  id: string;
+  vehicleReg: string;
+  make: string;
+  model: string;
+  color?: string;
+  chassisNo: string;
+}
+
+export interface RecentCustomerJobLite {
+  id: string;
+  jobNumber: string;
+  status: JobStatus;
+  jobType: JobType;
+  scheduledDate?: string;
+  location?: string;
+  createdAt: string;
+  vehicle?: {
+    id: string;
+    vehicleReg: string;
+    make: string;
+    model: string;
+  } | null;
+}
+
+export interface RecentCustomerJobsResponse {
+  data: RecentCustomerJobLite[];
+  meta: {
+    take: number;
+    nextCursor: string | null;
+    hasMore: boolean;
+  };
+}
+
 export const jobsService = {
   getJobs: async (params: any = {}): Promise<PaginatedResponse<Job>> => {
     const response = await apiClient.get<PaginatedResponse<Job>>("/jobs", {
@@ -165,8 +223,32 @@ export const jobsService = {
     return response.data;
   },
 
+  // customer context endpoints
+  getCustomerRecentJobs: async (customerId: string, params?: { take?: number; cursor?: string }) => {
+    const response = await apiClient.get<RecentCustomerJobsResponse>(
+      `/jobs/customer/${customerId}/recent`,
+      { params },
+    );
+    return response.data;
+  },
+
+  getCustomerVehicles: async (customerId: string) => {
+    const response = await apiClient.get<{ data: CustomerVehicleLite[] }>(
+      `/jobs/customer/${customerId}/vehicles`,
+    );
+    return response.data;
+  },
+
   createJob: async (data: CreateJobRequest): Promise<Job> => {
     const response = await apiClient.post<Job>("/jobs", data);
+    return response.data;
+  },
+
+  createJobsBatch: async (data: CreateJobBatchRequest): Promise<{ data: Job[]; meta: { count: number } }> => {
+    const response = await apiClient.post<{ data: Job[]; meta: { count: number } }>(
+      "/jobs/batch",
+      data,
+    );
     return response.data;
   },
 
