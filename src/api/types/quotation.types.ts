@@ -1,10 +1,10 @@
 export enum QuotationStatus {
-  DRAFT = 'DRAFT',
-  SENT = 'SENT',
-  APPROVED = 'APPROVED',
-  REJECTED = 'REJECTED',
-  EXPIRED = 'EXPIRED',
-  INVOICED = 'INVOICED',
+  DRAFT = "DRAFT",
+  SENT = "SENT",
+  APPROVED = "APPROVED",
+  REJECTED = "REJECTED",
+  EXPIRED = "EXPIRED",
+  INVOICED = "INVOICED",
 }
 
 export interface QuotationCustomer {
@@ -93,23 +93,19 @@ export interface Quotation {
 
 export interface CreateQuotationRequest {
   customerId: string;
+  quotationDate?: string;
   validUntil?: string;
   notes?: string;
   discountAmount?: number;
-  items: Array<{
-    productId: string;
-    quantity: number;
-  }>;
+  items: Array<{ productId: string; quantity: number }>;
 }
 
 export interface UpdateQuotationRequest {
+  quotationDate?: string;
   validUntil?: string;
   notes?: string;
   discountAmount?: number;
-  items?: Array<{
-    productId: string;
-    quantity: number;
-  }>;
+  items?: Array<{ productId: string; quantity: number }>;
 }
 
 export interface QuotationFilters {

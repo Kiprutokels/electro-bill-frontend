@@ -71,6 +71,7 @@ import SubscriptionDetails from "./pages/SubscriptionDetails";
 
 import RoleGate from "@/components/auth/RoleGate";
 import { getDefaultRouteForRole, getRoleName } from "@/utils/rbac";
+import BackupAdmin from "./pages/BackupAdmin";
 
 const queryClient = new QueryClient();
 
@@ -262,6 +263,8 @@ const AppRoutes = () => {
         />
 
         <Route path="Test" element={<Test />} />
+        <Route path="Backup" element={<BackupAdmin />} />
+        
 
         {/* Fallback */}
         <Route

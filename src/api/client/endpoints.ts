@@ -241,4 +241,29 @@ export const API_ENDPOINTS = {
     PREVIEW_RECIPIENTS: "/campaigns/preview-recipients",
     SCHEDULE: (id: string) => `/campaigns/${id}/schedule`,
   },
+
+  BACKUP: {
+    BASE: "/backup",
+    SETTINGS: "/backup/settings",
+    SETTINGS_BULK: "/backup/settings/bulk",
+    MANUAL: "/backup/manual",
+    LIST: "/backup/list",
+    RESTORE: "/backup/restore",
+    STATUS: "/backup/status",
+    PREFLIGHT: "/backup/preflight",
+    RESET: "/backup/reset",
+    LOCAL_DOWNLOAD: "/backup/local/download",
+    LOCAL_RESTORE: "/backup/local/restore",
+    LOCAL_VERIFY_PASSWORD: "/backup/local/verify-password",
+    LOCAL_STORE_CREATE: "/backup/local/store/create",
+    LOCAL_STORE_STATUS: (jobId: string) =>
+      `/backup/local/store/status/${jobId}`,
+    LOCAL_STORE_LIST: "/backup/local/store/list",
+    LOCAL_STORE_DOWNLOAD: (fileName: string) =>
+      `/backup/local/store/download/${fileName}`,
+    LOCAL_STORE_DELETE: (fileName: string) => `/backup/local/store/${fileName}`,
+    LOCAL_STORE_RESTORE: "/backup/local/store/restore",
+
+    CLOUD_DELETE_RUN: (runId: string) => `/backup/${runId}`,
+  },
 } as const;
