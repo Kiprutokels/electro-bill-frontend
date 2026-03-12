@@ -59,6 +59,7 @@ const EditQuotationDialog: React.FC<EditQuotationDialogProps> = ({
   const [fullQuotation, setFullQuotation] = useState<Quotation | null>(null);
 
   const [formData, setFormData] = useState<UpdateQuotationRequest>({
+    quotationDate: "",
     validUntil: "",
     notes: "",
     discountAmount: 0,
@@ -98,17 +99,22 @@ const EditQuotationDialog: React.FC<EditQuotationDialogProps> = ({
     }
   }, [quotation, open]);
 
-  // Process quotation data 
+  // Process quotation data
   useEffect(() => {
     const quotationToProcess = fullQuotation || quotation;
 
     if (quotationToProcess && open) {
-      // Format date for input field
+      // Format quotationDate for input
+      const quotationDateFormatted = quotationToProcess.quotationDate
+        ? new Date(quotationToProcess.quotationDate).toISOString().split("T")[0]
+        : "";
+
       const validUntilDate = quotationToProcess.validUntil
         ? new Date(quotationToProcess.validUntil).toISOString().split("T")[0]
         : "";
 
       setFormData({
+        quotationDate: quotationDateFormatted,
         validUntil: validUntilDate,
         notes: quotationToProcess.notes || "",
         discountAmount: Number(quotationToProcess.discountAmount) || 0,
@@ -164,7 +170,7 @@ const EditQuotationDialog: React.FC<EditQuotationDialogProps> = ({
 
   const addProductToQuotation = (product: ProductSearchResult) => {
     const existingItemIndex = quotationItems.findIndex(
-      (item) => item.productId === product.id
+      (item) => item.productId === product.id,
     );
 
     if (existingItemIndex >= 0) {
@@ -218,7 +224,7 @@ const EditQuotationDialog: React.FC<EditQuotationDialogProps> = ({
   const calculateTotals = () => {
     const subtotal = quotationItems.reduce(
       (sum, item) => sum + (item.total || 0),
-      0
+      0,
     );
     const discount = formData.discountAmount || 0;
     const total = subtotal - discount;
@@ -240,6 +246,7 @@ const EditQuotationDialog: React.FC<EditQuotationDialogProps> = ({
     setLoading(true);
     try {
       const requestData: UpdateQuotationRequest = {
+        quotationDate: formData.quotationDate || undefined, // ✅ NEW
         validUntil: formData.validUntil || undefined,
         notes: formData.notes || undefined,
         discountAmount: formData.discountAmount,
@@ -251,7 +258,7 @@ const EditQuotationDialog: React.FC<EditQuotationDialogProps> = ({
 
       const updatedQuotation = await quotationsService.update(
         quotation.id,
-        requestData
+        requestData,
       );
       onQuotationUpdated(updatedQuotation);
       onOpenChange(false);
@@ -310,21 +317,40 @@ const EditQuotationDialog: React.FC<EditQuotationDialogProps> = ({
                 </div>
               </div>
 
-              {/* Valid Until Date */}
+              {/* Quotation Date */}
               <div>
-                <Label htmlFor="validUntil">Valid Until</Label>
+                <Label htmlFor="quotationDate">Quotation Date</Label>
                 <Input
-                  id="validUntil"
+                  id="quotationDate"
                   type="date"
-                  value={formData.validUntil}
+                  value={formData.quotationDate || ""}
                   onChange={(e) =>
                     setFormData((prev) => ({
                       ...prev,
-                      validUntil: e.target.value,
+                      quotationDate: e.target.value,
                     }))
                   }
                 />
+                <p className="text-xs text-muted-foreground mt-1">
+                  Backdating may require Finance/Admin permission.
+                </p>
               </div>
+            </div>
+
+            {/* Valid Until Date */}
+            <div>
+              <Label htmlFor="validUntil">Valid Until</Label>
+              <Input
+                id="validUntil"
+                type="date"
+                value={formData.validUntil || ""}
+                onChange={(e) =>
+                  setFormData((prev) => ({
+                    ...prev,
+                    validUntil: e.target.value,
+                  }))
+                }
+              />
             </div>
 
             {/* Product Search */}
@@ -373,14 +399,14 @@ const EditQuotationDialog: React.FC<EditQuotationDialogProps> = ({
                             <div className="text-right">
                               <p className="font-medium">
                                 {formatCurrency(
-                                  Number(product.sellingPrice) || 0
+                                  Number(product.sellingPrice) || 0,
                                 )}
                               </p>
                               <p className="text-xs text-muted-foreground">
                                 Stock:{" "}
                                 {product.inventory?.reduce(
                                   (sum, inv) => sum + inv.quantityAvailable,
-                                  0
+                                  0,
                                 ) || 0}
                               </p>
                             </div>
@@ -458,7 +484,7 @@ const EditQuotationDialog: React.FC<EditQuotationDialogProps> = ({
                                 onChange={(e) =>
                                   updateItemQuantity(
                                     index,
-                                    parseInt(e.target.value) || 1
+                                    parseInt(e.target.value) || 1,
                                   )
                                 }
                                 className="w-16 text-center"
