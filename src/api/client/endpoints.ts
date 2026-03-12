@@ -241,4 +241,18 @@ export const API_ENDPOINTS = {
     PREVIEW_RECIPIENTS: "/campaigns/preview-recipients",
     SCHEDULE: (id: string) => `/campaigns/${id}/schedule`,
   },
+
+  BACKUP: {
+    BASE: "/backup",
+    SETTINGS: "/backup/settings",
+    SETTINGS_BULK: "/backup/settings/bulk",
+    MANUAL: "/backup/manual",
+    LIST: "/backup/list",
+    RESTORE: "/backup/restore",
+    STATUS: "/backup/status",
+    PREFLIGHT: "/backup/preflight",
+    RESET: "/backup/reset",
+    LOCAL_DOWNLOAD: "/backup/local/download",
+    LOCAL_RESTORE: "/backup/local/restore",
+  },
 } as const;
