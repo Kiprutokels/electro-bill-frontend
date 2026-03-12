@@ -46,6 +46,13 @@ interface AddQuotationDialogProps {
   onQuotationAdded: (quotation: Quotation) => void;
 }
 
+function formatLocalDateInput(d: Date) {
+  const yyyy = d.getFullYear();
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  const dd = String(d.getDate()).padStart(2, "0");
+  return `${yyyy}-${mm}-${dd}`;
+}
+
 const AddQuotationDialog: React.FC<AddQuotationDialogProps> = ({
   open,
   onOpenChange,
@@ -58,6 +65,7 @@ const AddQuotationDialog: React.FC<AddQuotationDialogProps> = ({
 
   const [formData, setFormData] = useState<CreateQuotationRequest>({
     customerId: "",
+    quotationDate: formatLocalDateInput(new Date()),
     validUntil: "",
     notes: "",
     discountAmount: 0,
@@ -157,6 +165,7 @@ const AddQuotationDialog: React.FC<AddQuotationDialogProps> = ({
     try {
       const requestData: CreateQuotationRequest = {
         customerId: formData.customerId,
+        quotationDate: formData.quotationDate || undefined,
         validUntil: formData.validUntil || undefined,
         notes: formData.notes || undefined,
         discountAmount: formData.discountAmount || 0,
@@ -182,6 +191,7 @@ const AddQuotationDialog: React.FC<AddQuotationDialogProps> = ({
   const resetForm = () => {
     setFormData({
       customerId: "",
+      quotationDate: formatLocalDateInput(new Date()),
       validUntil: "",
       notes: "",
       discountAmount: 0,
@@ -258,6 +268,32 @@ const AddQuotationDialog: React.FC<AddQuotationDialogProps> = ({
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  {/* Quotation Date */}
+                  <div className="space-y-1">
+                    <Label
+                      htmlFor="quotationDate"
+                      className="text-sm font-semibold"
+                    >
+                      Quotation Date
+                    </Label>
+                    <Input
+                      id="quotationDate"
+                      type="date"
+                      value={formData.quotationDate || ""}
+                      onChange={(e) =>
+                        setFormData((prev) => ({
+                          ...prev,
+                          quotationDate: e.target.value,
+                        }))
+                      }
+                      className="h-11"
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      Backdating may require Finance/Admin permission.
+                    </p>
+                  </div>
+
+                  {/* Valid Until */}
                   <div className="space-y-1">
                     <Label
                       htmlFor="validUntil"
@@ -277,7 +313,12 @@ const AddQuotationDialog: React.FC<AddQuotationDialogProps> = ({
                       }
                       className="h-11"
                     />
+                    <p className="text-xs text-muted-foreground">
+                      If left blank, defaults to quotation date + 30 days.
+                    </p>
                   </div>
+
+                  {/* Discount Amount */}
                   <div className="space-y-1">
                     <Label
                       htmlFor="discountAmount"
