@@ -57,7 +57,7 @@ export const devicesService = {
 
   list: async (params: {
     page: number;
-    limit: number; // max 100 in UI
+    limit: number; // max 100 in UI (but backend supports -1 = all)
     search?: string;
     status?: DeviceStatus;
     productId?: string;
@@ -66,6 +66,30 @@ export const devicesService = {
     console.log('[devicesService] list:', params);
     const res = await apiClient.get<PaginatedResponse<Device>>(`/devices`, { params });
     return res.data;
+  },
+
+  /**
+   * ✅ Lightweight "does any IMEI exist?" check
+   * Uses limit=1 and reads meta.total to avoid fetching big lists.
+   */
+  hasAvailableDevices: async (params: {
+    productId: string;
+    batchId?: string;
+  }): Promise<boolean> => {
+    console.log('[devicesService] hasAvailableDevices:', params);
+
+    const res = await apiClient.get<PaginatedResponse<Device>>(`/devices`, {
+      params: {
+        page: 1,
+        limit: 1,
+        status: 'AVAILABLE',
+        productId: params.productId,
+        ...(params.batchId ? { batchId: params.batchId } : {}),
+      },
+    });
+
+    const total = res.data?.meta?.total ?? 0;
+    return total > 0;
   },
 
   getAvailableDevices: async (params: {
