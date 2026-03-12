@@ -85,9 +85,6 @@ export const backupService = {
 
   // ── LOCAL BACKUP ────────────────────────────────────────────────────────
 
-  /**
-   * Download a local backup ZIP directly to the user's machine.
-   */
   downloadLocalBackup: async (): Promise<void> => {
     const response = await apiClient.get(API_ENDPOINTS.BACKUP.LOCAL_DOWNLOAD, {
       responseType: "blob",
@@ -104,7 +101,6 @@ export const backupService = {
     const blob = new Blob([response.data as BlobPart], {
       type: "application/zip",
     });
-
     const url = window.URL.createObjectURL(blob);
     const anchor = document.createElement("a");
     anchor.href = url;
@@ -112,7 +108,6 @@ export const backupService = {
     anchor.style.display = "none";
     document.body.appendChild(anchor);
     anchor.click();
-
     setTimeout(() => {
       document.body.removeChild(anchor);
       window.URL.revokeObjectURL(url);
@@ -121,7 +116,6 @@ export const backupService = {
 
   /**
    * Restore from a ZIP uploaded from the user's PC.
-   * Sends multipart/form-data: file + adminPassword + mode
    */
   restoreFromLocalZip: async (
     file: File,
@@ -138,6 +132,9 @@ export const backupService = {
       formData,
       {
         timeout: 10 * 60 * 1000,
+        headers: {
+          "Content-Type": undefined,
+        },
       },
     );
     return res.data;
