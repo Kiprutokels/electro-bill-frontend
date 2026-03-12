@@ -1,8 +1,15 @@
-// src/api/types/backup.types.ts
-
 export type StorageTarget = "R2" | "DRIVE";
 export type BackupStatus = "SUCCESS" | "FAILED" | "RUNNING" | "PENDING";
 export type BackupTrigger = "CRON" | "MANUAL";
+
+export type LocalBackupKind = "FULL" | "DB_ONLY" | "UPLOADS_ONLY";
+
+export type LocalStoreJobStage =
+  | "PENDING"
+  | "DUMP_DB"
+  | "ZIP"
+  | "DONE"
+  | "FAILED";
 
 // ── Settings ─────────────────────────────────────────────────────────────────
 
@@ -69,10 +76,10 @@ export interface UpdateBackupSettingsBulkRequest {
 export interface LocalBackupManifest {
   version: string;
   type: "LOCAL_BACKUP";
-  createdAt: string;        // ISO 8601
-  platform: string;         // process.platform
+  createdAt: string; // ISO 8601
+  platform: string; // process.platform
   dbName: string;
-  contents: string[];       // ["database.sql", "uploads/"]
+  contents: string[]; // ["database.sql", "uploads/"]
 }
 
 /** State held by the UI while a local download/restore is in progress */
@@ -81,4 +88,22 @@ export interface LocalBackupUIState {
   restoring: boolean;
   restoreFile: File | null;
   restorePassword: string;
+}
+export interface LocalStoreJobStatus {
+  jobId: string;
+  kind: LocalBackupKind;
+  stage: LocalStoreJobStage;
+  percent: number;
+  message?: string;
+  fileName?: string;
+  error?: string;
+  startedAt: string;
+  finishedAt?: string;
+}
+
+export interface LocalStoredBackupItem {
+  fileName: string;
+  kind: LocalBackupKind;
+  createdAt: string;
+  sizeBytes: number;
 }
