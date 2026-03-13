@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Separator } from "@/components/ui/separator";
+import { Textarea } from "@/components/ui/textarea";
 
 import {
   AlertCircle,
@@ -24,6 +25,7 @@ import {
   Download,
   Play,
   Upload,
+  Cloud,
 } from "lucide-react";
 
 import { backupService } from "@/api/services/backup.service";
@@ -120,6 +122,7 @@ export default function BackupAdmin() {
   const [dbName, setDbName] = useState("");
   const [dbPassword, setDbPassword] = useState("");
 
+  // R2 settings
   const [r2Endpoint, setR2Endpoint] = useState("");
   const [r2Bucket, setR2Bucket] = useState("");
   const [r2Region, setR2Region] = useState("auto");
@@ -127,6 +130,7 @@ export default function BackupAdmin() {
   const [r2AccessKey, setR2AccessKey] = useState("");
   const [r2SecretKey, setR2SecretKey] = useState("");
 
+  // Drive settings
   const [driveFolderName, setDriveFolderName] = useState("backups");
   const [driveFolderId, setDriveFolderId] = useState("");
   const [driveServiceAccountJson, setDriveServiceAccountJson] = useState("");
@@ -154,7 +158,7 @@ export default function BackupAdmin() {
   const [uploadRestoreFile, setUploadRestoreFile] = useState<File | null>(null);
   const [uploadRestoring, setUploadRestoring] = useState(false);
 
-  // derived
+  // derived — show which secrets are already set on the server
   const secretStatus = useMemo(() => {
     const byKey = new Map(settings.map((s) => [s.key, s]));
     return {
@@ -504,7 +508,6 @@ export default function BackupAdmin() {
       );
       toast.success(res.message || "Restore completed", { id: toastId });
       setUploadRestoreFile(null);
-      // reset file input visually
       const input = document.getElementById(
         "upload-restore-input",
       ) as HTMLInputElement | null;
@@ -571,6 +574,7 @@ export default function BackupAdmin() {
 
       await backupService.updateSettingsBulk({ items });
 
+      // clear secret fields after save
       setDbPassword("");
       setR2AccessKey("");
       setR2SecretKey("");
@@ -1172,7 +1176,7 @@ export default function BackupAdmin() {
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              {/* Schedule */}
+              {/* ── Schedule ── */}
               <div className="space-y-2">
                 <div className="text-sm font-medium">Schedule</div>
                 <div className="flex items-center gap-3 text-sm">
@@ -1230,6 +1234,7 @@ export default function BackupAdmin() {
 
               <Separator />
 
+              {/* ── Retention + paths ── */}
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <div>
                   <label className="text-xs text-muted-foreground">
@@ -1254,6 +1259,7 @@ export default function BackupAdmin() {
                 </div>
               </div>
 
+              {/* ── Storage targets ── */}
               <div className="flex flex-wrap gap-4 items-center text-sm">
                 <span className="font-medium">Targets:</span>
                 <label className="flex items-center gap-2 cursor-pointer">
@@ -1276,6 +1282,7 @@ export default function BackupAdmin() {
 
               <Separator />
 
+              {/* ── DB settings ── */}
               <div className="text-sm font-medium flex items-center gap-2">
                 <Database className="h-4 w-4" /> DB settings (used by cloud +
                 local store)
@@ -1306,18 +1313,163 @@ export default function BackupAdmin() {
                   <div className="text-xs text-muted-foreground mb-1">
                     DB_PASSWORD:{" "}
                     <strong>
-                      {secretStatus.DB_PASSWORD ? "SET" : "NOT SET"}
+                      {secretStatus.DB_PASSWORD ? "✅ SET" : "⚠ NOT SET"}
                     </strong>{" "}
-                    (type to update)
+                    — type a new value to update, leave blank to keep existing
                   </div>
                   <Input
                     type="password"
                     value={dbPassword}
                     onChange={(e) => setDbPassword(e.target.value)}
-                    placeholder="DB_PASSWORD"
+                    placeholder="DB_PASSWORD (leave blank to keep existing)"
                   />
                 </div>
               </div>
+
+              {/* ── R2 Configuration ── (only shown when R2 is a target) */}
+              {targets.includes("R2") && (
+                <>
+                  <Separator />
+
+                  <div className="text-sm font-medium flex items-center gap-2">
+                    <Cloud className="h-4 w-4 text-orange-500" />
+                    Cloudflare R2 Configuration
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div className="sm:col-span-2">
+                      <label className="text-xs text-muted-foreground">
+                        Endpoint URL
+                      </label>
+                      <Input
+                        value={r2Endpoint}
+                        onChange={(e) => setR2Endpoint(e.target.value)}
+                        placeholder="https://<account-id>.r2.cloudflarestorage.com"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-xs text-muted-foreground">
+                        Bucket Name
+                      </label>
+                      <Input
+                        value={r2Bucket}
+                        onChange={(e) => setR2Bucket(e.target.value)}
+                        placeholder="my-backups"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-xs text-muted-foreground">
+                        Region
+                      </label>
+                      <Input
+                        value={r2Region}
+                        onChange={(e) => setR2Region(e.target.value)}
+                        placeholder="auto"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-xs text-muted-foreground">
+                        Key Prefix
+                      </label>
+                      <Input
+                        value={r2Prefix}
+                        onChange={(e) => setR2Prefix(e.target.value)}
+                        placeholder="backups"
+                      />
+                    </div>
+                    <div>
+                      <div className="text-xs text-muted-foreground mb-1">
+                        R2_ACCESS_KEY:{" "}
+                        <strong>
+                          {secretStatus.R2_ACCESS_KEY ? "✅ SET" : "⚠ NOT SET"}
+                        </strong>{" "}
+                        — leave blank to keep
+                      </div>
+                      <Input
+                        value={r2AccessKey}
+                        onChange={(e) => setR2AccessKey(e.target.value)}
+                        placeholder="Access Key ID (leave blank to keep existing)"
+                      />
+                    </div>
+                    <div>
+                      <div className="text-xs text-muted-foreground mb-1">
+                        R2_SECRET_KEY:{" "}
+                        <strong>
+                          {secretStatus.R2_SECRET_KEY ? "✅ SET" : "⚠ NOT SET"}
+                        </strong>{" "}
+                        — leave blank to keep
+                      </div>
+                      <Input
+                        type="password"
+                        value={r2SecretKey}
+                        onChange={(e) => setR2SecretKey(e.target.value)}
+                        placeholder="Secret Access Key (leave blank to keep existing)"
+                      />
+                    </div>
+                  </div>
+                </>
+              )}
+
+              {/* ── Google Drive Configuration ── (only shown when DRIVE is a target) */}
+              {targets.includes("DRIVE") && (
+                <>
+                  <Separator />
+
+                  <div className="text-sm font-medium flex items-center gap-2">
+                    <Cloud className="h-4 w-4 text-blue-500" />
+                    Google Drive Configuration
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="text-xs text-muted-foreground">
+                        Folder Name (created if absent)
+                      </label>
+                      <Input
+                        value={driveFolderName}
+                        onChange={(e) => setDriveFolderName(e.target.value)}
+                        placeholder="backups"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-xs text-muted-foreground">
+                        Folder ID (from Drive URL — required)
+                      </label>
+                      <Input
+                        value={driveFolderId}
+                        onChange={(e) => setDriveFolderId(e.target.value)}
+                        placeholder="1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs"
+                      />
+                      <div className="text-xs text-muted-foreground mt-1">
+                        Find it in the Drive URL:{" "}
+                        <code>drive.google.com/drive/folders/&lt;ID&gt;</code>
+                      </div>
+                    </div>
+                    <div className="sm:col-span-2">
+                      <div className="text-xs text-muted-foreground mb-1">
+                        DRIVE_SERVICE_ACCOUNT_JSON:{" "}
+                        <strong>
+                          {secretStatus.DRIVE_SERVICE_ACCOUNT_JSON
+                            ? "✅ SET"
+                            : "⚠ NOT SET"}
+                        </strong>{" "}
+                        — leave blank to keep existing
+                      </div>
+                      <Textarea
+                        value={driveServiceAccountJson}
+                        onChange={(e) =>
+                          setDriveServiceAccountJson(e.target.value)
+                        }
+                        rows={6}
+                        placeholder={
+                          '{\n  "type": "service_account",\n  "project_id": "...",\n  ...\n}'
+                        }
+                        className="font-mono text-xs"
+                      />
+                    </div>
+                  </div>
+                </>
+              )}
 
               <Separator />
 
